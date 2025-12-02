@@ -1,0 +1,12 @@
+---
+- name: Restart kafka
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.systemd:
+    name: iop-core-kafka
+    state: restarted
+    scope: user
+  listen: restart kafka
+  when: ansible_facts.services['iop-core-kafka.service'] is defined

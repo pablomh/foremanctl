@@ -58,23 +58,23 @@ def test_kafka_quadlet_file(server, user):
 
 def test_kafka_topic_creation(server, user):
     topics = [
-        "platform.upload.available",
+        "platform.engine.results",
+        "platform.insights.rule-hits",
+        "platform.insights.rule-deactivation",
         "platform.inventory.events",
-        "platform.system-profile",
-        "advisor.recommendations",
-        "advisor.payload-tracker",
-        "advisor.rules-results",
-        "remediations.updates",
-        "remediations.status",
-        "vulnerability.uploads",
-        "vulnerability.evaluator",
-        "vulnerability.manager",
-        "vmaas.vulnerability.updates",
-        "vmaas.package.updates",
-        "puptoo.opening",
-        "puptoo.validation",
-        "yuptoo.opening",
-        "yuptoo.validation"
+        "platform.inventory.host-ingress",
+        "platform.sources.event-stream",
+        "platform.playbook-dispatcher.runs",
+        "platform.upload.announce",
+        "platform.upload.validation",
+        "platform.logging.logs",
+        "platform.payload-status",
+        "platform.remediation-updates.vulnerability",
+        "vulnerability.evaluator.results",
+        "vulnerability.evaluator.recalc",
+        "vulnerability.evaluator.upload",
+        "vulnerability.grouper.inventory.upload",
+        "vulnerability.grouper.advisor.upload"
     ]
 
     result = server.run(f"cd /tmp && sudo -u {user} podman exec iop-core-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server iop-core-kafka:9092 --list")

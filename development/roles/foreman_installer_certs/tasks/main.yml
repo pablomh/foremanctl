@@ -12,7 +12,7 @@
 
 # utilize https://github.com/theforeman/foreman-installer/pull/935
 - name: Generate certs
-  ansible.builtin.command: foreman-certs --apache true --foreman true --candlepin true
+  ansible.builtin.command: foreman-certs --apache true --foreman true --candlepin true --iop true
   changed_when: false
 
 # foreman-certs only generates certs for localhost and the server FQDN. Candlepin

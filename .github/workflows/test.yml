@@ -49,6 +49,8 @@ jobs:
         box:
           - centos/stream9
           - centos/stream10
+        iop:
+          - enabled
         exclude:
           - certificate_source: installer
             box: centos/stream10
@@ -64,10 +66,10 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
-    name: "Tests (certificates: ${{ matrix.certificate_source }}, database: ${{ matrix.database }}, security: ${{ matrix.security }}, box: ${{ matrix.box }})"
+    name: "Tests (certificates: ${{ matrix.certificate_source }}, database: ${{ matrix.database }}, security: ${{ matrix.security }}, box: ${{ matrix.box }}, iop: ${{ matrix.iop }})"
     steps:
       - name: generate artifact suffix
-        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.database }}-${{ matrix.box }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
+        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.database }}-${{ matrix.box }}-${{ matrix.iop }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
       - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -121,6 +123,10 @@ jobs:
       - name: Add optional features - azure_rm, google
         run: |
           ./foremanctl deploy --add-feature azure_rm --add-feature google
+      - name: Enable iop
+        if: matrix.iop == 'enabled'
+        run: |
+          ./foremanctl deploy --add-feature iop
       - name: Run tests
         run: |
           ./forge test --pytest-args="--certificate-source=${{ matrix.certificate_source }} --database-mode=${{ matrix.database }}"

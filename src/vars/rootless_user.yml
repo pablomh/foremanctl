@@ -1,0 +1,27 @@
+---
+# Dedicated service user for rootless Podman deployment
+# These variables are redefined here (from rootless_user role defaults) to make them
+# available before the role runs, following the pattern used in images.yml
+rootless_user_name: foremanctl
+rootless_user_group: foremanctl
+rootless_user_home: /var/lib/foremanctl
+rootless_user_shell: /sbin/nologin
+rootless_user_comment: "Foremanctl Service User"
+
+# Fixed UID/GID for the service user
+rootless_user_uid: 1000
+rootless_user_gid: 1000
+
+# Rootless Podman directories
+rootless_user_quadlet_dir: /var/lib/foremanctl/.config/containers/systemd
+rootless_user_systemd_user_dir: /var/lib/foremanctl/.config/systemd/user
+
+# Subuid/subgid ranges for user namespaces
+rootless_user_subuid_start: 100000
+rootless_user_subuid_count: 65536
+rootless_user_subgid_start: 100000
+rootless_user_subgid_count: 65536
+
+# Unprivileged port binding configuration
+rootless_user_unprivileged_port_start: 80
+...

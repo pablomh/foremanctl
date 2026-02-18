@@ -15,6 +15,9 @@ candlepin_ciphers:
 candlepin_container_image: quay.io/foreman/candlepin
 candlepin_container_tag: "4.4.14"
 
+candlepin_keystore_path: /var/lib/foreman/candlepin.keystore
+candlepin_truststore_path: /var/lib/foreman/candlepin.truststore
+
 candlepin_database_host: localhost
 candlepin_database_port: 5432
 candlepin_database_ssl: false

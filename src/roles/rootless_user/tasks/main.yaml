@@ -1,0 +1,108 @@
+---
+- name: Check if user and group already exist
+  ansible.builtin.getent:
+    database: "{{ item }}"
+  loop:
+    - passwd
+    - group
+  failed_when: false
+
+- name: Verify existing user/group have correct UID/GID
+  when:
+    - rootless_user_name in getent_passwd or rootless_user_group in getent_group
+  block:
+    - name: Verify existing user has correct UID
+      ansible.builtin.assert:
+        that:
+          - getent_passwd[rootless_user_name][1] | int == rootless_user_uid | int
+        fail_msg: >
+          Existing user {{ rootless_user_name }} has UID {{ getent_passwd[rootless_user_name][1] }},
+          expected {{ rootless_user_uid }}
+        success_msg: >
+          Existing user {{ rootless_user_name }} has correct UID {{ rootless_user_uid }}
+      when: rootless_user_name in getent_passwd
+
+    - name: Verify existing group has correct GID
+      ansible.builtin.assert:
+        that:
+          - getent_group[rootless_user_group][1] | int == rootless_user_gid | int
+        fail_msg: >
+          Existing group {{ rootless_user_group }} has GID {{ getent_group[rootless_user_group][1] }},
+          expected {{ rootless_user_gid }}
+        success_msg: >
+          Existing group {{ rootless_user_group }} has correct GID {{ rootless_user_gid }}
+      when: rootless_user_group in getent_group
+
+- name: "Create system group with allocated GID: {{ rootless_user_group }}"
+  ansible.builtin.group:
+    name: "{{ rootless_user_group }}"
+    gid: "{{ rootless_user_gid }}"
+    system: true
+    state: present
+
+- name: "Create system user with matching UID: {{ rootless_user_name }}"
+  ansible.builtin.user:
+    name: "{{ rootless_user_name }}"
+    uid: "{{ rootless_user_uid }}"
+    group: "{{ rootless_user_group }}"
+    home: "{{ rootless_user_home }}"
+    shell: "{{ rootless_user_shell }}"
+    comment: "{{ rootless_user_comment }}"
+    system: true
+    create_home: true
+    state: present
+
+- name: Set rootless_user_xdg_runtime_dir fact
+  ansible.builtin.set_fact:
+    rootless_user_xdg_runtime_dir: "/run/user/{{ rootless_user_uid }}"
+
+- name: "Add subuid entry for user: {{ rootless_user_name }}"
+  ansible.builtin.lineinfile:
+    path: /etc/subuid
+    regexp: "^{{ rootless_user_name }}:"
+    line: "{{ rootless_user_name }}:{{ rootless_user_subuid_start }}:{{ rootless_user_subuid_count }}"
+    create: true
+    mode: '0644'
+
+- name: "Add subgid entry for user: {{ rootless_user_name }}"
+  ansible.builtin.lineinfile:
+    path: /etc/subgid
+    regexp: "^{{ rootless_user_group }}:"
+    line: "{{ rootless_user_group }}:{{ rootless_user_subgid_start }}:{{ rootless_user_subgid_count }}"
+    create: true
+    mode: '0644'
+
+- name: Create user config directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0755'
+  loop:
+    - "{{ rootless_user_quadlet_dir }}"
+    - "{{ rootless_user_systemd_user_dir }}"
+    - "{{ rootless_user_home }}/.config"
+    - "{{ rootless_user_home }}/.config/containers"
+    - "{{ rootless_user_home }}/.config/systemd"
+
+- name: Configure unprivileged port binding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_unprivileged_port_start
+    value: "{{ rootless_user_unprivileged_port_start }}"
+    state: present
+    sysctl_set: true
+    reload: true
+
+- name: "Enable lingering for user: {{ rootless_user_name }}"
+  ansible.builtin.command: loginctl enable-linger {{ rootless_user_name }}
+  register: rootless_user_linger_result
+  changed_when: rootless_user_linger_result is succeeded
+  failed_when: rootless_user_linger_result is failed
+
+- name: Verify XDG_RUNTIME_DIR exists
+  ansible.builtin.stat:
+    path: "{{ rootless_user_xdg_runtime_dir }}"
+  register: rootless_user_xdg_stat
+  failed_when: not rootless_user_xdg_stat.stat.exists
+...

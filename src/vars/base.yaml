@@ -1,4 +1,26 @@
 ---
+# Rootless Podman deployment configuration
+# These variables reference the rootless_user role's variables
+foreman_service_user: "{{ rootless_user_name }}"
+foreman_service_group: "{{ rootless_user_group }}"
+foreman_service_home: "{{ rootless_user_home }}"
+foreman_service_uid: "{{ rootless_user_uid | default(omit) }}"
+foreman_service_gid: "{{ rootless_user_gid | default(omit) }}"
+
+# Rootless Podman directories
+foreman_quadlet_dir: "{{ rootless_user_quadlet_dir }}"
+foreman_systemd_user_dir: "{{ rootless_user_systemd_user_dir }}"
+foreman_xdg_runtime_dir: "{{ rootless_user_xdg_runtime_dir | default(omit) }}"
+
+# Subuid/subgid configuration
+foreman_subuid_start: "{{ rootless_user_subuid_start }}"
+foreman_subuid_count: "{{ rootless_user_subuid_count }}"
+foreman_subgid_start: "{{ rootless_user_subgid_start }}"
+foreman_subgid_count: "{{ rootless_user_subgid_count }}"
+
+# Unprivileged port binding
+foreman_unprivileged_port_start: "{{ rootless_user_unprivileged_port_start }}"
+
 certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
   - localhost

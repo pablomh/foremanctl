@@ -16,3 +16,7 @@
       - python3-libsemanage
       - python3-psycopg2
       - python3-requests
+
+- name: Setup rootless user for Podman deployment
+  ansible.builtin.include_role:
+    name: rootless_user

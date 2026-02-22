@@ -137,9 +137,9 @@
       ansible.builtin.include_role:
         name: rootless_user
 
-    - name: Map rootless_user_xdg_runtime_dir to foremanctl namespace
+    - name: Map rootless_user variables to foremanctl namespace
       ansible.builtin.set_fact:
-        foremanctl_xdg_runtime_dir: "{{ rootless_user_xdg_runtime_dir }}"
+        foremanctl_quadlet_dir: "{{ rootless_user_quadlet_dir }}"
 
     # ============================================================
     # Phase 3: Migrate data volumes
@@ -163,7 +163,7 @@
     - name: Change ownership of data directories using podman unshare
       ansible.builtin.shell: |
         cd /tmp
-        sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} \
+        sudo -u {{ foremanctl_user }} \
           podman unshare chown -R {{ item.uid }}:{{ item.gid }} {{ item.path }}
       args:
         executable: /bin/bash
@@ -269,8 +269,6 @@
     - name: Gather user systemd service facts
       become: true
       become_user: "{{ foremanctl_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
       ansible.builtin.service_facts:
 
     - name: Verify rootless services are running
@@ -315,7 +313,7 @@
           Backup directory: {{ migration_backup_dir }}
 
           Verify services:
-            sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} systemctl --user status foreman.target
+            sudo -u {{ foremanctl_user }} systemctl --user status foreman.target
 
           View logs:
             sudo journalctl --user -u foreman -f
@@ -336,7 +334,6 @@
 
           Quadlet Directory: {{ foremanctl_quadlet_dir }}
           Systemd User Directory: {{ foremanctl_systemd_user_dir }}
-          XDG_RUNTIME_DIR: {{ foremanctl_xdg_runtime_dir }}
 
           Migrated Data Volumes:
           {% for path in migration_data_paths %}
@@ -354,10 +351,10 @@
           ----------------------
 
           # Check service status
-          sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} systemctl --user status foreman.target
+          sudo -u {{ foremanctl_user }} systemctl --user status foreman.target
 
           # List containers
-          sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} podman ps
+          sudo -u {{ foremanctl_user }} podman ps
 
           # View logs
           sudo journalctl --user -u foreman -f
@@ -371,7 +368,7 @@
           If you need to rollback to rootful deployment:
 
           1. Stop rootless services:
-             sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} systemctl --user stop foreman.target
+             sudo -u {{ foremanctl_user }} systemctl --user stop foreman.target
 
           2. Restore rootful quadlets:
              sudo cp -a {{ migration_backup_dir }}/quadlets/* /etc/containers/systemd/

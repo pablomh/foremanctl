@@ -41,15 +41,13 @@
 - name: Set Pulp directory ownership for container UID/GID
   ansible.builtin.shell: |
     cd /tmp
-    sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} \
+    sudo -u {{ foremanctl_user }} \
       podman unshare chown -R {{ pulp_container_uid }}:{{ pulp_container_gid }} /var/lib/pulp
   args:
     executable: /bin/bash
   changed_when: true
 
 - name: Configure Pulp containers and services as foreman user
-  environment:
-    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
   become: true
   become_user: "{{ foremanctl_user }}"
   block:

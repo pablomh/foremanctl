@@ -51,19 +51,6 @@
     fail_msg: "Unprivileged port start is too high: {{ checks_sysctl_ports.content | b64decode | trim }}"
     success_msg: "Unprivileged port start is configured correctly"
 
-- name: Verify XDG_RUNTIME_DIR exists
-  ansible.builtin.stat:
-    path: "{{ foremanctl_xdg_runtime_dir }}"
-  register: checks_xdg_stat
-
-- name: Assert XDG_RUNTIME_DIR exists
-  ansible.builtin.assert:
-    that:
-      - checks_xdg_stat.stat.exists
-      - checks_xdg_stat.stat.isdir
-    fail_msg: "XDG_RUNTIME_DIR {{ foremanctl_xdg_runtime_dir }} does not exist"
-    success_msg: "XDG_RUNTIME_DIR exists"
-
 - name: Report status of checks
   ansible.builtin.fail:
     msg: "{{ checks_results }}"

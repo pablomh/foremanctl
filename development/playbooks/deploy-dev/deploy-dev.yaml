@@ -5,9 +5,9 @@
   roles:
     - role: ../../../src/roles/rootless_user
   tasks:
-    - name: Map rootless_user_xdg_runtime_dir to foremanctl namespace
+    - name: Map rootless_user variables to foremanctl namespace
       ansible.builtin.set_fact:
-        foremanctl_xdg_runtime_dir: "{{ rootless_user_xdg_runtime_dir }}"
+        foremanctl_quadlet_dir: "{{ rootless_user_quadlet_dir }}"
 
 - name: Deploy Foreman Development Environment
   hosts: "{{ target_host if target_host is defined and target_host != '' else 'quadlet' }}"

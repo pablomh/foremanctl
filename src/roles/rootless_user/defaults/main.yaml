@@ -7,7 +7,8 @@ rootless_user_shell: /sbin/nologin
 rootless_user_comment: "Foremanctl Service User"
 
 # Rootless Podman directories
-rootless_user_quadlet_dir: "{{ rootless_user_home }}/.config/containers/systemd"
+# rootless_user_quadlet_dir is set dynamically in tasks after UID is determined
+# to /etc/containers/systemd/users/$UID
 rootless_user_systemd_user_dir: "{{ rootless_user_home }}/.config/systemd/user"
 
 # Subuid/subgid ranges for user namespaces

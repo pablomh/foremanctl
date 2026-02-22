@@ -15,8 +15,6 @@
     file: certs.yml
 
 - name: Configure Candlepin container as foreman user
-  environment:
-    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
   become: true
   become_user: "{{ foremanctl_user }}"
   block:

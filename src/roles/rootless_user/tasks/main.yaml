@@ -21,9 +21,13 @@
     database: passwd
     key: "{{ rootless_user_name }}"
 
-- name: Set rootless_user_xdg_runtime_dir based on actual UID
+- name: Set rootless_user_uid for quadlet directory path
   ansible.builtin.set_fact:
-    rootless_user_xdg_runtime_dir: "/run/user/{{ ansible_facts['getent_passwd'][rootless_user_name][1] }}"
+    rootless_user_uid: "{{ ansible_facts['getent_passwd'][rootless_user_name][1] }}"
+
+- name: Set rootless_user_quadlet_dir based on actual UID
+  ansible.builtin.set_fact:
+    rootless_user_quadlet_dir: "/etc/containers/systemd/users/{{ rootless_user_uid }}"
 
 - name: "Add subuid entry for user: {{ rootless_user_name }}"
   ansible.builtin.lineinfile:
@@ -41,19 +45,29 @@
     create: true
     mode: '0644'
 
-- name: Create user config directories
+- name: Create system-wide quadlet directory for user
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ rootless_user_quadlet_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create user systemd directory
+  ansible.builtin.file:
+    path: "{{ rootless_user_systemd_user_dir }}"
     state: directory
     owner: "{{ rootless_user_name }}"
     group: "{{ rootless_user_group }}"
     mode: '0755'
-  loop:
-    - "{{ rootless_user_quadlet_dir }}"
-    - "{{ rootless_user_systemd_user_dir }}"
-    - "{{ rootless_user_home }}/.config"
-    - "{{ rootless_user_home }}/.config/containers"
-    - "{{ rootless_user_home }}/.config/systemd"
+
+- name: Create user containers config directory
+  ansible.builtin.file:
+    path: "{{ rootless_user_home }}/.config/containers"
+    state: directory
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0755'
 
 - name: Configure unprivileged port binding
   ansible.posix.sysctl:
@@ -68,10 +82,4 @@
   register: rootless_user_linger_result
   changed_when: rootless_user_linger_result is succeeded
   failed_when: rootless_user_linger_result is failed
-
-- name: Verify XDG_RUNTIME_DIR exists
-  ansible.builtin.stat:
-    path: "{{ rootless_user_xdg_runtime_dir }}"
-  register: rootless_user_xdg_stat
-  failed_when: not rootless_user_xdg_stat.stat.exists
 ...

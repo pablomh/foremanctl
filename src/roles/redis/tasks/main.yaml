@@ -10,15 +10,12 @@
 - name: Set Redis directory ownership for container UID/GID
   ansible.builtin.shell: |
     cd /tmp
-    sudo -u {{ foremanctl_user }} XDG_RUNTIME_DIR={{ foremanctl_xdg_runtime_dir }} \
-      podman unshare chown -R {{ redis_container_uid }}:{{ redis_container_gid }} {{ redis_data_dir }}
+    sudo -u {{ foremanctl_user }} podman unshare chown -R {{ redis_container_uid }}:{{ redis_container_gid }} {{ redis_data_dir }}
   args:
     executable: /bin/bash
   changed_when: true
 
 - name: Configure Redis container as foreman user
-  environment:
-    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
   become: true
   become_user: "{{ foremanctl_user }}"
   block:

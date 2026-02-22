@@ -3,9 +3,9 @@
 foremanctl_user: foremanctl
 foremanctl_group: foremanctl
 foremanctl_home: "/var/lib/{{ foremanctl_user }}"
-foremanctl_quadlet_dir: "{{ foremanctl_home }}/.config/containers/systemd"
+# Note: foremanctl_quadlet_dir is set dynamically in playbook after user creation
+# to /etc/containers/systemd/users/$UID
 foremanctl_systemd_user_dir: "{{ foremanctl_home }}/.config/systemd/user"
-# Note: foremanctl_xdg_runtime_dir is set dynamically by rootless_user role after user creation
 
 certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"

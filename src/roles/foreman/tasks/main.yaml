@@ -1,5 +1,5 @@
 ---
-- name: Configure Foreman containers and services as foreman user
+- name: Pull Foreman image and create secrets
   become: true
   become_user: "{{ foremanctl_user }}"
   block:
@@ -88,139 +88,142 @@
         - Restart foreman
         - Restart dynflow-sidekiq@
 
-    - name: Deploy Foreman Container
-      containers.podman.podman_container:
-        name: "foreman"
-        image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        sdnotify: true
-        network: host
-        hostname: "{{ ansible_facts['fqdn'] }}"
-        volume:
-          - 'foreman-data-run:/var/run/foreman:z'
-        secrets:
-          - 'foreman-database-url,type=env,target=DATABASE_URL'
-          - 'foreman-seed-admin-user,type=env,target=SEED_ADMIN_USER'
-          - 'foreman-seed-admin-password,type=env,target=SEED_ADMIN_PASSWORD'
-          - 'foreman-settings-yaml,type=mount,target=/etc/foreman/settings.yaml'
-          - 'foreman-katello-yaml,type=mount,target=/etc/foreman/plugins/katello.yaml'
-          - 'foreman-ca-cert,type=mount,target=/etc/foreman/katello-default-ca.crt'
-          - 'foreman-client-cert,type=mount,target=/etc/foreman/client_cert.pem'
-          - 'foreman-client-key,type=mount,target=/etc/foreman/client_key.pem'
-        env:
-          FOREMAN_PUMA_THREADS_MIN: "{{ foreman_puma_threads_min }}"
-          FOREMAN_PUMA_THREADS_MAX: "{{ foreman_puma_threads_max }}"
-          FOREMAN_PUMA_WORKERS: "{{ foreman_puma_workers }}"
-          FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
-      notify: Restart foreman
+- name: Deploy Foreman quadlet
+  containers.podman.podman_container:
+    name: "foreman"
+    image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    sdnotify: true
+    network: host
+    hostname: "{{ ansible_facts['fqdn'] }}"
+    volume:
+      - 'foreman-data-run:/var/run/foreman:z'
+    secrets:
+      - 'foreman-database-url,type=env,target=DATABASE_URL'
+      - 'foreman-seed-admin-user,type=env,target=SEED_ADMIN_USER'
+      - 'foreman-seed-admin-password,type=env,target=SEED_ADMIN_PASSWORD'
+      - 'foreman-settings-yaml,type=mount,target=/etc/foreman/settings.yaml'
+      - 'foreman-katello-yaml,type=mount,target=/etc/foreman/plugins/katello.yaml'
+      - 'foreman-ca-cert,type=mount,target=/etc/foreman/katello-default-ca.crt'
+      - 'foreman-client-cert,type=mount,target=/etc/foreman/client_cert.pem'
+      - 'foreman-client-key,type=mount,target=/etc/foreman/client_key.pem'
+    env:
+      FOREMAN_PUMA_THREADS_MIN: "{{ foreman_puma_threads_min }}"
+      FOREMAN_PUMA_THREADS_MAX: "{{ foreman_puma_threads_max }}"
+      FOREMAN_PUMA_WORKERS: "{{ foreman_puma_workers }}"
+      FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+  notify: Restart foreman
 
-    - name: Deploy Dynflow Container
-      containers.podman.podman_container:
-        name: "dynflow-sidekiq-%i"
-        quadlet_filename: "dynflow-sidekiq@"
-        image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        sdnotify: true
-        network: host
-        hostname: "{{ ansible_facts['fqdn'] }}"
-        volume:
-          - 'foreman-data-run:/var/run/foreman:z'
-        secrets:
-          - 'foreman-database-url,type=env,target=DATABASE_URL'
-          - 'foreman-settings-yaml,type=mount,target=/etc/foreman/settings.yaml'
-          - 'foreman-katello-yaml,type=mount,target=/etc/foreman/plugins/katello.yaml'
-          - 'foreman-ca-cert,type=mount,target=/etc/foreman/katello-default-ca.crt'
-          - 'foreman-client-cert,type=mount,target=/etc/foreman/client_cert.pem'
-          - 'foreman-client-key,type=mount,target=/etc/foreman/client_key.pem'
-          - 'foreman-dynflow-worker-hosts-queue-yaml,type=mount,target=/etc/foreman/dynflow/worker-hosts-queue.yml'
-        env:
-          DYNFLOW_REDIS_URL: "redis://localhost:6379/6"
-          REDIS_PROVIDER: "DYNFLOW_REDIS_URL"
-          FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
-        command: "/usr/libexec/foreman/sidekiq-selinux -e production -r ./extras/dynflow-sidekiq.rb -C /etc/foreman/dynflow/%i.yml"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
-            Wants=redis.service postgresql.service
-            After=redis.service postgresql.service
-          - |
-            [Service]
-            Restart=on-failure
-            RestartSec=1
+- name: Deploy Dynflow quadlet template
+  containers.podman.podman_container:
+    name: "dynflow-sidekiq-%i"
+    quadlet_filename: "dynflow-sidekiq@"
+    image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    sdnotify: true
+    network: host
+    hostname: "{{ ansible_facts['fqdn'] }}"
+    volume:
+      - 'foreman-data-run:/var/run/foreman:z'
+    secrets:
+      - 'foreman-database-url,type=env,target=DATABASE_URL'
+      - 'foreman-settings-yaml,type=mount,target=/etc/foreman/settings.yaml'
+      - 'foreman-katello-yaml,type=mount,target=/etc/foreman/plugins/katello.yaml'
+      - 'foreman-ca-cert,type=mount,target=/etc/foreman/katello-default-ca.crt'
+      - 'foreman-client-cert,type=mount,target=/etc/foreman/client_cert.pem'
+      - 'foreman-client-key,type=mount,target=/etc/foreman/client_key.pem'
+      - 'foreman-dynflow-worker-hosts-queue-yaml,type=mount,target=/etc/foreman/dynflow/worker-hosts-queue.yml'
+    env:
+      DYNFLOW_REDIS_URL: "redis://localhost:6379/6"
+      REDIS_PROVIDER: "DYNFLOW_REDIS_URL"
+      FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
+    command: "/usr/libexec/foreman/sidekiq-selinux -e production -r ./extras/dynflow-sidekiq.rb -C /etc/foreman/dynflow/%i.yml"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+        Wants=redis.service postgresql.service
+        After=redis.service postgresql.service
+      - |
+        [Service]
+        Restart=on-failure
+        RestartSec=1
 
-    - name: Create Dynflow Container instances
-      ansible.builtin.file:
-        state: link
-        src: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@.container"
-        dest: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@{{ item }}.container"
+- name: Create Dynflow Container instances
+  ansible.builtin.file:
+    state: link
+    src: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@.container"
+    dest: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@{{ item }}.container"
+    owner: root
+    group: root
+  loop:
+    - orchestrator
+    - worker
+    - worker-hosts-queue
+
+- name: Deploy recurring task quadlets
+  when: foreman_recurring_tasks_enabled
+  containers.podman.podman_container:
+    name: "foreman-recurring-{{ item.instance }}"
+    quadlet_filename: "foreman-recurring@{{ item.instance }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
+    sdnotify: false
+    network: host
+    hostname: "{{ ansible_facts['fqdn'] }}"
+    command: "foreman-rake {{ item.rake }}"
+    volume:
+      - 'foreman-data-run:/var/run/foreman:z'
+    secrets:
+      - 'foreman-database-url,type=env,target=DATABASE_URL'
+      - 'foreman-seed-admin-user,type=env,target=SEED_ADMIN_USER'
+      - 'foreman-seed-admin-password,type=env,target=SEED_ADMIN_PASSWORD'
+      - 'foreman-settings-yaml,type=mount,target=/etc/foreman/settings.yaml'
+      - 'foreman-katello-yaml,type=mount,target=/etc/foreman/plugins/katello.yaml'
+      - 'foreman-ca-cert,type=mount,target=/etc/foreman/katello-default-ca.crt'
+      - 'foreman-client-cert,type=mount,target=/etc/foreman/client_cert.pem'
+      - 'foreman-client-key,type=mount,target=/etc/foreman/client_key.pem'
+    quadlet_options:
+      - |
+        [Unit]
+        PartOf=foreman.target
+        StartLimitIntervalSec=0
+      - |
+        [Service]
+        TimeoutStartSec=30m
+        TimeoutStopSec=2m
+        KillMode=mixed
+        SyslogIdentifier=foreman-recurring-%i
+  loop: "{{ foreman_recurring_tasks }}"
+  loop_control:
+    label: "{{ item.instance }}"
+
+- name: Configure Foreman services
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
+    - name: Render timers for recurring tasks
+      when: foreman_recurring_tasks_enabled
+      ansible.builtin.template:
+        src: foreman-recurring@.timer.j2
+        dest: "{{ foremanctl_systemd_user_dir }}/foreman-recurring@{{ item.instance }}.timer"
         owner: "{{ foremanctl_user }}"
         group: "{{ foremanctl_group }}"
-      loop:
-        - orchestrator
-        - worker
-        - worker-hosts-queue
-
-    - name: Configure recurring Foreman rake tasks
-      when: foreman_recurring_tasks_enabled
-      block:
-        - name: Define templated Quadlet for recurring Foreman rake tasks
-          containers.podman.podman_container:
-            name: "foreman-recurring-{{ item.instance }}"
-            quadlet_filename: "foreman-recurring@{{ item.instance }}"
-            state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-            image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
-            sdnotify: false
-            network: host
-            hostname: "{{ ansible_facts['fqdn'] }}"
-            command: "foreman-rake {{ item.rake }}"
-            volume:
-              - 'foreman-data-run:/var/run/foreman:z'
-            secrets:
-              - 'foreman-database-url,type=env,target=DATABASE_URL'
-              - 'foreman-seed-admin-user,type=env,target=SEED_ADMIN_USER'
-              - 'foreman-seed-admin-password,type=env,target=SEED_ADMIN_PASSWORD'
-              - 'foreman-settings-yaml,type=mount,target=/etc/foreman/settings.yaml'
-              - 'foreman-katello-yaml,type=mount,target=/etc/foreman/plugins/katello.yaml'
-              - 'foreman-ca-cert,type=mount,target=/etc/foreman/katello-default-ca.crt'
-              - 'foreman-client-cert,type=mount,target=/etc/foreman/client_cert.pem'
-              - 'foreman-client-key,type=mount,target=/etc/foreman/client_key.pem'
-            quadlet_options:
-              - |
-                [Unit]
-                PartOf=foreman.target
-                StartLimitIntervalSec=0
-              - |
-                [Service]
-                TimeoutStartSec=30m
-                TimeoutStopSec=2m
-                KillMode=mixed
-                SyslogIdentifier=foreman-recurring-%i
-          loop: "{{ foreman_recurring_tasks }}"
-          loop_control:
-            label: "{{ item.instance }}"
-
-        - name: Render timers for recurring tasks
-          ansible.builtin.template:
-            src: foreman-recurring@.timer.j2
-            dest: "{{ foremanctl_systemd_user_dir }}/foreman-recurring@{{ item.instance }}.timer"
-            owner: "{{ foremanctl_user }}"
-            group: "{{ foremanctl_group }}"
-            mode: "0644"
-          loop: "{{ foreman_recurring_tasks }}"
-          loop_control:
-            label: "{{ item.instance }}"
+        mode: "0644"
+      loop: "{{ foreman_recurring_tasks }}"
+      loop_control:
+        label: "{{ item.instance }}"
 
     - name: Run daemon reload to make Quadlet create the service files
       ansible.builtin.systemd:

@@ -19,6 +19,7 @@
         name: "foreman-proxy"
         image: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         sdnotify: true
         network: host
         hostname: "{{ ansible_facts['fqdn'] }}"

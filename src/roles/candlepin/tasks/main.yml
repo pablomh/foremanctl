@@ -65,6 +65,7 @@
         name: "candlepin"
         image: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         network: host
         hostname: "{{ ansible_facts['fqdn'] }}"
         secrets:

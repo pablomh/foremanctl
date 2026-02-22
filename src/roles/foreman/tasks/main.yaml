@@ -93,6 +93,7 @@
         name: "foreman"
         image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         sdnotify: true
         network: host
         hostname: "{{ ansible_facts['fqdn'] }}"
@@ -126,6 +127,7 @@
         quadlet_filename: "dynflow-sidekiq@"
         image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         sdnotify: true
         network: host
         hostname: "{{ ansible_facts['fqdn'] }}"
@@ -177,6 +179,7 @@
             name: "foreman-recurring-{{ item.instance }}"
             quadlet_filename: "foreman-recurring@{{ item.instance }}"
             state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
             image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
             sdnotify: false
             network: host

@@ -313,7 +313,7 @@
           Backup directory: {{ migration_backup_dir }}
 
           Verify services:
-            sudo -u {{ foremanctl_user }} systemctl --user status foreman.target
+            systemctl --user status foreman.target
 
           View logs:
             sudo journalctl --user -u foreman -f
@@ -351,7 +351,7 @@
           ----------------------
 
           # Check service status
-          sudo -u {{ foremanctl_user }} systemctl --user status foreman.target
+          systemctl --user status foreman.target
 
           # List containers
           sudo -u {{ foremanctl_user }} podman ps
@@ -368,7 +368,7 @@
           If you need to rollback to rootful deployment:
 
           1. Stop rootless services:
-             sudo -u {{ foremanctl_user }} systemctl --user stop foreman.target
+             systemctl --user stop foreman.target
 
           2. Restore rootful quadlets:
              sudo cp -a {{ migration_backup_dir }}/quadlets/* /etc/containers/systemd/

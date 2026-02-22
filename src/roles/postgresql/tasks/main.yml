@@ -36,6 +36,7 @@
         name: "{{ postgresql_container_name }}"
         image: "{{ postgresql_container_image }}:{{ postgresql_container_tag }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         healthcheck: pg_isready
         sdnotify: healthy
         network: host

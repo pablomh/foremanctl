@@ -29,6 +29,7 @@
         name: redis
         image: "{{ redis_container_image }}:{{ redis_container_tag }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         sdnotify: true
         command: ["run-redis", "--supervised", "systemd"]
         volumes:

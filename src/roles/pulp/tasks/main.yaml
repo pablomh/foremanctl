@@ -101,6 +101,7 @@
         name: "{{ pulp_api_container_name }}"
         image: "{{ pulp_api_image }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         sdnotify: true
         command: pulp-api
         network: host
@@ -131,6 +132,7 @@
         name: "{{ pulp_content_container_name }}"
         image: "{{ pulp_content_image }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         sdnotify: true
         command: pulp-content
         network: host
@@ -162,6 +164,7 @@
         quadlet_filename: "{{ pulp_worker_container_name }}@"
         image: "{{ pulp_worker_image }}"
         state: quadlet
+        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         command: pulp-worker
         network: host
         hostname: "pulp-worker-%i.{{ ansible_facts['fqdn'] }}"

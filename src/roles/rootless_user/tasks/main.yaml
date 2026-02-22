@@ -49,8 +49,6 @@
   ansible.builtin.file:
     path: "{{ rootless_user_quadlet_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: '0755'
 
 - name: Create user systemd directory

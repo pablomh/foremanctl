@@ -164,8 +164,6 @@
     state: link
     src: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@.container"
     dest: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@{{ item }}.container"
-    owner: root
-    group: root
   loop:
     - orchestrator
     - worker

@@ -195,8 +195,6 @@
     state: link
     src: "{{ foremanctl_quadlet_dir }}/{{ pulp_worker_container_name }}@.container"
     dest: "{{ foremanctl_quadlet_dir }}/{{ item }}.container"
-    owner: root
-    group: root
   loop: "{{ pulp_worker_services }}"
 
 - name: Configure Pulp systemd units

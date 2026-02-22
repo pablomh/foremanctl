@@ -15,7 +15,7 @@
     executable: /bin/bash
   changed_when: true
 
-- name: Configure PostgreSQL container as foreman user
+- name: Pull PostgreSQL container image and create secrets
   become: true
   become_user: "{{ foremanctl_user }}"
   block:
@@ -31,30 +31,34 @@
       notify:
         - Restart postgresql
 
-    - name: Deploy PostgreSQL container
-      containers.podman.podman_container:
-        name: "{{ postgresql_container_name }}"
-        image: "{{ postgresql_container_image }}:{{ postgresql_container_tag }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        healthcheck: pg_isready
-        sdnotify: healthy
-        network: host
-        volumes:
-          - "{{ postgresql_data_dir }}:/var/lib/pgsql/data:Z"
-        secrets:
-          - 'postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'
-        env:
-          POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
-          POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
-          POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
+- name: Deploy PostgreSQL quadlet
+  containers.podman.podman_container:
+    name: "{{ postgresql_container_name }}"
+    image: "{{ postgresql_container_image }}:{{ postgresql_container_tag }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    healthcheck: pg_isready
+    sdnotify: healthy
+    network: host
+    volumes:
+      - "{{ postgresql_data_dir }}:/var/lib/pgsql/data:Z"
+    secrets:
+      - 'postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'
+    env:
+      POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
+      POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
+      POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
 
+- name: Activate PostgreSQL service
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
     - name: Run daemon reload
       ansible.builtin.systemd:
         daemon_reload: true

@@ -15,34 +15,36 @@
     executable: /bin/bash
   changed_when: true
 
-- name: Configure Redis container as foreman user
+- name: Pull Redis container image
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  containers.podman.podman_image:
+    name: "{{ redis_container_image }}:{{ redis_container_tag }}"
+    state: present
+
+- name: Deploy Redis quadlet
+  containers.podman.podman_container:
+    name: redis
+    image: "{{ redis_container_image }}:{{ redis_container_tag }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    sdnotify: true
+    command: ["run-redis", "--supervised", "systemd"]
+    volumes:
+      - "{{ redis_data_dir }}:/data:Z"
+    ports:
+      - "6379:6379"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+
+- name: Activate Redis service
   become: true
   become_user: "{{ foremanctl_user }}"
   block:
-    - name: Pull Redis container image
-      containers.podman.podman_image:
-        name: "{{ redis_container_image }}:{{ redis_container_tag }}"
-        state: present
-
-    - name: Run Redis as a container
-      containers.podman.podman_container:
-        name: redis
-        image: "{{ redis_container_image }}:{{ redis_container_tag }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        sdnotify: true
-        command: ["run-redis", "--supervised", "systemd"]
-        volumes:
-          - "{{ redis_data_dir }}:/data:Z"
-        ports:
-          - "6379:6379"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
-
     - name: Run daemon reload
       ansible.builtin.systemd:
         daemon_reload: true

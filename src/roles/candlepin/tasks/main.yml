@@ -14,7 +14,7 @@
   ansible.builtin.include_tasks:
     file: certs.yml
 
-- name: Configure Candlepin container as foreman user
+- name: Pull Candlepin image and create secrets
   become: true
   become_user: "{{ foremanctl_user }}"
   block:
@@ -60,43 +60,47 @@
         name: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
         state: present
 
-    - name: Deploy Candlepin quadlet
-      containers.podman.podman_container:
-        name: "candlepin"
-        image: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        network: host
-        hostname: "{{ ansible_facts['fqdn'] }}"
-        secrets:
-          - 'candlepin-ca-cert,target=/etc/candlepin/certs/candlepin-ca.crt,mode=0440,type=mount'
-          - 'candlepin-ca-key,target=/etc/candlepin/certs/candlepin-ca.key,mode=0440,type=mount'
-          - 'candlepin-tomcat-keystore,target=/etc/candlepin/certs/keystore,mode=0440,type=mount'
-          - 'candlepin-tomcat-truststore,target=/etc/candlepin/certs/truststore,mode=0440,type=mount'
-          - 'candlepin-candlepin-conf,target=/etc/candlepin/candlepin.conf,mode=0440,type=mount'
-          - 'candlepin-artemis-broker-xml,target=/etc/candlepin/broker.xml,mode=440,type=mount'
-          - 'candlepin-tomcat-server-xml,target=/etc/tomcat/server.xml,mode=440,type=mount'
-          - 'candlepin-tomcat-conf,target=/etc/tomcat/tomcat.conf,mode=440,type=mount'
-          - 'candlepin-artemis-login-config,target=/etc/tomcat/login.config,mode=440,type=mount'
-          - 'candlepin-artemis-cert-roles-properties,target=/etc/tomcat/cert-roles.properties,mode=440,type=mount'
-          - 'candlepin-artemis-cert-users-properties,target=/etc/tomcat/cert-users.properties,mode=440,type=mount'
-          - 'candlepin-artemis-jaas-conf,target=/etc/tomcat/conf.d/jaas.conf,mode=440,type=mount'
-        volumes:
-          - /var/log/candlepin:/var/log/candlepin:Z
-          - /var/log/tomcat:/var/log/tomcat:Z
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
-            Wants=redis.service postgresql.service
-            After=redis.service postgresql.service
-            [Service]
-            TimeoutStartSec=300
-        healthcheck: curl --fail --insecure https://localhost:23443/candlepin/status
-        sdnotify: healthy
+- name: Deploy Candlepin quadlet
+  containers.podman.podman_container:
+    name: "candlepin"
+    image: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    network: host
+    hostname: "{{ ansible_facts['fqdn'] }}"
+    secrets:
+      - 'candlepin-ca-cert,target=/etc/candlepin/certs/candlepin-ca.crt,mode=0440,type=mount'
+      - 'candlepin-ca-key,target=/etc/candlepin/certs/candlepin-ca.key,mode=0440,type=mount'
+      - 'candlepin-tomcat-keystore,target=/etc/candlepin/certs/keystore,mode=0440,type=mount'
+      - 'candlepin-tomcat-truststore,target=/etc/candlepin/certs/truststore,mode=0440,type=mount'
+      - 'candlepin-candlepin-conf,target=/etc/candlepin/candlepin.conf,mode=0440,type=mount'
+      - 'candlepin-artemis-broker-xml,target=/etc/candlepin/broker.xml,mode=440,type=mount'
+      - 'candlepin-tomcat-server-xml,target=/etc/tomcat/server.xml,mode=440,type=mount'
+      - 'candlepin-tomcat-conf,target=/etc/tomcat/tomcat.conf,mode=440,type=mount'
+      - 'candlepin-artemis-login-config,target=/etc/tomcat/login.config,mode=440,type=mount'
+      - 'candlepin-artemis-cert-roles-properties,target=/etc/tomcat/cert-roles.properties,mode=440,type=mount'
+      - 'candlepin-artemis-cert-users-properties,target=/etc/tomcat/cert-users.properties,mode=440,type=mount'
+      - 'candlepin-artemis-jaas-conf,target=/etc/tomcat/conf.d/jaas.conf,mode=440,type=mount'
+    volumes:
+      - /var/log/candlepin:/var/log/candlepin:Z
+      - /var/log/tomcat:/var/log/tomcat:Z
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+        Wants=redis.service postgresql.service
+        After=redis.service postgresql.service
+        [Service]
+        TimeoutStartSec=300
+    healthcheck: curl --fail --insecure https://localhost:23443/candlepin/status
+    sdnotify: healthy
 
+- name: Activate Candlepin service
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
     - name: Run daemon reload to make Quadlet create the service files
       ansible.builtin.systemd:
         daemon_reload: true

@@ -47,7 +47,7 @@
     executable: /bin/bash
   changed_when: true
 
-- name: Configure Pulp containers and services as foreman user
+- name: Pull Pulp images and create secrets
   become: true
   become_user: "{{ foremanctl_user }}"
   block:
@@ -96,109 +96,113 @@
         - Restart pulp-content
         - Restart pulp-worker
 
-    - name: Deploy Pulp API Container
-      containers.podman.podman_container:
-        name: "{{ pulp_api_container_name }}"
-        image: "{{ pulp_api_image }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        sdnotify: true
-        command: pulp-api
-        network: host
-        hostname: "pulp-api.{{ ansible_facts['fqdn'] }}"
-        volumes: "{{ pulp_volumes }}"
-        security_opt:
-          - "label=disable"
-        secrets:
-          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-          - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
-        env: "{{ pulp_settings_env }}"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
-            Wants=redis.service postgresql.service
-            After=redis.service postgresql.service
-            [Service]
-            Restart=always
-            RestartSec=3
-      notify: Restart pulp-api
+- name: Deploy Pulp API quadlet
+  containers.podman.podman_container:
+    name: "{{ pulp_api_container_name }}"
+    image: "{{ pulp_api_image }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    sdnotify: true
+    command: pulp-api
+    network: host
+    hostname: "pulp-api.{{ ansible_facts['fqdn'] }}"
+    volumes: "{{ pulp_volumes }}"
+    security_opt:
+      - "label=disable"
+    secrets:
+      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+      - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
+    env: "{{ pulp_settings_env }}"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+        Wants=redis.service postgresql.service
+        After=redis.service postgresql.service
+        [Service]
+        Restart=always
+        RestartSec=3
+  notify: Restart pulp-api
 
-    - name: Deploy Pulp Content Container
-      containers.podman.podman_container:
-        name: "{{ pulp_content_container_name }}"
-        image: "{{ pulp_content_image }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        sdnotify: true
-        command: pulp-content
-        network: host
-        hostname: "pulp-content.{{ ansible_facts['fqdn'] }}"
-        volumes: "{{ pulp_volumes }}"
-        security_opt:
-          - "label=disable"
-        secrets:
-          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-          - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
-        env: "{{ pulp_settings_env }}"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=default.target foreman.target
-            [Unit]
-            PartOf=foreman.target
-            Wants=redis.service postgresql.service
-            After=redis.service postgresql.service
-            [Service]
-            Restart=always
-            RestartSec=3
-      notify: Restart pulp-content
+- name: Deploy Pulp Content quadlet
+  containers.podman.podman_container:
+    name: "{{ pulp_content_container_name }}"
+    image: "{{ pulp_content_image }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    sdnotify: true
+    command: pulp-content
+    network: host
+    hostname: "pulp-content.{{ ansible_facts['fqdn'] }}"
+    volumes: "{{ pulp_volumes }}"
+    security_opt:
+      - "label=disable"
+    secrets:
+      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+      - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
+    env: "{{ pulp_settings_env }}"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+        Wants=redis.service postgresql.service
+        After=redis.service postgresql.service
+        [Service]
+        Restart=always
+        RestartSec=3
+  notify: Restart pulp-content
 
-    - name: Deploy Pulp Worker Template
-      containers.podman.podman_container:
-        name: "{{ pulp_worker_container_name }}-%i"
-        quadlet_filename: "{{ pulp_worker_container_name }}@"
-        image: "{{ pulp_worker_image }}"
-        state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
-        command: pulp-worker
-        network: host
-        hostname: "pulp-worker-%i.{{ ansible_facts['fqdn'] }}"
-        volumes: "{{ pulp_volumes }}"
-        security_opt:
-          - "label=disable"
-        secrets:
-          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-          - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
-        env: "{{ pulp_settings_env }}"
-        quadlet_options:
-          - |
-            [Install]
-            WantedBy=foreman.target pulp-worker.target
-            [Unit]
-            PartOf=pulp-worker.target foreman.target
-            Wants=redis.service postgresql.service
-            After=redis.service postgresql.service
-            [Service]
-            Restart=always
-            RestartSec=3
-            SyslogIdentifier={{ pulp_worker_container_name }}@%i
-      notify: Restart pulp-worker
+- name: Deploy Pulp Worker Template quadlet
+  containers.podman.podman_container:
+    name: "{{ pulp_worker_container_name }}-%i"
+    quadlet_filename: "{{ pulp_worker_container_name }}@"
+    image: "{{ pulp_worker_image }}"
+    state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
+    command: pulp-worker
+    network: host
+    hostname: "pulp-worker-%i.{{ ansible_facts['fqdn'] }}"
+    volumes: "{{ pulp_volumes }}"
+    security_opt:
+      - "label=disable"
+    secrets:
+      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+      - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
+    env: "{{ pulp_settings_env }}"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=foreman.target pulp-worker.target
+        [Unit]
+        PartOf=pulp-worker.target foreman.target
+        Wants=redis.service postgresql.service
+        After=redis.service postgresql.service
+        [Service]
+        Restart=always
+        RestartSec=3
+        SyslogIdentifier={{ pulp_worker_container_name }}@%i
+  notify: Restart pulp-worker
 
-    - name: Create Pulp Worker Container instances
-      ansible.builtin.file:
-        state: link
-        src: "{{ foremanctl_quadlet_dir }}/{{ pulp_worker_container_name }}@.container"
-        dest: "{{ foremanctl_quadlet_dir }}/{{ item }}.container"
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
-      loop: "{{ pulp_worker_services }}"
+- name: Create Pulp Worker Container instances
+  ansible.builtin.file:
+    state: link
+    src: "{{ foremanctl_quadlet_dir }}/{{ pulp_worker_container_name }}@.container"
+    dest: "{{ foremanctl_quadlet_dir }}/{{ item }}.container"
+    owner: root
+    group: root
+  loop: "{{ pulp_worker_services }}"
 
+- name: Configure Pulp systemd units
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
     - name: Create pulp-worker.target
       ansible.builtin.copy:
         dest: "{{ foremanctl_systemd_user_dir }}/pulp-worker.target"

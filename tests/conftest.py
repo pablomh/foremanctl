@@ -63,6 +63,58 @@ def server(server_hostname):
 
 
 @pytest.fixture(scope="module")
+def foremanctl_user():
+    return 'foremanctl'
+
+
+@pytest.fixture(scope="module")
+def foremanctl_uid(server, foremanctl_user):
+    """Get the UID of the foremanctl user"""
+    cmd = server.run(f"id -u {foremanctl_user}")
+    return cmd.stdout.strip()
+
+
+class UserService:
+    """Wrapper to check user systemd services"""
+    def __init__(self, server, user, service_name):
+        self.server = server
+        self.user = user
+        self.service_name = service_name
+
+    @property
+    def is_running(self):
+        """Check if user service is running"""
+        cmd = self.server.run(
+            f"systemctl --machine={self.user}@ --user is-active {self.service_name}"
+        )
+        return cmd.stdout.strip() == "active"
+
+    @property
+    def is_enabled(self):
+        """Check if user service is enabled"""
+        cmd = self.server.run(
+            f"systemctl --machine={self.user}@ --user is-enabled {self.service_name}"
+        )
+        return cmd.stdout.strip() in ("enabled", "static")
+
+    @property
+    def exists(self):
+        """Check if user service exists"""
+        cmd = self.server.run(
+            f"systemctl --machine={self.user}@ --user list-unit-files {self.service_name}"
+        )
+        return self.service_name in cmd.stdout
+
+
+@pytest.fixture(scope="module")
+def user_service(server, foremanctl_user):
+    """Factory fixture to create UserService instances"""
+    def _user_service(service_name):
+        return UserService(server, foremanctl_user, service_name)
+    return _user_service
+
+
+@pytest.fixture(scope="module")
 def client(client_hostname):
     yield testinfra.get_host(f'paramiko://{client_hostname}', sudo=True, ssh_config=SSH_CONFIG)
 
@@ -73,6 +125,18 @@ def database(database_mode, server):
         yield testinfra.get_host('paramiko://database', sudo=True, ssh_config=SSH_CONFIG)
     else:
         yield server
+
+
+@pytest.fixture(scope="module")
+def database_user_service(database_mode, server, user_service):
+    """Provides user_service fixture for database tests (only for internal mode)"""
+    if database_mode == 'internal':
+        return user_service
+    else:
+        # For external database, services run as system services
+        def _system_service(service_name):
+            return server.service(service_name)
+        return _system_service
 
 
 @pytest.fixture(scope="module")

@@ -8,8 +8,8 @@ def test_foreman_proxy_features(server, certificates, server_fqdn):
     features = json.loads(cmd.stdout)
     assert "logs" in features
 
-def test_foreman_proxy_service(server):
-    foreman_proxy = server.service("foreman-proxy")
+def test_foreman_proxy_service(user_service):
+    foreman_proxy = user_service("foreman-proxy")
     assert foreman_proxy.is_running
 
 def test_foreman_proxy_port(server):

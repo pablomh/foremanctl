@@ -7,8 +7,8 @@ def assert_secret_content(server, secret_name, secret_value):
     assert secret.stdout.strip() == secret_value
 
 
-def test_candlepin_service(server):
-    candlepin = server.service("candlepin")
+def test_candlepin_service(user_service):
+    candlepin = user_service("candlepin")
     assert candlepin.is_running
 
 

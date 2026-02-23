@@ -2,8 +2,8 @@ import csv
 import pytest
 
 
-def test_postgresql_service(database):
-    postgresql = database.service("postgresql")
+def test_postgresql_service(database_user_service):
+    postgresql = database_user_service("postgresql")
     assert postgresql.is_running
 
 
@@ -37,8 +37,8 @@ def test_postgresql_password_encryption(database):
         assert ("SCRAM-SHA-256" in row[6])
 
 
-def test_postgresql_missing_with_external(server, database_mode):
+def test_postgresql_missing_with_external(user_service, database_mode):
     if database_mode == 'internal':
         pytest.skip("Test only applies if database_mode=external")
     else:
-        assert not server.service("postgresql").exists
+        assert not user_service("postgresql").exists

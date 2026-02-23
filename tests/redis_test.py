@@ -5,8 +5,8 @@ REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
 
 
-def test_redis_service(server):
-    redis = server.service("redis")
+def test_redis_service(user_service):
+    redis = user_service("redis")
     assert redis.is_running
 
 

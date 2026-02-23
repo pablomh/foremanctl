@@ -13,21 +13,21 @@ def pulp_status_curl(server):
 def pulp_status(pulp_status_curl):
     return json.loads(pulp_status_curl.stdout)
 
-def test_pulp_api_service(server):
-    pulp_api = server.service("pulp-api")
+def test_pulp_api_service(user_service):
+    pulp_api = user_service("pulp-api")
     assert pulp_api.is_running
 
-def test_pulp_content_service(server):
-    pulp_content = server.service("pulp-content")
+def test_pulp_content_service(user_service):
+    pulp_content = user_service("pulp-content")
     assert pulp_content.is_running
 
-def test_pulp_worker_services(server):
-    result = server.run("systemctl list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print $1}'")
+def test_pulp_worker_services(server, foremanctl_user, user_service):
+    result = server.run(f"systemctl --machine={foremanctl_user}@ --user list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{{print $1}}'")
     worker_services = [s.strip() for s in result.stdout.split('\n') if s.strip()]
     assert len(worker_services) > 0
 
     for worker_service in worker_services:
-        worker = server.service(worker_service)
+        worker = user_service(worker_service)
         assert worker.is_running
 
 def test_pulp_api_port(server):
@@ -65,8 +65,8 @@ def test_pulp_status_workers(pulp_status):
 def test_pulp_volumes(server):
     assert server.file("/var/lib/pulp").is_directory
 
-def test_pulp_worker_target(server):
-    pulp_worker_target = server.service("pulp-worker.target")
+def test_pulp_worker_target(user_service):
+    pulp_worker_target = user_service("pulp-worker.target")
     assert pulp_worker_target.is_running
     assert pulp_worker_target.is_enabled
 

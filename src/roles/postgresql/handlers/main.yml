@@ -2,6 +2,8 @@
 - name: Restart postgresql
   become: true
   become_user: "{{ foremanctl_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
   ansible.builtin.systemd:
     name: "{{ postgresql_container_name }}"
     state: restarted

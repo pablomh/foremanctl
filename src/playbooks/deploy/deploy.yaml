@@ -9,6 +9,7 @@
     - name: Map rootless_user variables to foremanctl namespace
       ansible.builtin.set_fact:
         foremanctl_quadlet_dir: "{{ rootless_user_quadlet_dir }}"
+        foremanctl_xdg_runtime_dir: "/run/user/{{ ansible_facts['getent_passwd'][rootless_user_name][1] }}"
 
 - name: Deploy Foreman services
   hosts:

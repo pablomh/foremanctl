@@ -6,6 +6,7 @@
     owner: "{{ foremanctl_user }}"
     group: "{{ foremanctl_group }}"
     mode: "0755"
+    setype: container_var_lib_t
   loop: "{{ pulp_volumes }}"
 
 - name: Create Pulp storage subdirs
@@ -15,6 +16,7 @@
     owner: "{{ foremanctl_user }}"
     group: "{{ foremanctl_group }}"
     mode: "0755"
+    setype: container_var_lib_t
   loop:
     - tmp
     - assets
@@ -27,6 +29,7 @@
     owner: "{{ foremanctl_user }}"
     group: "{{ foremanctl_group }}"
     mode: '0600'
+    setype: container_var_lib_t
     force: false
 
 - name: Generate database symmetric key
@@ -36,6 +39,7 @@
     owner: "{{ foremanctl_user }}"
     group: "{{ foremanctl_group }}"
     mode: '0600'
+    setype: container_var_lib_t
     force: false
 
 - name: Set Pulp directory ownership for container UID/GID
@@ -206,27 +210,35 @@
     dest: "{{ foremanctl_quadlet_dir }}/{{ item }}.container"
   loop: "{{ pulp_worker_services }}"
 
-- name: Configure Pulp systemd units
+- name: Create pulp-worker.target
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.copy:
+    dest: "{{ foremanctl_systemd_user_dir }}/pulp-worker.target"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Pulp Worker Services
+      [Install]
+      WantedBy=foreman.target
+
+- name: Run daemon reload to load service files
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
+
+- name: Run Pulp database migrations
   become: true
   become_user: "{{ foremanctl_user }}"
   block:
-    - name: Create pulp-worker.target
-      ansible.builtin.copy:
-        dest: "{{ foremanctl_systemd_user_dir }}/pulp-worker.target"
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Pulp Worker Services
-          [Install]
-          WantedBy=foreman.target
-
-    - name: Run daemon reload to load service files
-      ansible.builtin.systemd:
-        daemon_reload: true
-        scope: user
-
     - name: Migrate the Pulp database
       containers.podman.podman_container:
         name: pulpcore-manager-migrate
@@ -253,57 +265,67 @@
           - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
         env: "{{ pulp_settings_database_env }}"
 
-    - name: Flush handlers to restart services
-      ansible.builtin.meta: flush_handlers
+- name: Flush handlers to restart services
+  ansible.builtin.meta: flush_handlers
 
-    - name: Start Pulp services
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        state: started
-        scope: user
-      async: 60
-      poll: 0
-      loop: "{{ pulp_all_services }}"
-      register: pulp_services
+- name: Start Pulp services
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start {{ item }}"
+  loop: "{{ pulp_all_services }}"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: "{{ item }}"
+  #   state: started
+  #   scope: user
+  # loop: "{{ pulp_all_services }}"
 
-    - name: Wait for Pulp services
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      register: _pulp_job_result
-      until: _pulp_job_result is finished
-      retries: 100
-      delay: 1
-      loop: "{{ pulp_services.results }}"
+- name: Enable and start pulp-worker.target
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user enable --now pulp-worker.target"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: pulp-worker.target
+  #   enabled: true
+  #   state: started
+  #   scope: user
 
-    - name: Gather service facts to find existing pulp-worker instances
-      ansible.builtin.service_facts:
+- name: Gather service facts to find existing pulp-worker instances
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.service_facts:
 
-    - name: Build list of existing pulp-worker services
-      ansible.builtin.set_fact:
-        pulp_existing_workers: "{{ ansible_facts.services.keys() | select('match', '^' + pulp_worker_container_name + '@\\d+\\.service$') | list }}"
+- name: Build list of existing pulp-worker services
+  ansible.builtin.set_fact:
+    pulp_existing_workers: "{{ ansible_facts.services.keys() | select('match', '^' + pulp_worker_container_name + '@\\d+\\.service$') | list }}"
 
-    - name: Enable and start pulp-worker.target
-      ansible.builtin.systemd:
-        name: pulp-worker.target
-        enabled: true
-        state: started
-        scope: user
+- name: Clean up old pulp-worker instances
+  when:
+    - pulp_existing_workers | length > 0
+    - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)
+  block:
+    - name: Stop and disable old pulp-worker instances
+      ansible.builtin.command:
+        cmd: "systemctl --machine={{ foremanctl_user }}@ --user disable --now {{ item }}"
+      loop: "{{ pulp_existing_workers }}"
+      changed_when: true
+      # Alternative approach using systemd module (requires become_user):
+      # become: true
+      # become_user: "{{ foremanctl_user }}"
+      # ansible.builtin.systemd:
+      #   name: "{{ item }}"
+      #   enabled: false
+      #   state: stopped
+      #   scope: user
+      # loop: "{{ pulp_existing_workers }}"
 
-    - name: Clean up old pulp-worker instances
-      when:
-        - pulp_existing_workers | length > 0
-        - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)
-      block:
-        - name: Stop and disable old pulp-worker instances
-          ansible.builtin.systemd:
-            name: "{{ item }}"
-            enabled: false
-            state: stopped
-            scope: user
-          loop: "{{ pulp_existing_workers }}"
-
-        - name: Remove container symlinks for old pulp-worker instances
-          ansible.builtin.file:
-            path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
-            state: absent
-          loop: "{{ pulp_existing_workers }}"
+    - name: Remove container symlinks for old pulp-worker instances
+      ansible.builtin.file:
+        path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
+        state: absent
+      loop: "{{ pulp_existing_workers }}"

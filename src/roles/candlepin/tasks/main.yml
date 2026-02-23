@@ -6,6 +6,7 @@
     owner: "{{ foremanctl_user }}"
     group: "{{ foremanctl_group }}"
     mode: '0755'
+    setype: container_var_lib_t
   loop:
     - /var/log/candlepin
     - /var/log/tomcat
@@ -102,20 +103,28 @@
     path: "{{ foremanctl_quadlet_dir }}/candlepin.container"
     mode: '0644'
 
-- name: Activate Candlepin service
-  become: true
-  become_user: "{{ foremanctl_user }}"
-  block:
-    - name: Run daemon reload to make Quadlet create the service files
-      ansible.builtin.systemd:
-        daemon_reload: true
-        scope: user
+- name: Run daemon reload to make Quadlet create the service files
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
 
-    - name: Flush handlers to restart services
-      ansible.builtin.meta: flush_handlers
+- name: Flush handlers to restart services
+  ansible.builtin.meta: flush_handlers
 
-    - name: Start the Candlepin Service
-      ansible.builtin.systemd:
-        name: candlepin
-        state: started
-        scope: user
+- name: Start the Candlepin Service
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start candlepin"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: candlepin
+  #   state: started
+  #   scope: user

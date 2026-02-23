@@ -43,23 +43,31 @@
     path: "{{ foremanctl_quadlet_dir }}/foreman-proxy.container"
     mode: '0644'
 
-- name: Activate Foreman Proxy service
-  become: true
-  become_user: "{{ foremanctl_user }}"
-  block:
-    - name: Run daemon reload to make Quadlet create the service files
-      ansible.builtin.systemd:
-        daemon_reload: true
-        scope: user
+- name: Run daemon reload to make Quadlet create the service files
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
 
-    - name: Flush handlers to restart services
-      ansible.builtin.meta: flush_handlers
+- name: Flush handlers to restart services
+  ansible.builtin.meta: flush_handlers
 
-    - name: Start the Foreman Proxy Service
-      ansible.builtin.systemd:
-        name: foreman-proxy
-        state: started
-        scope: user
+- name: Start the Foreman Proxy Service
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start foreman-proxy"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: foreman-proxy
+  #   state: started
+  #   scope: user
 
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:

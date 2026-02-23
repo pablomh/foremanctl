@@ -3,3 +3,10 @@
   ansible.builtin.command:
     cmd: "systemctl --machine={{ foremanctl_user }}@ --user restart {{ postgresql_container_name }}"
   changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: "{{ postgresql_container_name }}"
+  #   state: restarted
+  #   scope: user

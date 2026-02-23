@@ -6,6 +6,7 @@
     owner: "{{ foremanctl_user }}"
     group: "{{ foremanctl_group }}"
     mode: '0755'
+    setype: container_var_lib_t
 
 - name: Set Redis directory ownership for container UID/GID
   ansible.builtin.shell: |
@@ -46,17 +47,25 @@
     path: "{{ foremanctl_quadlet_dir }}/redis.container"
     mode: '0644'
 
-- name: Activate Redis service
-  become: true
-  become_user: "{{ foremanctl_user }}"
-  block:
-    - name: Run daemon reload
-      ansible.builtin.systemd:
-        daemon_reload: true
-        scope: user
+- name: Run daemon reload
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
 
-    - name: Start the Redis Service
-      ansible.builtin.systemd:
-        name: redis
-        state: started
-        scope: user
+- name: Start the Redis Service
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start redis"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: redis
+  #   state: started
+  #   scope: user

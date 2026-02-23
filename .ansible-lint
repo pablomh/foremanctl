@@ -2,3 +2,10 @@
 exclude_paths:
   - .ansible/
   - .github/
+
+# Skip command-instead-of-module for systemctl --machine usage
+# We intentionally use systemctl --machine instead of the systemd module
+# because it's the proper way to manage user systemd instances from root
+# without needing environment variable setup (XDG_RUNTIME_DIR).
+skip_list:
+  - command-instead-of-module

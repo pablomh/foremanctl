@@ -3,7 +3,7 @@
   hosts: "{{ target_host if target_host is defined and target_host != '' else 'quadlet' }}"
   become: true
   roles:
-    - role: ../../../src/roles/rootless_user
+    - role: rootless_user
   tasks:
     - name: Map rootless_user variables to foremanctl namespace
       ansible.builtin.set_fact:

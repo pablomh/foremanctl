@@ -55,6 +55,11 @@
         [Unit]
         PartOf=foreman.target
 
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/{{ postgresql_container_name }}.container"
+    mode: '0644'
+
 - name: DEBUG - Check quadlet file was created
   ansible.builtin.stat:
     path: "{{ foremanctl_quadlet_dir }}/{{ postgresql_container_name }}.container"
@@ -108,37 +113,6 @@
       ansible.builtin.systemd:
         daemon_reload: true
         scope: user
-
-    - name: DEBUG - List user systemd units after reload
-      ansible.builtin.command: systemctl --user list-units --all --no-pager
-      register: postgresql_debug_list_units
-      changed_when: false
-
-    - name: DEBUG - Display systemd units
-      ansible.builtin.debug:
-        msg: "{{ postgresql_debug_list_units.stdout_lines | select('search', 'postgresql') | list }}"
-
-    - name: DEBUG - Check for generated service file
-      ansible.builtin.stat:
-        path: "{{ foremanctl_home }}/.config/systemd/user.control/{{ postgresql_container_name }}.service"
-      register: postgresql_debug_service_stat
-      failed_when: false
-
-    - name: DEBUG - Display service file info
-      ansible.builtin.debug:
-        msg: |
-          Generated service file: {{ foremanctl_home }}/.config/systemd/user.control/{{ postgresql_container_name }}.service
-          Exists: {{ postgresql_debug_service_stat.stat.exists | default(false) }}
-
-    - name: DEBUG - Check systemd generator logs
-      ansible.builtin.command: journalctl --user --no-pager -u "{{ postgresql_container_name }}" -n 50
-      register: postgresql_debug_journal
-      failed_when: false
-      changed_when: false
-
-    - name: DEBUG - Display recent journal entries
-      ansible.builtin.debug:
-        msg: "{{ postgresql_debug_journal.stdout_lines | default(['No journal entries']) }}"
 
     - name: Flush handlers to restart services
       ansible.builtin.meta: flush_handlers

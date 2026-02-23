@@ -97,6 +97,11 @@
     healthcheck: curl --fail --insecure https://localhost:23443/candlepin/status
     sdnotify: healthy
 
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/candlepin.container"
+    mode: '0644'
+
 - name: Activate Candlepin service
   become: true
   become_user: "{{ foremanctl_user }}"

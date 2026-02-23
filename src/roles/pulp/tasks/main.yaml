@@ -190,6 +190,15 @@
         SyslogIdentifier={{ pulp_worker_container_name }}@%i
   notify: Restart pulp-worker
 
+- name: Make quadlet files readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/{{ item }}"
+    mode: '0644'
+  loop:
+    - "{{ pulp_api_container_name }}.container"
+    - "{{ pulp_content_container_name }}.container"
+    - "{{ pulp_worker_container_name }}@.container"
+
 - name: Create Pulp Worker Container instances
   ansible.builtin.file:
     state: link

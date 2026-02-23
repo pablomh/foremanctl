@@ -207,6 +207,23 @@
   loop_control:
     label: "{{ item.instance }}"
 
+- name: Make quadlet files readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/{{ item }}"
+    mode: '0644'
+  loop:
+    - foreman.container
+    - dynflow-sidekiq@.container
+
+- name: Make recurring task quadlet files readable by foremanctl user
+  when: foreman_recurring_tasks_enabled
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/foreman-recurring@{{ item.instance }}.container"
+    mode: '0644'
+  loop: "{{ foreman_recurring_tasks }}"
+  loop_control:
+    label: "{{ item.instance }}"
+
 - name: Configure Foreman services
   become: true
   become_user: "{{ foremanctl_user }}"

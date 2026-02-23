@@ -41,6 +41,11 @@
         [Unit]
         PartOf=foreman.target
 
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/redis.container"
+    mode: '0644'
+
 - name: Activate Redis service
   become: true
   become_user: "{{ foremanctl_user }}"

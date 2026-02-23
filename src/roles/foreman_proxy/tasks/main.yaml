@@ -38,6 +38,11 @@
         PartOf=foreman.target
   notify: Restart Foreman Proxy
 
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/foreman-proxy.container"
+    mode: '0644'
+
 - name: Activate Foreman Proxy service
   become: true
   become_user: "{{ foremanctl_user }}"

@@ -55,10 +55,10 @@
         [Unit]
         PartOf=foreman.target
 
-# - name: Make quadlet file readable by foremanctl user
-#   ansible.builtin.file:
-#     path: "{{ foremanctl_quadlet_dir }}/{{ postgresql_container_name }}.container"
-#     mode: '0644'
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/{{ postgresql_container_name }}.container"
+    mode: '0644'
 
 - name: DEBUG - Check quadlet file was created
   ansible.builtin.stat:

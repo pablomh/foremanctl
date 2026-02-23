@@ -68,12 +68,14 @@
 - debug:
     msg: "rootless_user_systemd_user_dir: {{ rootless_user_systemd_user_dir }}"
 
-- name: Create user systemd directory
+- name: Create user systemd directory hierarchy
   ansible.builtin.file:
     path: "{{ rootless_user_systemd_user_dir }}"
     state: directory
     owner: "{{ rootless_user_name }}"
     group: "{{ rootless_user_group }}"
+    mode: '0755'
+    recurse: false
 
 - debug:
     msg: ".config/containers: {{ rootless_user_home }}/.config/containers"

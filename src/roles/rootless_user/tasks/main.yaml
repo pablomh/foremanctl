@@ -16,6 +16,17 @@
     create_home: true
     state: present
 
+- debug:
+    msg: "rootless_user_home: {{ rootless_user_home }}"
+
+- name: Ensure home directory has correct permissions
+  ansible.builtin.file:
+    path: "{{ rootless_user_home }}"
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0700'
+    state: directory
+
 - name: Get user info to determine UID
   ansible.builtin.getent:
     database: passwd
@@ -45,11 +56,17 @@
     create: true
     mode: '0644'
 
+- debug:
+    msg: "rootless_user_quadlet_dir: {{ rootless_user_quadlet_dir }}"
+
 - name: Create system-wide quadlet directory for user
   ansible.builtin.file:
     path: "{{ rootless_user_quadlet_dir }}"
     state: directory
     mode: '0755'
+
+- debug:
+    msg: "rootless_user_systemd_user_dir: {{ rootless_user_systemd_user_dir }}"
 
 - name: Create user systemd directory
   ansible.builtin.file:
@@ -57,7 +74,9 @@
     state: directory
     owner: "{{ rootless_user_name }}"
     group: "{{ rootless_user_group }}"
-    mode: '0755'
+
+- debug:
+    msg: ".config/containers: {{ rootless_user_home }}/.config/containers"
 
 - name: Create user containers config directory
   ansible.builtin.file:
@@ -80,4 +99,7 @@
   register: rootless_user_linger_result
   changed_when: rootless_user_linger_result is succeeded
   failed_when: rootless_user_linger_result is failed
+
+- debug:
+    var: rootless_user_linger_result
 ...

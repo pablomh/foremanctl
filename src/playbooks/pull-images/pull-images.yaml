@@ -5,10 +5,6 @@
   become: true
   roles:
     - role: rootless_user
-#   tasks:
-#     - name: Map rootless_user variables to foremanctl namespace
-#       ansible.builtin.set_fact:
-#         foremanctl_quadlet_dir: "{{ rootless_user_quadlet_dir }}"
 
 - name: Pull images
   hosts:

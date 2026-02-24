@@ -149,14 +149,10 @@ def database(database_mode, server):
         yield server
 @pytest.fixture(scope="module")
 def database_user_service(database_mode, database, foremanctl_user):
-    """Factory fixture for database service checking (internal user service or external container)"""
+    """Factory fixture for database service checking"""
     def _service(service_name):
-        if database_mode == 'internal':
-            # Internal: user service on quadlet host
-            return GenericService(database, service_name, user=foremanctl_user)
-        else:
-            # External: podman container on database host
-            return GenericService(database, service_name, user=None)
+        # Both internal and external databases run as user services
+        return GenericService(database, service_name, user=foremanctl_user)
     return _service
 
 

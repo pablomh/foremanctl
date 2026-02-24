@@ -2,7 +2,7 @@ import re
 
 
 def assert_secret_content(server, foremanctl_user, secret_name, secret_value):
-    secret = server.run(f'sudo -H -u {foremanctl_user} podman secret inspect --format {{"{{.SecretData}}"}} --showsecret {secret_name}')
+    secret = server.run(f'sudo -i -u {foremanctl_user} podman secret inspect --format {{"{{.SecretData}}"}} --showsecret {secret_name}')
     assert secret.succeeded
     assert secret.stdout.strip() == secret_value
 

@@ -1,8 +1,8 @@
 import re
 
 
-def assert_secret_content(server, secret_name, secret_value):
-    secret = server.run(f'podman secret inspect --format {"{{.SecretData}}"} --showsecret {secret_name}')
+def assert_secret_content(server, foremanctl_user, secret_name, secret_value):
+    secret = server.run(f'sudo -u {foremanctl_user} podman secret inspect --format {{"{{.SecretData}}"}} --showsecret {secret_name}')
     assert secret.succeeded
     assert secret.stdout.strip() == secret_value
 
@@ -33,10 +33,10 @@ def test_artemis_auth(server, certificates):
     assert cmd.succeeded, f"exit: {cmd.rc}\n\nstdout:\n{cmd.stdout}\n\nstderr:\n{cmd.stderr}"
 
 
-def test_certs_users_file(server, certificates):
+def test_certs_users_file(server, foremanctl_user, certificates):
     cmd = server.run(f'openssl x509 -noout -subject -in {certificates["client_certificate"]} -nameopt rfc2253,sep_comma_plus_space')
     subject = cmd.stdout.replace("subject=", "").rstrip()
-    assert_secret_content(server, 'candlepin-artemis-cert-users-properties', f'katelloUser={subject}')
+    assert_secret_content(server, foremanctl_user, 'candlepin-artemis-cert-users-properties', f'katelloUser={subject}')
 
 
 def test_tls(server):
@@ -57,5 +57,5 @@ def test_tls(server):
     assert "least strength: A" in result
 
 
-def test_cert_roles(server):
-    assert_secret_content(server, 'candlepin-artemis-cert-roles-properties', 'candlepinEventsConsumer=katelloUser')
+def test_cert_roles(server, foremanctl_user):
+    assert_secret_content(server, foremanctl_user, 'candlepin-artemis-cert-roles-properties', 'candlepinEventsConsumer=katelloUser')

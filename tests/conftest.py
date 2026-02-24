@@ -47,8 +47,13 @@ def client_fqdn(client_hostname):
 def certificates(pytestconfig, server_fqdn):
     source = pytestconfig.getoption("certificate_source")
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
+
+    # First pass: render to get the certificates_ca_directory value
     template = env.get_template(f"./src/vars/{source}_certificates.yml")
-    context = {'certificates_ca_directory': '/var/lib/foremanctl/certificates',
+    first_pass = yaml.safe_load(template.render({'ansible_facts': {'fqdn': server_fqdn}}))
+
+    # Second pass: render with the certificates_ca_directory from the template itself
+    context = {'certificates_ca_directory': first_pass['certificates_ca_directory'],
                'ansible_facts': {'fqdn': server_fqdn}}
     return yaml.safe_load(template.render(context))
 

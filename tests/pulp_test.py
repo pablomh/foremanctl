@@ -71,5 +71,5 @@ def test_pulp_worker_target(user_service):
     assert pulp_worker_target.is_enabled
 
 def test_pulp_manager_check(server, foremanctl_user):
-    result = server.run(f"sudo -i -u {foremanctl_user} podman exec -ti pulp-api pulpcore-manager check --deploy")
+    result = server.run(f"cd /tmp && sudo -u {foremanctl_user} podman exec -ti pulp-api pulpcore-manager check --deploy")
     assert result.succeeded

@@ -13,6 +13,55 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 SSH_CONFIG='./.tmp/ssh-config'
 
 
+class GenericService:
+    """Generic service checker that handles both user services and container services"""
+    def __init__(self, host, service_name, user=None):
+        self.host = host
+        self.service_name = service_name
+        self.user = user  # If set, use user systemd; otherwise check podman container
+
+    @property
+    def is_running(self):
+        """Check if service/container is running"""
+        if self.user:
+            # User systemd service
+            cmd = self.host.run(
+                f"systemctl --machine={self.user}@ --user is-active {self.service_name}"
+            )
+            return cmd.stdout.strip() == "active"
+        else:
+            # Podman container
+            cmd = self.host.run(f"podman inspect -f '{{{{.State.Running}}}}' {self.service_name}")
+            return cmd.succeeded and cmd.stdout.strip() == "true"
+
+    @property
+    def is_enabled(self):
+        """Check if service is enabled"""
+        if self.user:
+            # User systemd service
+            cmd = self.host.run(
+                f"systemctl --machine={self.user}@ --user is-enabled {self.service_name}"
+            )
+            return cmd.stdout.strip() in ("enabled", "static")
+        else:
+            # Containers don't have enabled state, just return is_running
+            return self.is_running
+
+    @property
+    def exists(self):
+        """Check if service/container exists"""
+        if self.user:
+            # User systemd service
+            cmd = self.host.run(
+                f"systemctl --machine={self.user}@ --user list-unit-files {self.service_name}"
+            )
+            return self.service_name in cmd.stdout
+        else:
+            # Podman container
+            cmd = self.host.run(f"podman ps -a --filter name={self.service_name} --format '{{{{.Names}}}}'")
+            return self.service_name in cmd.stdout
+
+
 def pytest_addoption(parser):
     parser.addoption("--certificate-source", action="store", default="default", choices=('default', 'installer'), help="Where to obtain certificates from")
     parser.addoption("--database-mode", action="store", default="internal", choices=('internal', 'external'), help="Whether the database is internal or external")
@@ -79,43 +128,11 @@ def foremanctl_uid(server, foremanctl_user):
     return cmd.stdout.strip()
 
 
-class UserService:
-    """Wrapper to check user systemd services"""
-    def __init__(self, server, user, service_name):
-        self.server = server
-        self.user = user
-        self.service_name = service_name
-
-    @property
-    def is_running(self):
-        """Check if user service is running"""
-        cmd = self.server.run(
-            f"systemctl --machine={self.user}@ --user is-active {self.service_name}"
-        )
-        return cmd.stdout.strip() == "active"
-
-    @property
-    def is_enabled(self):
-        """Check if user service is enabled"""
-        cmd = self.server.run(
-            f"systemctl --machine={self.user}@ --user is-enabled {self.service_name}"
-        )
-        return cmd.stdout.strip() in ("enabled", "static")
-
-    @property
-    def exists(self):
-        """Check if user service exists"""
-        cmd = self.server.run(
-            f"systemctl --machine={self.user}@ --user list-unit-files {self.service_name}"
-        )
-        return self.service_name in cmd.stdout
-
-
 @pytest.fixture(scope="module")
 def user_service(server, foremanctl_user):
-    """Factory fixture to create UserService instances"""
+    """Factory fixture for user service checking"""
     def _user_service(service_name):
-        return UserService(server, foremanctl_user, service_name)
+        return GenericService(server, service_name, user=foremanctl_user)
     return _user_service
 
 
@@ -130,18 +147,17 @@ def database(database_mode, server):
         yield testinfra.get_host('paramiko://database', sudo=True, ssh_config=SSH_CONFIG)
     else:
         yield server
-
-
 @pytest.fixture(scope="module")
-def database_user_service(database_mode, server, user_service):
-    """Provides user_service fixture for database tests (only for internal mode)"""
-    if database_mode == 'internal':
-        return user_service
-    else:
-        # For external database, services run as system services
-        def _system_service(service_name):
-            return server.service(service_name)
-        return _system_service
+def database_user_service(database_mode, database, foremanctl_user):
+    """Factory fixture for database service checking (internal user service or external container)"""
+    def _service(service_name):
+        if database_mode == 'internal':
+            # Internal: user service on quadlet host
+            return GenericService(database, service_name, user=foremanctl_user)
+        else:
+            # External: podman container on database host
+            return GenericService(database, service_name, user=None)
+    return _service
 
 
 @pytest.fixture(scope="module")

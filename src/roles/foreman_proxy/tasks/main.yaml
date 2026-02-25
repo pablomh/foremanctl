@@ -1,5 +1,7 @@
 ---
-- name: Pull the Foreman Proxy container image
+- name: Pull Foreman Proxy image
+  become: true
+  become_user: "{{ foremanctl_user }}"
   containers.podman.podman_image:
     name: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
     state: present
@@ -10,11 +12,12 @@
 - name: Create certs secrets
   ansible.builtin.include_tasks: certs.yaml
 
-- name: Deploy Foreman Proxy Container
+- name: Deploy Foreman Proxy quadlet
   containers.podman.podman_container:
     name: "foreman-proxy"
     image: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
     state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
     sdnotify: true
     network: host
     hostname: "{{ ansible_facts['fqdn'] }}"
@@ -35,17 +38,36 @@
         PartOf=foreman.target
   notify: Restart Foreman Proxy
 
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/foreman-proxy.container"
+    mode: '0644'
+
 - name: Run daemon reload to make Quadlet create the service files
-  ansible.builtin.systemd:
-    daemon_reload: true
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
 
 - name: Flush handlers to restart services
   ansible.builtin.meta: flush_handlers
 
 - name: Start the Foreman Proxy Service
-  ansible.builtin.systemd:
-    name: foreman-proxy
-    state: started
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start foreman-proxy"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: foreman-proxy
+  #   state: started
+  #   scope: user
 
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:

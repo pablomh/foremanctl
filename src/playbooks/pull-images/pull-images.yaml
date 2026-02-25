@@ -1,4 +1,11 @@
 ---
+- name: Setup rootless user environment
+  hosts:
+    - quadlet
+  become: true
+  roles:
+    - role: rootless_user
+
 - name: Pull images
   hosts:
     - quadlet
@@ -7,19 +14,23 @@
     - "../../vars/flavors/{{ flavor }}.yml"
     - "../../vars/images.yml"
     - "../../vars/base.yaml"
-  become: true
   tasks:
     - name: Install podman
+      become: true
       ansible.builtin.package:
         name:
           - podman
 
     - name: Pull an image
+      become: true
+      become_user: "{{ foremanctl_user }}"
       containers.podman.podman_image:
         name: "{{ item }}"
       loop: "{{ images }}"
 
     - name: Pull foreman_proxy images
+      become: true
+      become_user: "{{ foremanctl_user }}"
       containers.podman.podman_image:
         name: "{{ item }}"
       loop: "{{ foreman_proxy_images }}"
@@ -27,6 +38,8 @@
         - "'foreman-proxy' in enabled_features"
 
     - name: Pull database images
+      become: true
+      become_user: "{{ foremanctl_user }}"
       containers.podman.podman_image:
         name: "{{ item }}"
       loop: "{{ database_images }}"

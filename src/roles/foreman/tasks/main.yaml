@@ -1,94 +1,99 @@
 ---
-- name: Pull the Foreman container image
-  containers.podman.podman_image:
-    name: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
-    state: present
+- name: Pull Foreman image and create secrets
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
+    - name: Pull the Foreman container image
+      containers.podman.podman_image:
+        name: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
+        state: present
 
-- name: Create secret for DATABASE_URL
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-database-url
-    data: "postgresql://{{ foreman_database_user }}:{{ foreman_database_password }}@{{ foreman_database_host }}:{{ foreman_database_port }}/{{ foreman_database_name }}?pool={{ foreman_database_pool }}&sslmode={{ foreman_database_ssl_mode }}{% if foreman_database_ssl_ca is defined %}&sslrootcert={{ foreman_database_ssl_ca }}{% endif %}" # yamllint disable-line rule:line-length
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create secret for DATABASE_URL
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-database-url
+        data: "postgresql://{{ foreman_database_user }}:{{ foreman_database_password }}@{{ foreman_database_host }}:{{ foreman_database_port }}/{{ foreman_database_name }}?pool={{ foreman_database_pool }}&sslmode={{ foreman_database_ssl_mode }}{% if foreman_database_ssl_ca is defined %}&sslrootcert={{ foreman_database_ssl_ca }}{% endif %}" # yamllint disable-line rule:line-length
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create secret for SEED_ADMIN_USER
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-seed-admin-user
-    data: "{{ foreman_initial_admin_username }}"
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create secret for SEED_ADMIN_USER
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-seed-admin-user
+        data: "{{ foreman_initial_admin_username }}"
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create secret for SEED_ADMIN_PASSWORD
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-seed-admin-password
-    data: "{{ foreman_initial_admin_password }}"
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create secret for SEED_ADMIN_PASSWORD
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-seed-admin-password
+        data: "{{ foreman_initial_admin_password }}"
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create settings config secret
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-settings-yaml
-    data: "{{ lookup('ansible.builtin.template', 'settings.yaml.j2') }}"
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create settings config secret
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-settings-yaml
+        data: "{{ lookup('ansible.builtin.template', 'settings.yaml.j2') }}"
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create katello config secret
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-katello-yaml
-    data: "{{ lookup('ansible.builtin.template', 'katello.yaml.j2') }}"
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create katello config secret
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-katello-yaml
+        data: "{{ lookup('ansible.builtin.template', 'katello.yaml.j2') }}"
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create dynflow hosts_queue worker config secret
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-dynflow-worker-hosts-queue-yaml
-    data: "{{ lookup('ansible.builtin.template', 'dynflow-worker-hosts-queue.yml') }}"
-  notify:
-    - Restart dynflow-sidekiq@
+    - name: Create dynflow hosts_queue worker config secret
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-dynflow-worker-hosts-queue-yaml
+        data: "{{ lookup('ansible.builtin.template', 'dynflow-worker-hosts-queue.yml') }}"
+      notify:
+        - Restart dynflow-sidekiq@
 
-- name: Create the podman secret for Foreman CA certificate
-  containers.podman.podman_secret:
-    name: foreman-ca-cert
-    path: "{{ foreman_ca_certificate }}"
-    state: present
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create the podman secret for Foreman CA certificate
+      containers.podman.podman_secret:
+        name: foreman-ca-cert
+        path: "{{ foreman_ca_certificate }}"
+        state: present
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create the podman secret for Foreman client certificate
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-client-cert
-    path: "{{ foreman_client_certificate }}"
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create the podman secret for Foreman client certificate
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-client-cert
+        path: "{{ foreman_client_certificate }}"
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Create the podman secret for Foreman client key
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-client-key
-    path: "{{ foreman_client_key }}"
-  notify:
-    - Restart foreman
-    - Restart dynflow-sidekiq@
+    - name: Create the podman secret for Foreman client key
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-client-key
+        path: "{{ foreman_client_key }}"
+      notify:
+        - Restart foreman
+        - Restart dynflow-sidekiq@
 
-- name: Deploy Foreman Container
+- name: Deploy Foreman quadlet
   containers.podman.podman_container:
     name: "foreman"
     image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
     state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
     sdnotify: true
     network: host
     hostname: "{{ ansible_facts['fqdn'] }}"
@@ -116,12 +121,13 @@
         PartOf=foreman.target
   notify: Restart foreman
 
-- name: Deploy Dynflow Container
+- name: Deploy Dynflow quadlet template
   containers.podman.podman_container:
     name: "dynflow-sidekiq-%i"
     quadlet_filename: "dynflow-sidekiq@"
     image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
     state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
     sdnotify: true
     network: host
     hostname: "{{ ansible_facts['fqdn'] }}"
@@ -156,22 +162,20 @@
 - name: Create Dynflow Container instances
   ansible.builtin.file:
     state: link
-    src: "/etc/containers/systemd/dynflow-sidekiq@.container"
-    dest: "/etc/containers/systemd/dynflow-sidekiq@{{ item }}.container"
+    src: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@.container"
+    dest: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@{{ item }}.container"
   loop:
     - orchestrator
     - worker
     - worker-hosts-queue
 
-- name: Define templated Quadlet for recurring Foreman rake tasks
+- name: Deploy recurring task quadlets
   when: foreman_recurring_tasks_enabled
-  loop: "{{ foreman_recurring_tasks }}"
-  loop_control:
-    label: "{{ item.instance }}"
   containers.podman.podman_container:
     name: "foreman-recurring-{{ item.instance }}"
     quadlet_filename: "foreman-recurring@{{ item.instance }}"
     state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
     image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
     sdnotify: false
     network: host
@@ -199,22 +203,55 @@
         TimeoutStopSec=2m
         KillMode=mixed
         SyslogIdentifier=foreman-recurring-%i
+  loop: "{{ foreman_recurring_tasks }}"
+  loop_control:
+    label: "{{ item.instance }}"
+
+- name: Make quadlet files readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/{{ item }}"
+    mode: '0644'
+  loop:
+    - foreman.container
+    - dynflow-sidekiq@.container
+
+- name: Make recurring task quadlet files readable by foremanctl user
+  when: foreman_recurring_tasks_enabled
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/foreman-recurring@{{ item.instance }}.container"
+    mode: '0644'
+  loop: "{{ foreman_recurring_tasks }}"
+  loop_control:
+    label: "{{ item.instance }}"
 
 - name: Render timers for recurring tasks
   when: foreman_recurring_tasks_enabled
+  become: true
+  become_user: "{{ foremanctl_user }}"
   ansible.builtin.template:
     src: foreman-recurring@.timer.j2
-    dest: "/etc/systemd/system/foreman-recurring@{{ item.instance }}.timer"
+    dest: "{{ foremanctl_systemd_user_dir }}/foreman-recurring@{{ item.instance }}.timer"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
     mode: "0644"
   loop: "{{ foreman_recurring_tasks }}"
   loop_control:
     label: "{{ item.instance }}"
 
 - name: Run daemon reload to make Quadlet create the service files
-  ansible.builtin.systemd:
-    daemon_reload: true
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
 
 - name: Migrate and seed the Foreman database
+  become: true
+  become_user: "{{ foremanctl_user }}"
   containers.podman.podman_container:
     name: foreman-db-migrate
     image: "{{ foreman_container_image }}:{{ foreman_container_tag }}"
@@ -236,16 +273,46 @@
   ansible.builtin.meta: flush_handlers
 
 - name: Start services
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: started
-  async: 60
-  poll: 0
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start {{ item }}"
   loop:
     - dynflow-sidekiq@orchestrator
     - dynflow-sidekiq@worker
     - dynflow-sidekiq@worker-hosts-queue
     - foreman
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: "{{ item }}"
+  #   state: started
+  #   scope: user
+  # loop:
+  #   - dynflow-sidekiq@orchestrator
+  #   - dynflow-sidekiq@worker
+  #   - dynflow-sidekiq@worker-hosts-queue
+  #   - foreman
+
+- name: Enable & start recurring timers
+  when: foreman_recurring_tasks_enabled
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user enable --now foreman-recurring@{{ item.instance }}.timer"
+  loop: "{{ foreman_recurring_tasks }}"
+  loop_control:
+    label: "{{ item.instance }}"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: "foreman-recurring@{{ item.instance }}.timer"
+  #   enabled: true
+  #   state: started
+  #   scope: user
+  # loop: "{{ foreman_recurring_tasks }}"
+  # loop_control:
+  #   label: "{{ item.instance }}"
 
 - name: Wait for Foreman service to be accessible
   ansible.builtin.uri:
@@ -256,28 +323,15 @@
   delay: 5
   register: foreman_status
 
-- name: Enable & start recurring timers
-  when: foreman_recurring_tasks_enabled
-  ansible.builtin.systemd:
-    name: "foreman-recurring@{{ item.instance }}.timer"
-    enabled: true
-    state: started
-  loop: "{{ foreman_recurring_tasks }}"
-  loop_control:
-    label: "{{ item.instance }}"
-
 - name: Wait for Foreman tasks to be ready
   ansible.builtin.uri:
     url: '{{ foreman_url }}/api/v2/ping'
     validate_certs: false
-  until:
-    - foreman_tasks_status.status == 200
-    - foreman_tasks_status.json['results']['katello']['services']['foreman_tasks']['status'] == 'ok'
+  until: foreman_tasks_status.status == 200 and foreman_tasks_status.json['results']['katello']['services']['foreman_tasks']['status'] == 'ok'
   retries: 60
   delay: 5
   register: foreman_tasks_status
-  when:
-    - "'katello' in foreman_status.json['results']"
+  when: "'katello' in foreman_status.json['results']"
 
 - name: Configure Foreman Proxy
   theforeman.foreman.smart_proxy:

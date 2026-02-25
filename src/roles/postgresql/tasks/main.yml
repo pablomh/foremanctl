@@ -1,29 +1,43 @@
 ---
-- name: Pull PostgreSQL container image
-  containers.podman.podman_image:
-    name: "{{ postgresql_container_image }}:{{ postgresql_container_tag }}"
-    state: present
-
 - name: Create PostgreSQL storage directory
   ansible.builtin.file:
     path: "{{ postgresql_data_dir }}"
     state: directory
-    mode: "0700"
-    owner: 26
-    group: 26
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0700'
+    setype: container_var_lib_t
 
-- name: Create Podman secret for PostgreSQL admin password
-  containers.podman.podman_secret:
-    name: postgresql-admin-password
-    data: "{{ postgresql_admin_password }}"
-  notify:
-    - Restart postgresql
+- name: Set PostgreSQL directory ownership for container UID/GID
+  ansible.builtin.shell: |
+    cd /tmp
+    sudo -u {{ foremanctl_user }} podman unshare chown -R {{ postgresql_container_uid }}:{{ postgresql_container_gid }} {{ postgresql_data_dir }}
+  args:
+    executable: /bin/bash
+  changed_when: true
 
-- name: Deploy PostgreSQL container
+- name: Pull PostgreSQL container image and create secrets
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
+    - name: Pull PostgreSQL container image
+      containers.podman.podman_image:
+        name: "{{ postgresql_container_image }}:{{ postgresql_container_tag }}"
+        state: present
+
+    - name: Create Podman secret for PostgreSQL admin password
+      containers.podman.podman_secret:
+        name: postgresql-admin-password
+        data: "{{ postgresql_admin_password }}"
+      notify:
+        - Restart postgresql
+
+- name: Deploy PostgreSQL quadlet
   containers.podman.podman_container:
     name: "{{ postgresql_container_name }}"
     image: "{{ postgresql_container_image }}:{{ postgresql_container_tag }}"
     state: quadlet
+    quadlet_dir: "{{ foremanctl_quadlet_dir }}"
     healthcheck: pg_isready
     sdnotify: healthy
     network: host
@@ -42,17 +56,36 @@
         [Unit]
         PartOf=foreman.target
 
+- name: Make quadlet file readable by foremanctl user
+  ansible.builtin.file:
+    path: "{{ foremanctl_quadlet_dir }}/{{ postgresql_container_name }}.container"
+    mode: '0644'
+
 - name: Run daemon reload
-  ansible.builtin.systemd:
-    daemon_reload: true
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user daemon-reload"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   daemon_reload: true
+  #   scope: user
 
 - name: Flush handlers to restart services
   ansible.builtin.meta: flush_handlers
 
 - name: Start the PostgreSQL Service
-  ansible.builtin.systemd:
-    name: "{{ postgresql_container_name }}"
-    state: started
+  ansible.builtin.command:
+    cmd: "systemctl --machine={{ foremanctl_user }}@ --user start {{ postgresql_container_name }}"
+  changed_when: true
+  # Alternative approach using systemd module (requires become_user):
+  # become: true
+  # become_user: "{{ foremanctl_user }}"
+  # ansible.builtin.systemd:
+  #   name: "{{ postgresql_container_name }}"
+  #   state: started
+  #   scope: user
 
 # SCRAM-SHA-256 is default for PostgreSQL 14+,
 # after the upgrade, we can drop this task.

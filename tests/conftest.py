@@ -13,6 +13,55 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 SSH_CONFIG='./.tmp/ssh-config'
 
 
+class GenericService:
+    """Generic service checker that handles both user services and container services"""
+    def __init__(self, host, service_name, user=None):
+        self.host = host
+        self.service_name = service_name
+        self.user = user  # If set, use user systemd; otherwise check podman container
+
+    @property
+    def is_running(self):
+        """Check if service/container is running"""
+        if self.user:
+            # User systemd service
+            cmd = self.host.run(
+                f"systemctl --machine={self.user}@ --user is-active {self.service_name}"
+            )
+            return cmd.stdout.strip() == "active"
+        else:
+            # Podman container
+            cmd = self.host.run(f"podman inspect -f '{{{{.State.Running}}}}' {self.service_name}")
+            return cmd.succeeded and cmd.stdout.strip() == "true"
+
+    @property
+    def is_enabled(self):
+        """Check if service is enabled"""
+        if self.user:
+            # User systemd service
+            cmd = self.host.run(
+                f"systemctl --machine={self.user}@ --user is-enabled {self.service_name}"
+            )
+            return cmd.stdout.strip() in ("enabled", "static")
+        else:
+            # Containers don't have enabled state, just return is_running
+            return self.is_running
+
+    @property
+    def exists(self):
+        """Check if service/container exists"""
+        if self.user:
+            # User systemd service
+            cmd = self.host.run(
+                f"systemctl --machine={self.user}@ --user list-unit-files {self.service_name}"
+            )
+            return self.service_name in cmd.stdout
+        else:
+            # Podman container
+            cmd = self.host.run(f"podman ps -a --filter name={self.service_name} --format '{{{{.Names}}}}'")
+            return self.service_name in cmd.stdout
+
+
 def pytest_addoption(parser):
     parser.addoption("--certificate-source", action="store", default="default", choices=('default', 'installer'), help="Where to obtain certificates from")
     parser.addoption("--database-mode", action="store", default="internal", choices=('internal', 'external'), help="Whether the database is internal or external")
@@ -47,8 +96,13 @@ def client_fqdn(client_hostname):
 def certificates(pytestconfig, server_fqdn):
     source = pytestconfig.getoption("certificate_source")
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
+
+    # First pass: render to get the certificates_ca_directory value
     template = env.get_template(f"./src/vars/{source}_certificates.yml")
-    context = {'certificates_ca_directory': '/root/certificates',
+    first_pass = yaml.safe_load(template.render({'ansible_facts': {'fqdn': server_fqdn}}))
+
+    # Second pass: render with the certificates_ca_directory from the template itself
+    context = {'certificates_ca_directory': first_pass['certificates_ca_directory'],
                'ansible_facts': {'fqdn': server_fqdn}}
     return yaml.safe_load(template.render(context))
 
@@ -63,6 +117,26 @@ def server(server_hostname):
 
 
 @pytest.fixture(scope="module")
+def foremanctl_user():
+    return 'foremanctl'
+
+
+@pytest.fixture(scope="module")
+def foremanctl_uid(server, foremanctl_user):
+    """Get the UID of the foremanctl user"""
+    cmd = server.run(f"id -u {foremanctl_user}")
+    return cmd.stdout.strip()
+
+
+@pytest.fixture(scope="module")
+def user_service(server, foremanctl_user):
+    """Factory fixture for user service checking"""
+    def _user_service(service_name):
+        return GenericService(server, service_name, user=foremanctl_user)
+    return _user_service
+
+
+@pytest.fixture(scope="module")
 def client(client_hostname):
     yield testinfra.get_host(f'paramiko://{client_hostname}', sudo=True, ssh_config=SSH_CONFIG)
 
@@ -73,6 +147,13 @@ def database(database_mode, server):
         yield testinfra.get_host('paramiko://database', sudo=True, ssh_config=SSH_CONFIG)
     else:
         yield server
+@pytest.fixture(scope="module")
+def database_user_service(database_mode, database, foremanctl_user):
+    """Factory fixture for database service checking"""
+    def _service(service_name):
+        # Both internal and external databases run as user services
+        return GenericService(database, service_name, user=foremanctl_user)
+    return _service
 
 
 @pytest.fixture(scope="module")

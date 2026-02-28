@@ -17,6 +17,14 @@
     executable: /bin/bash
   changed_when: true
 
+- name: Create PostgreSQL socket directory
+  ansible.builtin.file:
+    path: "{{ postgresql_socket_dir }}"
+    state: directory
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: "0777"
+
 - name: Configure PostgreSQL container as rootless user
   environment:
     XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
@@ -42,9 +50,10 @@
         state: quadlet
         healthcheck: pg_isready
         sdnotify: healthy
-        network: host
+        network: "{{ postgresql_network }}"
         volumes:
           - "{{ postgresql_data_dir }}:/var/lib/pgsql/data:Z"
+          - "{{ postgresql_socket_dir }}:/tmp/socket:z"
         secrets:
           - 'postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'
         env:
@@ -71,6 +80,29 @@
         name: "{{ postgresql_container_name }}"
         state: started
         scope: user
+
+- name: Configure PostgreSQL additional socket directory
+  community.postgresql.postgresql_set:
+    login_user: postgres
+    login_password: "{{ postgresql_admin_password }}"
+    login_host: localhost
+    name: unix_socket_directories
+    value: "/var/run/postgresql,/tmp/socket"
+  notify:
+    - Restart postgresql
+
+- name: Configure PostgreSQL socket permissions
+  community.postgresql.postgresql_set:
+    login_user: postgres
+    login_password: "{{ postgresql_admin_password }}"
+    login_host: localhost
+    name: unix_socket_permissions
+    value: "0777"
+  notify:
+    - Restart postgresql
+
+- name: Flush handlers to apply socket configuration
+  ansible.builtin.meta: flush_handlers
 
 # SCRAM-SHA-256 is default for PostgreSQL 14+,
 # after the upgrade, we can drop this task.

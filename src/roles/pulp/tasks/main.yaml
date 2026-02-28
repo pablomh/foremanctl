@@ -198,15 +198,11 @@
         state: link
         src: "{{ foremanctl_quadlet_dir }}/{{ pulp_worker_container_name }}@.container"
         dest: "{{ foremanctl_quadlet_dir }}/{{ item }}.container"
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
       loop: "{{ pulp_worker_services }}"
 
     - name: Create pulp-worker.target
       ansible.builtin.copy:
         dest: "{{ foremanctl_systemd_user_dir }}/pulp-worker.target"
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
         mode: '0644'
         content: |
           [Unit]
@@ -280,6 +276,15 @@
         enabled: true
         state: started
         scope: user
+
+    - name: Wait for Pulp workers to register
+      ansible.builtin.uri:
+        url: "{{ pulp_pulp_url }}/pulp/api/v3/status/"
+        validate_certs: false
+      register: pulp_worker_wait
+      until: "(pulp_worker_wait.status == 200) and (pulp_worker_wait.json['online_workers'] | length > 0)"
+      retries: 60
+      delay: 5
 
     - name: Clean up old pulp-worker instances
       when:

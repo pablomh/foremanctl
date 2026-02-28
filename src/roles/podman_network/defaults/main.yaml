@@ -14,6 +14,11 @@ podman_network_driver: bridge
 # Internal network (no external access if true)
 podman_network_internal: false
 
+# Network isolation level (optional)
+# isolate=true   - containers on this network cannot reach containers on other networks
+# isolate=strict - additionally prevents containers within this network from reaching each other
+podman_network_isolate: ""
+
 # Enable IPv6
 podman_network_ipv6: false
 
@@ -21,9 +26,3 @@ podman_network_ipv6: false
 # podman_network_dns:
 #   - 8.8.8.8
 #   - 8.8.4.4
-
-# Network options
-podman_network_options: {}
-
-# Network labels
-podman_network_labels: {}

@@ -1,20 +1,27 @@
 ---
-- name: "Create system group: {{ rootless_user_group }}"
+- name: "Create group: {{ rootless_user_group }}"
   ansible.builtin.group:
     name: "{{ rootless_user_group }}"
-    system: true
     state: present
 
-- name: "Create system user: {{ rootless_user_name }}"
+- name: "Create user: {{ rootless_user_name }}"
   ansible.builtin.user:
     name: "{{ rootless_user_name }}"
     group: "{{ rootless_user_group }}"
     home: "{{ rootless_user_home }}"
     shell: "{{ rootless_user_shell }}"
     comment: "{{ rootless_user_comment }}"
-    system: true
     create_home: true
     state: present
+
+- name: "Ensure home directory is owned by {{ rootless_user_name }}"
+  ansible.builtin.file:
+    path: "{{ rootless_user_home }}"
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0700'
+    state: directory
+
 
 - name: Get user info to determine UID
   ansible.builtin.getent:

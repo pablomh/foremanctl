@@ -164,8 +164,6 @@
         state: link
         src: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@.container"
         dest: "{{ foremanctl_quadlet_dir }}/dynflow-sidekiq@{{ item }}.container"
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
       loop:
         - orchestrator
         - worker
@@ -214,8 +212,6 @@
           ansible.builtin.template:
             src: foreman-recurring@.timer.j2
             dest: "{{ foremanctl_systemd_user_dir }}/foreman-recurring@{{ item.instance }}.timer"
-            owner: "{{ foremanctl_user }}"
-            group: "{{ foremanctl_group }}"
             mode: "0644"
           loop: "{{ foreman_recurring_tasks }}"
           loop_control:

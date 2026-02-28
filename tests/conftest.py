@@ -141,6 +141,27 @@ def client(client_hostname):
     yield testinfra.get_host(f'paramiko://{client_hostname}', sudo=True, ssh_config=SSH_CONFIG)
 
 
+def get_user_home(host, user):
+    """Return the home directory of the given user"""
+    result = host.run(f"getent passwd {user}")
+    assert result.succeeded
+    return result.stdout.split(':')[5].strip()
+
+
+def get_service(host, service_name, user=None):
+    """Get either a rootless UserService or a standard testinfra service"""
+    if user:
+        return UserService(host, user, service_name)
+    else:
+        return host.service(service_name)
+
+
+@pytest.fixture(scope="module")
+def user():
+    """The user running rootless services"""
+    return "foremanctl"
+
+
 @pytest.fixture(scope="module")
 def database(database_mode, server):
     if database_mode == 'external':

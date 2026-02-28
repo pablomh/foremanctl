@@ -8,8 +8,6 @@
     - name: Define foreman.target
       ansible.builtin.copy:
         dest: "{{ foremanctl_systemd_user_dir }}/foreman.target"
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
         mode: '0644'
         content: |
           [Unit]

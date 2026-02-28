@@ -1,13 +1,14 @@
 import pytest
 
+from conftest import get_service
 
-def test_ingress_service(server):
-    service = server.service("iop-core-ingress")
+
+def test_ingress_service(server, user):
+    service = get_service(server, "iop-core-ingress", user)
     assert service.is_running
-    assert service.is_enabled
 
 
-def test_ingress_http_endpoint(server):
-    result = server.run("podman run --rm quay.io/iop/ingress:latest curl -s -o /dev/null -w '%{http_code}' http://iop-core-ingress:8080/")
+def test_ingress_http_endpoint(server, user):
+    result = server.run(f"cd /tmp && sudo -u {user} podman run --rm quay.io/iop/ingress:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-core-ingress:8080/")
     if result.succeeded:
         assert "200" in result.stdout

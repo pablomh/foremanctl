@@ -1,21 +1,21 @@
 import pytest
 
 
-def test_advisor_frontend_assets_directory(server):
+def test_advisor_frontend_assets_directory(server, user):
     assets_dir = server.file("/var/lib/foreman/public/assets/apps/advisor")
     assert assets_dir.exists
     assert assets_dir.is_directory
     assert assets_dir.mode == 0o755
 
 
-def test_advisor_frontend_app_info_file(server):
+def test_advisor_frontend_app_info_file(server, user):
     app_info_file = server.file("/var/lib/foreman/public/assets/apps/advisor/app.info.json")
 
     assert app_info_file.exists
     assert app_info_file.is_file
 
 
-def test_advisor_frontend_javascript_assets_accessible(server):
+def test_advisor_frontend_javascript_assets_accessible(server, user):
     result = server.run("find /var/lib/foreman/public/assets/apps/advisor -name '*.js' | head -1")
     assert result.succeeded
     assert result.stdout.strip()

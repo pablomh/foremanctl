@@ -283,18 +283,33 @@
       ansible.builtin.set_fact:
         _pulp_existing_workers: "{{ ansible_facts.services.keys() | select('match', '^' + pulp_worker_container_name + '@\\d+\\.service$') | list }}"
 
-    - name: Stop and disable old pulp-worker instances
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        enabled: false
-        state: stopped
-        scope: user
-      loop: "{{ _pulp_existing_workers }}"
+    - name: Wait for Pulp workers to register
+      ansible.builtin.uri:
+        url: "{{ pulp_pulp_url }}/pulp/api/v3/status/"
+        validate_certs: false
+      register: pulp_worker_wait
+      until: "(pulp_worker_wait.status == 200) and (pulp_worker_wait.json['online_workers'] | length > 0)"
+      retries: 60
+      delay: 5
+
+    - name: Clean up old pulp-worker instances
       when:
         - _pulp_existing_workers | length > 0
         - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)
+      block:
+        - name: Stop and disable old pulp-worker instances
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            enabled: false
+            state: stopped
+            scope: user
+          loop: "{{ _pulp_existing_workers }}"
 
-    - name: Remove container symlinks for old pulp-worker instances
+        - name: Remove container symlinks for old pulp-worker instances
+          ansible.builtin.file:
+            path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
+            state: absent
+          loop: "{{ _pulp_existing_workers }}"
       ansible.builtin.file:
         path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
         state: absent

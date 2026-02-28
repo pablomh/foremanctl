@@ -1,5 +1,9 @@
 ---
 - name: Check if remediation api service exists
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
   ansible.builtin.systemd:
     name: iop-service-remediations-api
   register: iop_remediation_api_service_status
@@ -7,8 +11,13 @@
   listen: restart remediation
 
 - name: Restart remediation api
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
   ansible.builtin.systemd:
     name: iop-service-remediations-api
     state: restarted
+    scope: user
   when: iop_remediation_api_service_status.status is defined and iop_remediation_api_service_status.status.LoadState != "not-found"
   listen: restart remediation

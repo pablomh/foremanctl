@@ -1,0 +1,11 @@
+---
+- name: Restart yuptoo
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.systemd:
+    name: iop-core-yuptoo
+    state: restarted
+    scope: user
+  when: ansible_facts.services['iop-core-yuptoo.service'] is defined

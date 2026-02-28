@@ -1,0 +1,46 @@
+---
+- name: Check if vmaas reposcan service exists
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.systemd:
+    name: iop-service-vmaas-reposcan
+  register: iop_vmaas_reposcan_service_status
+  failed_when: false
+  listen: restart vmaas
+
+- name: Restart vmaas reposcan
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.systemd:
+    name: iop-service-vmaas-reposcan
+    state: restarted
+    scope: user
+  when: iop_vmaas_reposcan_service_status.status is defined and iop_vmaas_reposcan_service_status.status.LoadState != "not-found"
+  listen: restart vmaas
+
+- name: Check if vmaas webapp-go service exists
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.systemd:
+    name: iop-service-vmaas-webapp-go
+  register: iop_vmaas_webapp_service_status
+  failed_when: false
+  listen: restart vmaas
+
+- name: Restart vmaas webapp-go
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  ansible.builtin.systemd:
+    name: iop-service-vmaas-webapp-go
+    state: restarted
+    scope: user
+  when: iop_vmaas_webapp_service_status.status is defined and iop_vmaas_webapp_service_status.status.LoadState != "not-found"
+  listen: restart vmaas

@@ -1,0 +1,17 @@
+---
+- name: Create Podman network as rootless user
+  environment:
+    XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  become: true
+  become_user: "{{ foremanctl_user }}"
+  block:
+    - name: Create custom Podman network
+      containers.podman.podman_network:
+        name: "{{ podman_network_name }}"
+        driver: "{{ podman_network_driver }}"
+        internal: "{{ podman_network_internal }}"
+        ipv6: "{{ podman_network_ipv6 }}"
+        subnet: "{{ podman_network_subnet | default(omit) }}"
+        gateway: "{{ podman_network_gateway | default(omit) }}"
+        dns: "{{ podman_network_dns | default(omit) }}"
+        state: present

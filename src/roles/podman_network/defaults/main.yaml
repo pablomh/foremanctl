@@ -1,0 +1,23 @@
+---
+# Network name
+podman_network_name: "foreman-network"
+
+# Network driver (default: bridge for custom networks)
+podman_network_driver: bridge
+
+# Network subnet (optional - will be auto-assigned if not specified)
+# podman_network_subnet: "10.89.0.0/24"
+
+# Network gateway (optional - will be auto-assigned if not specified)
+# podman_network_gateway: "10.89.0.1"
+
+# Internal network (no external access if true)
+podman_network_internal: false
+
+# Enable IPv6
+podman_network_ipv6: false
+
+# DNS servers (optional - uses system defaults if not specified)
+# podman_network_dns:
+#   - 8.8.8.8
+#   - 8.8.4.4

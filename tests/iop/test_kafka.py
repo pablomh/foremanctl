@@ -1,10 +1,11 @@
 import pytest
 
+from conftest import get_service, get_user_home
+
 
 def test_kafka_service(server, user):
-    result = server.run(f"systemctl --machine={user}@ --user is-active iop-core-kafka")
-    assert result.succeeded
-    assert "active" in result.stdout
+    service = get_service(server, "iop-core-kafka", user)
+    assert service.is_running
 
 
 def test_kafka_volume(server, user):
@@ -48,9 +49,7 @@ def test_kafka_container_running(server, user):
 
 
 def test_kafka_quadlet_file(server, user):
-    result = server.run(f"getent passwd {user}")
-    assert result.succeeded
-    user_home = result.stdout.split(':')[5]
+    user_home = get_user_home(server, user)
     quadlet_file = server.file(f"{user_home}/.config/containers/systemd/iop-core-kafka.container")
     assert quadlet_file.exists
     assert quadlet_file.is_file

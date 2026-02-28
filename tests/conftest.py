@@ -43,7 +43,7 @@ class GenericService:
             cmd = self.host.run(
                 f"systemctl --machine={self.user}@ --user is-enabled {self.service_name}"
             )
-            return cmd.stdout.strip() in ("enabled", "static")
+            return cmd.stdout.strip() in ("enabled", "static", "generated")
         else:
             # Containers don't have enabled state, just return is_running
             return self.is_running
@@ -143,6 +143,13 @@ def user_service(server, user):
     def _user_service(service_name):
         return GenericService(server, service_name, user=user)
     return _user_service
+
+
+def get_user_home(host, user):
+    """Return the home directory of the given user"""
+    result = host.run(f"getent passwd {user}")
+    assert result.succeeded
+    return result.stdout.split(':')[5].strip()
 
 
 def get_service(host, service_name, user=None):

@@ -40,7 +40,6 @@
         name: iop-core-kafka
         image: "{{ iop_kafka_container_image }}:{{ iop_kafka_container_tag }}"
         state: quadlet
-        quadlet_dir: "{{ foremanctl_quadlet_dir }}"
         command: sh bin/init-start.sh
         network:
           - iop-core-network

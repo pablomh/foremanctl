@@ -5,7 +5,7 @@
   vars:
     podman_network_name: "iop-core-network"
     podman_network_subnet: "10.130.0.0/24"
-    podman_network_gateway: "10.130.0.1"
+    podman_network_gateway: "{{ iop_core_network_gateway }}"
     podman_network_driver: "bridge"
     podman_network_internal: true
 

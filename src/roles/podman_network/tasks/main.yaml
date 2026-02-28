@@ -14,6 +14,4 @@
         subnet: "{{ podman_network_subnet | default(omit) }}"
         gateway: "{{ podman_network_gateway | default(omit) }}"
         dns: "{{ podman_network_dns | default(omit) }}"
-        options: "{{ podman_network_options }}"
-        labels: "{{ podman_network_labels }}"
         state: present

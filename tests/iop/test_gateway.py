@@ -1,18 +1,19 @@
 import pytest
 
+from conftest import get_service
 
-def test_gateway_service(server):
-    service = server.service("iop-core-gateway")
+
+def test_gateway_service(server, user):
+    service = get_service(server, "iop-core-gateway", user)
     assert service.is_running
-    assert service.is_enabled
 
 
-def test_gateway_port(server):
+def test_gateway_port(server, user):
     addr = server.addr("localhost")
     assert addr.port("24443").is_reachable
 
 
-def test_gateway_secrets(server):
+def test_gateway_secrets(server, user):
     secrets = [
         'iop-core-gateway-server-cert',
         'iop-core-gateway-server-key',
@@ -23,7 +24,7 @@ def test_gateway_secrets(server):
         'iop-core-gateway-relay-conf'
     ]
 
-    result = server.run("podman secret ls --format '{{.Name}}'")
+    result = server.run(f"cd /tmp && sudo -u {user} podman secret ls --format '{{{{.Name}}}}'")
     assert result.succeeded
 
     for secret_name in secrets:

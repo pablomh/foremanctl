@@ -37,6 +37,7 @@
           ansible.builtin.set_fact:
             postgresql_databases: "{{ postgresql_databases + iop_postgresql_databases }}"
             postgresql_users: "{{ postgresql_users + iop_postgresql_users }}"
+
   roles:
     - role: pre_install
     - role: checks

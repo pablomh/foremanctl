@@ -1,4 +1,9 @@
 ---
+- name: Install acl to allow Ansible to become an unprivileged user
+  ansible.builtin.package:
+    name: acl
+    state: present
+
 - name: "Create group: {{ rootless_user_group }}"
   ansible.builtin.group:
     name: "{{ rootless_user_group }}"
@@ -69,11 +74,11 @@
   failed_when: not rootless_user_xdg_stat.stat.exists
 
 - name: Create user config directories
+  become: true
+  become_user: "{{ rootless_user_name }}"
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ rootless_user_name }}"
-    group: "{{ rootless_user_group }}"
     mode: '0755'
   loop:
     - "{{ rootless_user_home }}/.config/containers/systemd"

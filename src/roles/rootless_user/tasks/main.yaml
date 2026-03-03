@@ -69,19 +69,13 @@
   failed_when: not rootless_user_xdg_stat.stat.exists
 
 - name: Create user config directories
-  become: true
-  become_user: "{{ rootless_user_name }}"
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    # XXX: Check this
-    # owner: "{{ rootless_user_name }}"
-    # group: "{{ rootless_user_group }}"
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
     mode: '0755'
   loop:
-    # - "{{ rootless_user_home }}/.config"
-    # - "{{ rootless_user_home }}/.config/containers"
     - "{{ rootless_user_home }}/.config/containers/systemd"
-    # - "{{ rootless_user_home }}/.config/systemd"
     - "{{ rootless_user_home }}/.config/systemd/user"
 ...

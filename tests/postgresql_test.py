@@ -1,6 +1,6 @@
 import csv
 import pytest
-from conftest import get_service
+from conftest import get_service, run_as
 
 
 def test_postgresql_service(database, user):
@@ -15,7 +15,7 @@ def test_postgresql_port(database):
 
 def test_postgresql_databases(database, user):
     if user:
-        result = database.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql -U postgres -c '\\l'")
+        result = run_as(database, user, "podman exec postgresql psql -U postgres -c '\\l'")
     else:
         result = database.run("podman exec postgresql psql -U postgres -c '\\l'")
     assert "foreman" in result.stdout
@@ -25,7 +25,7 @@ def test_postgresql_databases(database, user):
 
 def test_postgresql_users(database, user):
     if user:
-        result = database.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql -U postgres -c '\\du'")
+        result = run_as(database, user, "podman exec postgresql psql -U postgres -c '\\du'")
     else:
         result = database.run("podman exec postgresql psql -U postgres -c '\\du'")
     assert "foreman" in result.stdout
@@ -35,13 +35,13 @@ def test_postgresql_users(database, user):
 
 def test_postgresql_password_encryption(database, user):
     if user:
-        result = database.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql -U postgres -c 'SHOW password_encryption'")
+        result = run_as(database, user, "podman exec postgresql psql -U postgres -c 'SHOW password_encryption'")
     else:
         result = database.run("podman exec postgresql psql -U postgres -c 'SHOW password_encryption'")
     assert "scram-sha-256" in result.stdout
 
     if user:
-        result = database.run(f"cd /tmp && echo 'COPY (select * from pg_shadow) TO STDOUT (FORMAT CSV);' | sudo -u {user} podman exec -i postgresql psql -U postgres")
+        result = run_as(database, user, "echo 'COPY (select * from pg_shadow) TO STDOUT (FORMAT CSV);' | podman exec -i postgresql psql -U postgres")
     else:
         result = database.run("echo 'COPY (select * from pg_shadow) TO STDOUT (FORMAT CSV);' | podman exec -i postgresql psql -U postgres")
 

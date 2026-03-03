@@ -15,52 +15,26 @@ SSH_CONFIG='./.tmp/ssh-config'
 
 
 class GenericService:
-    """Generic service checker that handles both user services and container services"""
+    """Generic service checker for both rootless user services and rootful system services"""
     def __init__(self, host, service_name, user=None):
         self.host = host
         self.service_name = service_name
-        self.user = user  # If set, use user systemd; otherwise check podman container
+        self._systemctl_opts = f"--machine={user}@ --user" if user else ""
 
     @property
     def is_running(self):
-        """Check if service/container is running"""
-        if self.user:
-            # User systemd service
-            cmd = self.host.run(
-                f"systemctl --machine={self.user}@ --user is-active {self.service_name}"
-            )
-            return cmd.stdout.strip() == "active"
-        else:
-            # Podman container
-            cmd = self.host.run(f"podman inspect -f '{{{{.State.Running}}}}' {self.service_name}")
-            return cmd.succeeded and cmd.stdout.strip() == "true"
+        cmd = self.host.run(f"systemctl {self._systemctl_opts} is-active {self.service_name}")
+        return cmd.stdout.strip() == "active"
 
     @property
     def is_enabled(self):
-        """Check if service is enabled"""
-        if self.user:
-            # User systemd service
-            cmd = self.host.run(
-                f"systemctl --machine={self.user}@ --user is-enabled {self.service_name}"
-            )
-            return cmd.stdout.strip() in ("enabled", "static", "generated")
-        else:
-            # Containers don't have enabled state, just return is_running
-            return self.is_running
+        cmd = self.host.run(f"systemctl {self._systemctl_opts} is-enabled {self.service_name}")
+        return cmd.stdout.strip() in ("enabled", "static", "generated")
 
     @property
     def exists(self):
-        """Check if service/container exists"""
-        if self.user:
-            # User systemd service
-            cmd = self.host.run(
-                f"systemctl --machine={self.user}@ --user list-unit-files {self.service_name}"
-            )
-            return self.service_name in cmd.stdout
-        else:
-            # Podman container
-            cmd = self.host.run(f"podman ps -a --filter name={self.service_name} --format '{{{{.Names}}}}'")
-            return self.service_name in cmd.stdout
+        cmd = self.host.run(f"systemctl {self._systemctl_opts} list-unit-files {self.service_name}")
+        return self.service_name in cmd.stdout
 
 
 def pytest_addoption(parser):
@@ -150,6 +124,16 @@ def get_user_home(host, user):
     result = host.run(f"getent passwd {user}")
     assert result.succeeded
     return result.stdout.split(':')[5].strip()
+
+
+def run_as(host, user, cmd):
+    """Run a command as the given user, propagating the exit code correctly.
+
+    Uses runuser -l to avoid inheriting the caller's CWD (which may be
+    inaccessible to the target user, e.g. /root).
+    """
+    escaped = cmd.replace("'", "'\\''")
+    return host.run(f"runuser -l {user} -s /bin/bash -c '{escaped}'")
 
 
 def get_service(host, service_name, user=None):

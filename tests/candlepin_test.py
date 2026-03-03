@@ -1,10 +1,10 @@
 import re
-from conftest import get_service
+from conftest import get_service, run_as
 
 
 def assert_secret_content(server, secret_name, secret_value, user):
     if user:
-        secret = server.run(f'cd /tmp && sudo -u {user} podman secret inspect --format {{"{{.SecretData}}"}} --showsecret {secret_name}')
+        secret = run_as(server, user, f'podman secret inspect --format {{"{{.SecretData}}"}} --showsecret {secret_name}')
     else:
         secret = server.run(f'podman secret inspect --format {"{{.SecretData}}"} --showsecret {secret_name}')
     assert secret.succeeded

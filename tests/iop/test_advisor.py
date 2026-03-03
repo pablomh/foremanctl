@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service, get_user_home
+from conftest import get_service, get_user_home, run_as
 
 
 def test_advisor_backend_api_service(server, user):
@@ -14,13 +14,13 @@ def test_advisor_backend_service(server, user):
 
 
 def test_advisor_api_container(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman ps --format '{{{{.Names}}}}' | grep iop-service-advisor-backend-api")
+    result = run_as(server, user, f"podman ps --format '{{{{.Names}}}}' | grep iop-service-advisor-backend-api")
     assert result.succeeded
     assert "iop-service-advisor-backend-api" in result.stdout
 
 
 def test_advisor_service_container(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman ps --format '{{{{.Names}}}}' | grep iop-service-advisor-backend-service")
+    result = run_as(server, user, f"podman ps --format '{{{{.Names}}}}' | grep iop-service-advisor-backend-service")
     assert result.succeeded
     assert "iop-service-advisor-backend-service" in result.stdout
 
@@ -52,7 +52,7 @@ def test_advisor_service_dependencies(server, user):
 
 
 def test_advisor_database_secrets(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret ls --format '{{{{.Name}}}}'")
+    result = run_as(server, user, f"podman secret ls --format '{{{{.Name}}}}'")
     assert result.succeeded
     assert "iop-service-advisor-backend-database-username" in result.stdout
     assert "iop-service-advisor-backend-database-password" in result.stdout
@@ -62,80 +62,80 @@ def test_advisor_database_secrets(server, user):
 
 
 def test_advisor_api_kafka_connectivity(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman logs iop-service-advisor-backend-api 2>&1 | grep -i 'kafka\\|bootstrap'")
+    result = run_as(server, user, f"podman logs iop-service-advisor-backend-api 2>&1 | grep -i 'kafka\\|bootstrap'")
     assert result.succeeded
 
 
 def test_advisor_service_kafka_connectivity(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman logs iop-service-advisor-backend-service 2>&1 | grep -i 'kafka\\|bootstrap'")
+    result = run_as(server, user, f"podman logs iop-service-advisor-backend-service 2>&1 | grep -i 'kafka\\|bootstrap'")
     assert result.succeeded
 
 
 def test_advisor_api_port_configured(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman inspect iop-service-advisor-backend-api --format '{{{{.Config.Env}}}}'")
+    result = run_as(server, user, f"podman inspect iop-service-advisor-backend-api --format '{{{{.Config.Env}}}}'")
     assert result.succeeded
     assert "PORT=8000" in result.stdout
 
 
 def test_advisor_fdw_foreign_server_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT * FROM pg_foreign_server WHERE srvname = 'hbi_server';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT * FROM pg_foreign_server WHERE srvname = 'hbi_server';\"")
     assert result.succeeded
     assert "hbi_server" in result.stdout
 
 
 def test_advisor_fdw_user_mapping_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT * FROM information_schema.user_mappings WHERE foreign_server_name = 'hbi_server';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT * FROM information_schema.user_mappings WHERE foreign_server_name = 'hbi_server';\"")
     assert result.succeeded
     assert "advisor_user" in result.stdout
 
 
 def test_advisor_fdw_foreign_table_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"\\det inventory_source.*\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"\\det inventory_source.*\"")
     assert result.succeeded
     assert "hosts" in result.stdout
 
 
 def test_advisor_fdw_inventory_view_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"\\dv inventory.*\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"\\dv inventory.*\"")
     assert result.succeeded
     assert "hosts" in result.stdout
 
 
 def test_advisor_fdw_inventory_view_queryable(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT 1 FROM inventory.hosts LIMIT 1;\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT 1 FROM inventory.hosts LIMIT 1;\"")
     assert result.rc == 0
 
 
 def test_advisor_fdw_postgres_fdw_extension(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT extname FROM pg_extension WHERE extname = 'postgres_fdw';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT extname FROM pg_extension WHERE extname = 'postgres_fdw';\"")
     assert result.succeeded
     assert "postgres_fdw" in result.stdout
 
 
 def test_advisor_fdw_postgres_user_mapping_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT usename FROM pg_user_mappings WHERE srvname = 'hbi_server' AND usename = 'postgres';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT usename FROM pg_user_mappings WHERE srvname = 'hbi_server' AND usename = 'postgres';\"")
     assert result.succeeded
     assert "postgres" in result.stdout
 
 
 def test_advisor_fdw_inventory_source_schema_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'inventory_source';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'inventory_source';\"")
     assert result.succeeded
     assert "inventory_source" in result.stdout
 
 
 def test_advisor_fdw_inventory_schema_exists(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'inventory';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'inventory';\"")
     assert result.succeeded
     assert "inventory" in result.stdout
 
 
 def test_advisor_fdw_permissions_on_view(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec postgresql psql advisor_db -c \"SELECT privilege_type FROM information_schema.table_privileges WHERE grantee = 'advisor_user' AND table_schema = 'inventory' AND table_name = 'hosts';\"")
+    result = run_as(server, user, f"podman exec postgresql psql advisor_db -c \"SELECT privilege_type FROM information_schema.table_privileges WHERE grantee = 'advisor_user' AND table_schema = 'inventory' AND table_name = 'hosts';\"")
     assert result.succeeded
     assert "SELECT" in result.stdout
 
 
 def test_advisor_api_endpoint(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman run --network=iop-core-network --rm quay.io/iop/advisor-backend:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-service-advisor-backend-api:8000/ 2>/dev/null || echo '000'")
+    result = run_as(server, user, f"podman run --network=iop-core-network --rm quay.io/iop/advisor-backend:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-service-advisor-backend-api:8000/ 2>/dev/null || echo '000'")
     assert result.stdout.strip() != "000"

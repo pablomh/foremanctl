@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service, get_user_home
+from conftest import get_service, get_user_home, run_as
 
 
 def test_kafka_service(server, user):
@@ -9,13 +9,13 @@ def test_kafka_service(server, user):
 
 
 def test_kafka_volume(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman volume ls --format '{{{{.Name}}}}'")
+    result = run_as(server, user, f"podman volume ls --format '{{{{.Name}}}}'")
     assert result.succeeded
     assert "iop-core-kafka-data" in result.stdout
 
 
 def test_kafka_topics_initialized(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec iop-core-kafka /opt/kafka/init.sh --check")
+    result = run_as(server, user, f"podman exec iop-core-kafka /opt/kafka/init.sh --check")
     assert result.succeeded
 
 
@@ -26,7 +26,7 @@ def test_kafka_secrets(server, user):
         'iop-core-kafka-init'
     ]
 
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret ls --format '{{{{.Name}}}}'")
+    result = run_as(server, user, f"podman secret ls --format '{{{{.Name}}}}'")
     assert result.succeeded
 
     for secret_name in secrets:
@@ -34,7 +34,7 @@ def test_kafka_secrets(server, user):
 
 
 def test_kafka_config_content(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret inspect iop-core-kafka-server-properties --showsecret")
+    result = run_as(server, user, f"podman secret inspect iop-core-kafka-server-properties --showsecret")
     assert result.succeeded
 
     config_data = result.stdout.strip()
@@ -43,7 +43,7 @@ def test_kafka_config_content(server, user):
 
 
 def test_kafka_container_running(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman inspect iop-core-kafka --format '{{{{.State.Status}}}}'")
+    result = run_as(server, user, f"podman inspect iop-core-kafka --format '{{{{.State.Status}}}}'")
     assert result.succeeded
     assert "running" in result.stdout
 
@@ -76,7 +76,7 @@ def test_kafka_topic_creation(server, user):
         "vulnerability.grouper.advisor.upload"
     ]
 
-    result = server.run(f"cd /tmp && sudo -u {user} podman exec iop-core-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server iop-core-kafka:9092 --list")
+    result = run_as(server, user, f"podman exec iop-core-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server iop-core-kafka:9092 --list")
     assert result.succeeded
 
     for topic in topics:

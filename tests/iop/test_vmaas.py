@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service
+from conftest import get_service, run_as
 
 
 def test_vmaas_reposcan_service(server, user):
@@ -26,7 +26,7 @@ def test_vmaas_webapp_go_service_wants(server, user):
 
 
 def test_vmaas_database_secrets(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret ls --format '{{{{.Name}}}}'")
+    result = run_as(server, user, f"podman secret ls --format '{{{{.Name}}}}'")
     assert result.succeeded
     assert "iop-service-vmaas-reposcan-database-username" in result.stdout
     assert "iop-service-vmaas-reposcan-database-password" in result.stdout
@@ -36,6 +36,6 @@ def test_vmaas_database_secrets(server, user):
 
 
 def test_vmaas_data_volume(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman volume ls --format '{{{{.Name}}}}' | grep iop-service-vmaas-data")
+    result = run_as(server, user, f"podman volume ls --format '{{{{.Name}}}}' | grep iop-service-vmaas-data")
     assert result.succeeded
     assert "iop-service-vmaas-data" in result.stdout

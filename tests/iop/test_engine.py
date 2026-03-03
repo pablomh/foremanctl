@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service
+from conftest import get_service, run_as
 
 
 def test_engine_service(server, user):
@@ -9,13 +9,13 @@ def test_engine_service(server, user):
 
 
 def test_engine_secret(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret ls --format '{{{{.Name}}}}'")
+    result = run_as(server, user, f"podman secret ls --format '{{{{.Name}}}}'")
     assert result.succeeded
     assert "iop-core-engine-config-yml" in result.stdout
 
 
 def test_engine_config_content(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret inspect iop-core-engine-config-yml --showsecret")
+    result = run_as(server, user, f"podman secret inspect iop-core-engine-config-yml --showsecret")
     assert result.succeeded
 
     config_data = result.stdout.strip()
@@ -32,5 +32,5 @@ def test_engine_service_dependencies(server, user):
 
 
 def test_engine_kafka_connectivity(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman logs iop-core-engine 2>&1 | grep -i 'kafka\\|bootstrap'")
+    result = run_as(server, user, f"podman logs iop-core-engine 2>&1 | grep -i 'kafka\\|bootstrap'")
     assert result.succeeded

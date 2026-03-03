@@ -1,6 +1,6 @@
 import json
 import pytest
-from conftest import GenericService, get_service
+from conftest import GenericService, get_service, run_as
 
 PULP_HOST = 'localhost'
 PULP_API_PORT = 24817
@@ -78,7 +78,7 @@ def test_pulp_worker_target(server, user):
 
 def test_pulp_manager_check(server, user):
     if user:
-        result = server.run(f"cd /tmp && sudo -u {user} podman exec -ti pulp-api pulpcore-manager check --deploy")
+        result = run_as(server, user, "podman exec -ti pulp-api pulpcore-manager check --deploy")
     else:
         result = server.run("podman exec -ti pulp-api pulpcore-manager check --deploy")
     assert result.succeeded

@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service, get_user_home
+from conftest import get_service, get_user_home, run_as
 
 
 def test_inventory_migrate_service(server, user):
@@ -25,13 +25,13 @@ def test_inventory_service_dependencies(server, user):
 
 
 def test_inventory_api_endpoint(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-core-host-inventory-api:8081/health")
+    result = run_as(server, user, f"podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-core-host-inventory-api:8081/health")
     if result.succeeded:
         assert "200" in result.stdout
 
 
 def test_inventory_hosts_endpoint(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-core-host-inventory-api:8081/api/inventory/v1/hosts")
+    result = run_as(server, user, f"podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{{http_code}}' http://iop-core-host-inventory-api:8081/api/inventory/v1/hosts")
     if result.succeeded:
         assert "200" in result.stdout
 

@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service
+from conftest import get_service, run_as
 
 
 def test_gateway_service(server, user):
@@ -24,7 +24,7 @@ def test_gateway_secrets(server, user):
         'iop-core-gateway-relay-conf'
     ]
 
-    result = server.run(f"cd /tmp && sudo -u {user} podman secret ls --format '{{{{.Name}}}}'")
+    result = run_as(server, user, f"podman secret ls --format '{{{{.Name}}}}'")
     assert result.succeeded
 
     for secret_name in secrets:

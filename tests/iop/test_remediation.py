@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import get_service
+from conftest import get_service, run_as
 
 
 def test_remediation_api_service(server, user):
@@ -16,7 +16,7 @@ def test_remediation_api_service_dependencies(server, user):
 
 
 def test_remediation_api_environment_variables(server, user):
-    result = server.run(f"cd /tmp && sudo -u {user} podman inspect iop-service-remediations-api --format '{{{{.Config.Env}}}}'")
+    result = run_as(server, user, f"podman inspect iop-service-remediations-api --format '{{{{.Config.Env}}}}'")
     assert result.succeeded
     assert "REDIS_ENABLED=false" in result.stdout
     assert "RBAC_ENFORCE=false" in result.stdout

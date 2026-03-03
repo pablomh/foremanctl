@@ -148,6 +148,16 @@ def get_user_home(host, user):
     return result.stdout.split(':')[5].strip()
 
 
+def run_as(host, user, cmd):
+    """Run a command as the given user, propagating the exit code correctly.
+
+    Uses runuser -l to avoid inheriting the caller's CWD (which may be
+    inaccessible to the target user, e.g. /root).
+    """
+    escaped = cmd.replace("'", "'\\''")
+    return host.run(f"runuser -l {user} -s /bin/bash -c '{escaped}'")
+
+
 def get_service(host, service_name, user=None):
     """Get either a rootless UserService or a standard testinfra service"""
     if user:

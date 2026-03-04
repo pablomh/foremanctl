@@ -6,6 +6,7 @@ import py.path
 import pytest
 import testinfra
 import yaml
+import os
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -13,9 +14,33 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 SSH_CONFIG='./.tmp/ssh-config'
 
 
+class GenericService:
+    """Generic service checker for both rootless user services and rootful system services"""
+    def __init__(self, host, service_name, user=None):
+        self.host = host
+        self.service_name = service_name
+        self._systemctl_opts = f"--machine={user}@ --user" if user else ""
+
+    @property
+    def is_running(self):
+        cmd = self.host.run(f"systemctl {self._systemctl_opts} is-active {self.service_name}")
+        return cmd.stdout.strip() == "active"
+
+    @property
+    def is_enabled(self):
+        cmd = self.host.run(f"systemctl {self._systemctl_opts} is-enabled {self.service_name}")
+        return cmd.stdout.strip() in ("enabled", "static", "generated")
+
+    @property
+    def exists(self):
+        cmd = self.host.run(f"systemctl {self._systemctl_opts} list-unit-files {self.service_name}")
+        return self.service_name in cmd.stdout
+
+
 def pytest_addoption(parser):
     parser.addoption("--certificate-source", action="store", default="default", choices=('default', 'installer'), help="Where to obtain certificates from")
     parser.addoption("--database-mode", action="store", default="internal", choices=('internal', 'external'), help="Whether the database is internal or external")
+    parser.addoption("--user", action="store", default="none", help="User for rootless services (use 'none' for rootful mode)")
 
 
 @pytest.fixture(scope="module")
@@ -47,8 +72,13 @@ def client_fqdn(client_hostname):
 def certificates(pytestconfig, server_fqdn):
     source = pytestconfig.getoption("certificate_source")
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
+
+    # First pass: render to get the certificates_ca_directory value
     template = env.get_template(f"./src/vars/{source}_certificates.yml")
-    context = {'certificates_ca_directory': '/root/certificates',
+    first_pass = yaml.safe_load(template.render({'ansible_facts': {'fqdn': server_fqdn}}))
+
+    # Second pass: render with the certificates_ca_directory from the template itself
+    context = {'certificates_ca_directory': first_pass['certificates_ca_directory'],
                'ansible_facts': {'fqdn': server_fqdn}}
     return yaml.safe_load(template.render(context))
 
@@ -68,12 +98,66 @@ def client(client_hostname):
 
 
 @pytest.fixture(scope="module")
+def user(pytestconfig):
+    """User for rootless services (None for rootful mode)"""
+    user_value = pytestconfig.getoption("user")
+    return None if user_value == "none" else user_value
+
+
+@pytest.fixture(scope="module")
+def user_uid(server, user):
+    """Get the UID of the user"""
+    cmd = server.run(f"id -u {user}")
+    return cmd.stdout.strip()
+
+
+@pytest.fixture(scope="module")
+def user_service(server, user):
+    """Factory fixture for user service checking"""
+    def _user_service(service_name):
+        return GenericService(server, service_name, user=user)
+    return _user_service
+
+
+def get_user_home(host, user):
+    """Return the home directory of the given user"""
+    result = host.run(f"getent passwd {user}")
+    assert result.succeeded
+    return result.stdout.split(':')[5].strip()
+
+
+def run_as(host, user, cmd):
+    """Run a command as the given user, propagating the exit code correctly.
+
+    Uses runuser -l to avoid inheriting the caller's CWD (which may be
+    inaccessible to the target user, e.g. /root).
+    """
+    escaped = cmd.replace("'", "'\\''")
+    return host.run(f"runuser -l {user} -s /bin/bash -c '{escaped}'")
+
+
+def get_service(host, service_name, user=None):
+    """Generic helper to get either rootful or rootless service based on user parameter"""
+    if user:
+        return GenericService(host, service_name, user=user)
+    else:
+        return host.service(service_name)
+
+
+@pytest.fixture(scope="module")
 def database(database_mode, server):
     if database_mode == 'external':
         yield testinfra.get_host('paramiko://database', sudo=True, ssh_config=SSH_CONFIG)
     else:
         yield server
 
+@pytest.fixture(scope="module")
+def database_user_service(database_mode, database, user):
+    """Factory fixture for database service checking"""
+    def _service(service_name):
+        # Both internal and external databases run as user services
+        return GenericService(database, service_name, user=user)
+    return _service
 
 @pytest.fixture(scope="module")
 def ssh_config(server_hostname):
@@ -171,3 +255,25 @@ def wait_for_tasks(foremanapi, search=None):
 
 def wait_for_metadata_generate(foremanapi):
     wait_for_tasks(foremanapi, 'label = Actions::Katello::Repository::MetadataGenerate')
+
+
+def is_iop_enabled():
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    foremanctl_dir = os.path.dirname(test_dir)
+    params_file = os.path.join(foremanctl_dir, '.var', 'lib', 'foremanctl', 'parameters.yaml')
+
+    if os.path.exists(params_file):
+        with open(params_file, 'r') as f:
+            params = yaml.safe_load(f)
+            features = params.get('features', [])
+            if isinstance(features, str):
+                features = features.split()
+            return 'iop' in features
+
+    return False
+
+
+def pytest_runtest_setup(item):
+    if "iop" in item.nodeid.lower():
+        if not is_iop_enabled():
+            pytest.skip("IOP not enabled - skipping IOP tests ('iop' not in enabled_features)")

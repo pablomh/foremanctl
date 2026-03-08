@@ -90,9 +90,7 @@
         Wants=redis.service postgresql.service
         After=redis.service postgresql.service
         [Service]
-        # Candlepin's first start runs schema migrations against the database.
-        # With an external database this takes longer than the default 5 minutes.
-        TimeoutStartSec=600
+        TimeoutStartSec=300
     healthcheck: curl --fail --insecure https://localhost:23443/candlepin/status
     sdnotify: healthy
 

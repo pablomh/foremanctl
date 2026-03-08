@@ -63,9 +63,7 @@
     name: "candlepin"
     image: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
     state: quadlet
-    network:
-      - foreman-db
-      - foreman-app
+    network: "{{ candlepin_networks }}"
     ports:
       - "127.0.0.1:23443:23443"
       - "127.0.0.1:61613:61613"

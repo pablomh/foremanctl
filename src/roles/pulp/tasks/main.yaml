@@ -207,7 +207,7 @@
     command: pulpcore-manager migrate --noinput
     detach: false
     rm: true
-    network: foreman-db
+    network: "{{ pulp_migration_networks }}"
     volumes: "{{ pulp_volumes }}"
     secrets:
       - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
@@ -221,7 +221,7 @@
     command: pulpcore-manager reset-admin-password --random
     detach: false
     rm: true
-    network: foreman-db
+    network: "{{ pulp_migration_networks }}"
     volumes: "{{ pulp_volumes }}"
     secrets:
       - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'

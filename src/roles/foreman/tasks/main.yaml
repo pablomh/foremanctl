@@ -238,7 +238,7 @@
       - bin/rails db:migrate && bin/rails db:seed
     detach: false
     rm: true
-    network: foreman-db
+    network: "{{ foreman_migration_networks }}"
     env:
       FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
     secrets:

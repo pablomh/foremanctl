@@ -64,9 +64,7 @@
     image: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
     state: quadlet
     network: "{{ candlepin_networks }}"
-    ports:
-      - "127.0.0.1:23443:23443"
-      - "127.0.0.1:61613:61613"
+    ports: "{{ candlepin_ports | default(omit) }}"
     hostname: "{{ ansible_facts['fqdn'] }}"
     secrets:
       - 'candlepin-ca-cert,target=/etc/candlepin/certs/candlepin-ca.crt,mode=0440,type=mount'

@@ -5,7 +5,6 @@ postgresql_registry_auth_file: /etc/foreman/registry-auth.json
 postgresql_container_name: postgresql
 postgresql_network: foreman-db
 postgresql_socket_dir: /var/run/postgresql
-postgresql_ports: []
 postgresql_restart_policy: always
 
 postgresql_data_dir: /var/lib/pgsql/data

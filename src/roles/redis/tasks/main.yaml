@@ -22,7 +22,6 @@
     sdnotify: true
     command: ["run-redis", "--supervised", "systemd"]
     network: "{{ redis_network }}"
-    ports: "{{ redis_ports | default(omit) }}"
     volumes:
       - /var/lib/redis:/data:Z
     quadlet_options:

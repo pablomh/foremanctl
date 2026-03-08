@@ -218,37 +218,14 @@
     enabled: true
     state: started
 
-- name: Wait for Foreman development server to start listening
-  ansible.builtin.wait_for:
-    port: "{{ foreman_development_rails_port }}"
-    timeout: 300
-
 - name: Wait for Foreman development server to be accessible
-  block:
-    - name: Try to access Foreman API
-      ansible.builtin.uri:
-        url: '{{ foreman_development_url }}/api/v2/ping'
-        validate_certs: false
-        timeout: 300
-        status_code:
-          - 200
-          - 503
-      register: foreman_development_status
-      until: foreman_development_status.status in [200, 503]
-      retries: 60
-      delay: 5
-  rescue:
-    - name: Show service status on failure
-      ansible.builtin.command:
-        cmd: systemctl status foreman-development
-      failed_when: false
-      register: foreman_development_service_status
-    - name: Display service status
-      ansible.builtin.debug:
-        var: foreman_development_service_status.stdout_lines
-    - name: Fail with useful message
-      ansible.builtin.fail:
-        msg: "Foreman development server failed to start. Check the service status above."
+  ansible.builtin.uri:
+    url: '{{ foreman_development_url }}/api/v2/ping'
+    validate_certs: false
+  register: foreman_development_status
+  until: foreman_development_status.status == 200
+  retries: 30
+  delay: 5
 
 - name: Configure Foreman Proxy for Pulp
   theforeman.foreman.smart_proxy:

@@ -18,7 +18,6 @@
     - role: postgresql
       vars:
         postgresql_network: host
-        postgresql_ports: []
         postgresql_databases:
           - name: "{{ candlepin_database_name }}"
             owner: "{{ candlepin_database_user }}"
@@ -43,7 +42,6 @@
       vars:
         candlepin_networks: host
         candlepin_database_host: localhost
-        candlepin_ports: []
     - role: httpd
     - role: pulp
       vars:

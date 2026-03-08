@@ -7,7 +7,6 @@ foreman_database_name: foreman
 foreman_database_user: foreman
 foreman_database_host: postgresql
 foreman_database_port: 5432
-foreman_migration_networks: "{{ ['foreman-db'] if database_mode == 'internal' else ['foreman-app'] }}"
 foreman_database_pool: 9
 foreman_database_ssl_mode: disable
 foreman_database_ssl_ca:

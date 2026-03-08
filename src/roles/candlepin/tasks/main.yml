@@ -64,7 +64,6 @@
     image: "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
     state: quadlet
     network: "{{ candlepin_networks }}"
-    ports: "{{ candlepin_ports | default(omit) }}"
     hostname: "{{ ansible_facts['fqdn'] }}"
     secrets:
       - 'candlepin-ca-cert,target=/etc/candlepin/certs/candlepin-ca.crt,mode=0440,type=mount'
@@ -94,7 +93,7 @@
         # Candlepin's first start runs schema migrations against the database.
         # With an external database this takes longer than the default 5 minutes.
         TimeoutStartSec=600
-    healthcheck: curl --fail --cacert /etc/candlepin/certs/candlepin-ca.crt https://candlepin:23443/candlepin/status
+    healthcheck: curl --fail --insecure https://localhost:23443/candlepin/status
     sdnotify: healthy
 
 - name: Run daemon reload to make Quadlet create the service files

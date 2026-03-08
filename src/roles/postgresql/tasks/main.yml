@@ -37,7 +37,6 @@
     healthcheck: pg_isready
     sdnotify: healthy
     network: "{{ postgresql_network }}"
-    ports: "{{ postgresql_ports | default(omit) }}"
     volumes:
       - "{{ postgresql_data_dir }}:/var/lib/pgsql/data:Z"
       - "{{ postgresql_socket_dir }}:{{ postgresql_socket_dir }}:Z"

@@ -4,10 +4,17 @@ postgresql_container_tag: "latest"
 postgresql_registry_auth_file: /etc/foreman/registry-auth.json
 postgresql_container_name: postgresql
 postgresql_network: foreman-db
-postgresql_socket_dir: /var/run/postgresql
+# Host-side directory exposed to the container; community.postgresql connects here.
+# Mounted inside the container at /tmp/socket to avoid the sclorg entrypoint
+# chowning /var/run/postgresql to postgres:postgres with mode 0700.
+postgresql_socket_dir: /var/lib/foremanctl/postgresql-socket
 postgresql_restart_policy: always
 
 postgresql_data_dir: /var/lib/pgsql/data
+
+# Container UID/GID for the postgres process (used for podman unshare chown)
+postgresql_container_uid: 26
+postgresql_container_gid: 26
 
 postgresql_admin_password: "CHANGEME"
 

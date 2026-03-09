@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import apypie
@@ -12,10 +13,82 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 SSH_CONFIG='./.tmp/ssh-config'
 
+# ---------------------------------------------------------------------------
+# Rootless helpers
+# ---------------------------------------------------------------------------
+
+# Controls how run_as() switches to a non-root user.  Set via environment
+# variable so the testing method can be swapped without touching any test:
+#
+#   FOREMANCTL_RUN_AS_METHOD=runuser      (default) sudo-free, propagates exit codes
+#   FOREMANCTL_RUN_AS_METHOD=machinectl  full login session, XDG auto-set,
+#                                         but machinectl shell always exits 0
+#   FOREMANCTL_RUN_AS_METHOD=systemd-run  runs in the user's systemd scope
+RUN_AS_METHOD = os.environ.get("FOREMANCTL_RUN_AS_METHOD", "runuser")
+
+
+def run_as(server, user, cmd):
+    """Run *cmd* on *server* as *user*, using the configured RUN_AS_METHOD."""
+    if RUN_AS_METHOD == "machinectl":
+        # NOTE: machinectl shell always exits 0 regardless of the inner
+        # command's exit code.  Use result.stdout/stderr for assertions.
+        return server.run(f"machinectl shell {user}@ /bin/bash -c '{cmd}'")
+    elif RUN_AS_METHOD == "systemd-run":
+        return server.run(
+            f"systemd-run --user --uid {user} --wait --pipe -- /bin/bash -c '{cmd}'"
+        )
+    else:  # runuser (default)
+        xdg = f"XDG_RUNTIME_DIR=/run/user/$(id -u {user})"
+        return server.run(
+            f"runuser -l {user} -s /bin/bash -c 'export {xdg}; {cmd}'"
+        )
+
+
+def foremanctl_run(server, cmd):
+    """Shortcut for run_as(server, 'foremanctl', cmd)."""
+    return run_as(server, "foremanctl", cmd)
+
+
+class UserService:
+    """Testinfra-compatible wrapper for a systemd user-scope service.
+
+    Mirrors the interface of testinfra's Service class so that test
+    assertions read the same way regardless of scope.
+    """
+
+    def __init__(self, server, user, name):
+        self._server = server
+        self._user = user
+        self._name = name
+
+    def _run(self, cmd):
+        return run_as(self._server, self._user, cmd)
+
+    @property
+    def is_running(self):
+        return self._run(f"systemctl --user is-active {self._name}").rc == 0
+
+    @property
+    def is_enabled(self):
+        return self._run(f"systemctl --user is-enabled {self._name}").rc == 0
+
+    @property
+    def exists(self):
+        # systemctl --user status exits 4 when the unit is not found
+        return self._run(f"systemctl --user status {self._name}").rc != 4
+
 
 def pytest_addoption(parser):
     parser.addoption("--certificate-source", action="store", default="default", choices=('default', 'installer'), help="Where to obtain certificates from")
     parser.addoption("--database-mode", action="store", default="internal", choices=('internal', 'external'), help="Whether the database is internal or external")
+
+
+@pytest.fixture(scope="module")
+def user_service(server):
+    """Factory fixture: user_service("redis") returns a UserService instance."""
+    def _factory(name):
+        return UserService(server, "foremanctl", name)
+    return _factory
 
 
 @pytest.fixture(scope="module")
@@ -48,7 +121,7 @@ def certificates(pytestconfig, server_fqdn):
     source = pytestconfig.getoption("certificate_source")
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
     template = env.get_template(f"./src/vars/{source}_certificates.yml")
-    context = {'certificates_ca_directory': '/root/certificates',
+    context = {'certificates_ca_directory': '/var/lib/foremanctl/certificates',
                'ansible_facts': {'fqdn': server_fqdn}}
     return yaml.safe_load(template.render(context))
 

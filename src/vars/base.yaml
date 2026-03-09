@@ -1,4 +1,22 @@
 ---
+# Rootless service user
+foremanctl_user: foremanctl
+foremanctl_group: foremanctl
+foremanctl_home: "/var/lib/{{ foremanctl_user }}"
+foremanctl_quadlet_dir: "{{ foremanctl_home }}/.config/containers/systemd"
+foremanctl_systemd_user_dir: "{{ foremanctl_home }}/.config/systemd/user"
+# foremanctl_xdg_runtime_dir is set dynamically by the rootless_user role
+
+# Which become method to use for rootless foremanctl tasks.
+# 'sudo': needs XDG_RUNTIME_DIR passed explicitly via foremanctl_runtime_env
+# 'community.general.machinectl': full login session, XDG_RUNTIME_DIR auto-set
+foremanctl_become_method: sudo
+
+# Environment injected into every foremanctl become block.
+# Set to {} when using a become method that provides XDG_RUNTIME_DIR automatically.
+foremanctl_runtime_env:
+  XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+
 certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
   - candlepin

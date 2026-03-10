@@ -131,20 +131,21 @@
   until: _postgresql_healthcheck.rc == 0
   changed_when: false
 
-- name: Wait for pg_hba.conf to exist
+- name: Wait for PostgreSQL data directory initialization
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.command:
-    cmd: podman exec {{ postgresql_container_name }} test -f /var/lib/pgsql/data/pg_hba.conf
+    cmd: podman exec {{ postgresql_container_name }} test -f /var/lib/pgsql/data/PG_VERSION
   retries: 30
   delay: 2
-  register: _postgresql_pg_hba_exists
-  until: _postgresql_pg_hba_exists.rc == 0
+  register: _postgresql_data_initialized
+  until: _postgresql_data_initialized.rc == 0
   changed_when: false
 
 - name: Check if pg_hba.conf already allows network connections
+  when: postgresql_network != "host"
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
@@ -158,7 +159,9 @@
   failed_when: false
 
 - name: Configure pg_hba.conf to allow network connections
-  when: _postgresql_pg_hba_check.rc != 0
+  when:
+    - postgresql_network != "host"
+    - _postgresql_pg_hba_check.rc != 0
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
@@ -172,6 +175,7 @@
     - Restart postgresql
 
 - name: Flush handlers to apply pg_hba configuration
+  when: postgresql_network != "host"
   ansible.builtin.meta: flush_handlers
 
 # SCRAM-SHA-256 is default for PostgreSQL 14+,

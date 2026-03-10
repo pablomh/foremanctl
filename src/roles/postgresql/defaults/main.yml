@@ -11,7 +11,6 @@ postgresql_socket_dir: /var/lib/foremanctl/postgresql-socket
 postgresql_restart_policy: always
 
 postgresql_data_dir: /var/lib/pgsql/data
-postgresql_socket_dir: /var/lib/foremanctl/postgresql-socket
 
 # Container UID/GID for the postgres process (used for podman unshare chown)
 postgresql_container_uid: 26

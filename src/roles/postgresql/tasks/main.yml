@@ -24,14 +24,6 @@
     cmd: "podman unshare chown -R {{ postgresql_container_uid }}:{{ postgresql_container_gid }} {{ postgresql_data_dir }}"
   changed_when: true
 
-- name: Create PostgreSQL socket directory
-  ansible.builtin.file:
-    path: "{{ postgresql_socket_dir }}"
-    state: directory
-    owner: "{{ foremanctl_user }}"
-    group: "{{ foremanctl_group }}"
-    mode: "0777"
-
 - name: Configure PostgreSQL container as rootless user
   become: true
   become_method: "{{ foremanctl_become_method }}"

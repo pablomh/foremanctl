@@ -96,11 +96,11 @@
       podman exec {{ postgresql_container_name }}
       psql -U postgres -tAc
       "SELECT setting FROM pg_settings WHERE name='unix_socket_directories'"
-  register: _current_socket_dirs
+  register: postgresql_current_socket_dirs
   changed_when: false
 
 - name: Configure unix_socket_directories to include the bind-mounted path
-  when: "'/tmp/socket' not in _current_socket_dirs.stdout"
+  when: "'/tmp/socket' not in postgresql_current_socket_dirs.stdout"
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"

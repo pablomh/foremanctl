@@ -118,20 +118,19 @@
 - name: Flush handlers to apply socket configuration
   ansible.builtin.meta: flush_handlers
 
-- name: Wait for PostgreSQL data directory initialization
+- name: Wait for PostgreSQL service to be healthy
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
-  ansible.builtin.command:
-    cmd: >-
-      podman exec {{ postgresql_container_name }}
-      test -f /var/lib/pgsql/data/pg_hba.conf
-  register: _postgresql_pg_hba_exists
+  ansible.builtin.systemd:
+    name: "{{ postgresql_container_name }}"
+    state: started
+    scope: user
   retries: 30
   delay: 2
-  until: _postgresql_pg_hba_exists.rc == 0
-  changed_when: false
+  register: _postgresql_service_status
+  until: _postgresql_service_status is successful
 
 - name: Check if pg_hba.conf already allows network connections
   become: true

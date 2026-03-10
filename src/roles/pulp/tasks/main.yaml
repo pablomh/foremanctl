@@ -310,10 +310,3 @@
             path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
             state: absent
           loop: "{{ _pulp_existing_workers }}"
-      ansible.builtin.file:
-        path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
-        state: absent
-      loop: "{{ _pulp_existing_workers }}"
-      when:
-        - _pulp_existing_workers | length > 0
-        - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)

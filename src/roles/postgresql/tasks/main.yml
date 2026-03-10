@@ -118,6 +118,22 @@
 - name: Flush handlers to apply socket configuration
   ansible.builtin.meta: flush_handlers
 
+- name: Configure pg_hba.conf to allow network connections
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  ansible.builtin.command:
+    cmd: >-
+      podman exec {{ postgresql_container_name }}
+      bash -c "echo 'host all all 0.0.0.0/0 scram-sha-256' >> /var/lib/pgsql/data/pg_hba.conf"
+  changed_when: true
+  notify:
+    - Restart postgresql
+
+- name: Flush handlers to apply pg_hba configuration
+  ansible.builtin.meta: flush_handlers
+
 # SCRAM-SHA-256 is default for PostgreSQL 14+,
 # after the upgrade, we can drop this task.
 - name: Use scram-sha-256 for password encryption

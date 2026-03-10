@@ -118,7 +118,7 @@
 - name: Flush handlers to apply socket configuration
   ansible.builtin.meta: flush_handlers
 
-- name: Configure pg_hba.conf to allow network connections
+- name: Check if pg_hba.conf already allows network connections
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
@@ -126,7 +126,21 @@
   ansible.builtin.command:
     cmd: >-
       podman exec {{ postgresql_container_name }}
-      bash -c "echo 'host all all 0.0.0.0/0 scram-sha-256' >> /var/lib/pgsql/data/pg_hba.conf"
+      grep -q 'host all all 0.0.0.0/0 scram-sha-256' /var/lib/pgsql/data/pg_hba.conf
+  register: _postgresql_pg_hba_check
+  changed_when: false
+  failed_when: false
+
+- name: Configure pg_hba.conf to allow network connections
+  when: _postgresql_pg_hba_check.rc != 0
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  ansible.builtin.command:
+    cmd: >-
+      podman exec {{ postgresql_container_name }}
+      bash -c "sed -i '1i host all all 0.0.0.0/0 scram-sha-256' /var/lib/pgsql/data/pg_hba.conf"
   changed_when: true
   notify:
     - Restart postgresql

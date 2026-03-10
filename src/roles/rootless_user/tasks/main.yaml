@@ -62,15 +62,15 @@
 
 - name: "Enable lingering for user: {{ rootless_user_name }}"
   ansible.builtin.command: loginctl enable-linger {{ rootless_user_name }}
-  register: rootless_user_linger_result
-  changed_when: rootless_user_linger_result is succeeded
-  failed_when: rootless_user_linger_result is failed
+  register: _rootless_user_linger_result
+  changed_when: _rootless_user_linger_result is succeeded
+  failed_when: _rootless_user_linger_result is failed
 
 - name: Verify XDG_RUNTIME_DIR exists
   ansible.builtin.stat:
     path: "{{ rootless_user_xdg_runtime_dir }}"
-  register: rootless_user_xdg_stat
-  failed_when: not rootless_user_xdg_stat.stat.exists
+  register: _rootless_user_xdg_stat
+  failed_when: not _rootless_user_xdg_stat.stat.exists
 
 - name: Create user config directories
   ansible.builtin.file:

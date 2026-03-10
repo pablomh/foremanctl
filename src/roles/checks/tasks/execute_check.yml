@@ -6,4 +6,4 @@
   rescue:
     - name: Record check result
       ansible.builtin.set_fact:
-        checks_results: "{{ (checks_results | default([])) + [ansible_failed_result] }}"
+        _checks_results: "{{ (_checks_results | default([])) + [ansible_failed_result] }}"

@@ -272,10 +272,10 @@
       ansible.builtin.uri:
         url: '{{ foreman_url }}/api/v2/ping'
         validate_certs: false
-      until: foreman_status.status == 200
+      until: _foreman_status.status == 200
       retries: 60
       delay: 5
-      register: foreman_status
+      register: _foreman_status
 
     - name: Enable & start recurring timers
       when: foreman_recurring_tasks_enabled
@@ -293,13 +293,13 @@
         url: '{{ foreman_url }}/api/v2/ping'
         validate_certs: false
       until:
-        - foreman_tasks_status.status == 200
-        - foreman_tasks_status.json['results']['katello']['services']['foreman_tasks']['status'] == 'ok'
+        - _foreman_tasks_status.status == 200
+        - _foreman_tasks_status.json['results']['katello']['services']['foreman_tasks']['status'] == 'ok'
       retries: 60
       delay: 5
-      register: foreman_tasks_status
+      register: _foreman_tasks_status
       when:
-        - "'katello' in foreman_status.json['results']"
+        - "'katello' in _foreman_status.json['results']"
 
     - name: Configure Foreman Proxy
       theforeman.foreman.smart_proxy:

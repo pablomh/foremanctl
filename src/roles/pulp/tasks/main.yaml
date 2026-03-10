@@ -258,7 +258,7 @@
       async: 60
       poll: 0
       loop: "{{ pulp_all_services }}"
-      register: pulp_services
+      register: _pulp_services
 
     - name: Wait for Pulp services
       ansible.builtin.async_status:
@@ -267,7 +267,7 @@
       until: _pulp_job_result is finished
       retries: 100
       delay: 1
-      loop: "{{ pulp_services.results }}"
+      loop: "{{ _pulp_services.results }}"
 
     - name: Enable and start pulp-worker.target
       ansible.builtin.systemd:
@@ -281,7 +281,7 @@
 
     - name: Build list of existing pulp-worker services
       ansible.builtin.set_fact:
-        pulp_existing_workers: "{{ ansible_facts.services.keys() | select('match', '^' + pulp_worker_container_name + '@\\d+\\.service$') | list }}"
+        _pulp_existing_workers: "{{ ansible_facts.services.keys() | select('match', '^' + pulp_worker_container_name + '@\\d+\\.service$') | list }}"
 
     - name: Stop and disable old pulp-worker instances
       ansible.builtin.systemd:
@@ -289,16 +289,16 @@
         enabled: false
         state: stopped
         scope: user
-      loop: "{{ pulp_existing_workers }}"
+      loop: "{{ _pulp_existing_workers }}"
       when:
-        - pulp_existing_workers | length > 0
+        - _pulp_existing_workers | length > 0
         - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)
 
     - name: Remove container symlinks for old pulp-worker instances
       ansible.builtin.file:
         path: "{{ foremanctl_quadlet_dir }}/{{ item | regex_replace('\\.service$', '.container') }}"
         state: absent
-      loop: "{{ pulp_existing_workers }}"
+      loop: "{{ _pulp_existing_workers }}"
       when:
-        - pulp_existing_workers | length > 0
+        - _pulp_existing_workers | length > 0
         - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)

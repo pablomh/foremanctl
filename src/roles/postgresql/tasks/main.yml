@@ -118,19 +118,18 @@
 - name: Flush handlers to apply socket configuration
   ansible.builtin.meta: flush_handlers
 
-- name: Wait for PostgreSQL service to be healthy
+- name: Wait for PostgreSQL container to be healthy
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
-  ansible.builtin.systemd:
-    name: "{{ postgresql_container_name }}"
-    state: started
-    scope: user
+  ansible.builtin.command:
+    cmd: podman healthcheck run {{ postgresql_container_name }}
   retries: 30
   delay: 2
-  register: _postgresql_service_status
-  until: _postgresql_service_status is successful
+  register: _postgresql_healthcheck
+  until: _postgresql_healthcheck.rc == 0
+  changed_when: false
 
 - name: Check if pg_hba.conf already allows network connections
   become: true

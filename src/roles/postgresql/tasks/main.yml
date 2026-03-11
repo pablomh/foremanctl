@@ -6,7 +6,8 @@
   ansible.builtin.file:
     path: "{{ postgresql_data_dir }}"
     state: directory
-    mode: "0755"
+    mode: "0700"
+    setype: container_var_lib_t
 
 - name: Create PostgreSQL socket directory
   ansible.builtin.file:

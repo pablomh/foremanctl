@@ -25,17 +25,17 @@
     group: "{{ foremanctl_group }}"
     mode: "0777"
 
+- name: Set PostgreSQL listen address based on network mode
+  ansible.builtin.set_fact:
+    _postgresql_listen_address: "{{ (postgresql_network != 'host' or postgresql_allow_remote_connections) | ternary('*', 'localhost') }}"
+
 - name: Set PostgreSQL environment variables
   ansible.builtin.set_fact:
     _postgresql_env:
       POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
       POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
       POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
-
-- name: Add POSTGRESQL_LISTEN_ADDRESSES for bridge networks or remote access
-  when: postgresql_network != "host" or postgresql_allow_remote_connections
-  ansible.builtin.set_fact:
-    _postgresql_env: "{{ _postgresql_env | combine({'POSTGRESQL_LISTEN_ADDRESSES': '*'}) }}"
+      POSTGRESQL_LISTEN_ADDRESSES: "{{ _postgresql_listen_address }}"
 
 - name: Configure PostgreSQL container as rootless user
   become: true
@@ -139,54 +139,6 @@
   register: _postgresql_healthcheck
   until: _postgresql_healthcheck.rc == 0
   changed_when: false
-
-- name: Wait for pg_hba.conf to be created
-  when: postgresql_network != "host" or postgresql_allow_remote_connections
-  become: true
-  become_method: "{{ foremanctl_become_method }}"
-  become_user: "{{ foremanctl_user }}"
-  environment: "{{ foremanctl_runtime_env }}"
-  ansible.builtin.command:
-    cmd: podman exec {{ postgresql_container_name }} test -f /var/lib/pgsql/data/pg_hba.conf
-  retries: 30
-  delay: 2
-  register: _postgresql_pg_hba_exists
-  until: _postgresql_pg_hba_exists.rc == 0
-  changed_when: false
-
-- name: Check if pg_hba.conf already allows network connections
-  when: postgresql_network != "host" or postgresql_allow_remote_connections
-  become: true
-  become_method: "{{ foremanctl_become_method }}"
-  become_user: "{{ foremanctl_user }}"
-  environment: "{{ foremanctl_runtime_env }}"
-  ansible.builtin.command:
-    cmd: >-
-      podman exec {{ postgresql_container_name }}
-      grep -q 'host all all 0.0.0.0/0 scram-sha-256' /var/lib/pgsql/data/pg_hba.conf
-  register: _postgresql_pg_hba_check
-  changed_when: false
-  failed_when: false
-
-- name: Configure pg_hba.conf to allow network connections
-  when:
-    - postgresql_network != "host" or postgresql_allow_remote_connections
-    - _postgresql_pg_hba_check.rc != 0
-  become: true
-  become_method: "{{ foremanctl_become_method }}"
-  become_user: "{{ foremanctl_user }}"
-  environment: "{{ foremanctl_runtime_env }}"
-  ansible.builtin.command:
-    cmd: >-
-      podman exec {{ postgresql_container_name }}
-      bash -c "sed -i '1i host all all 0.0.0.0/0 scram-sha-256' /var/lib/pgsql/data/pg_hba.conf"
-  changed_when: true
-  notify:
-    - Restart postgresql
-
-- name: Flush handlers to apply pg_hba configuration
-  when: postgresql_network != "host" or postgresql_allow_remote_connections
-  ansible.builtin.meta: flush_handlers
 
 # SCRAM-SHA-256 is default for PostgreSQL 14+,
 # after the upgrade, we can drop this task.

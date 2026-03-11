@@ -106,8 +106,54 @@
     - name: Flush handlers to restart services
       ansible.builtin.meta: flush_handlers
 
-    - name: Start the Candlepin Service
-      ansible.builtin.systemd:
-        name: candlepin
-        state: started
-        scope: user
+    - name: Start the Candlepin Service with debugging
+      block:
+        - name: Start the Candlepin Service
+          ansible.builtin.systemd:
+            name: candlepin
+            state: started
+            scope: user
+      rescue:
+        - name: DEBUG - Get candlepin service status
+          ansible.builtin.command:
+            cmd: systemctl --user status candlepin
+          register: _candlepin_status
+          failed_when: false
+
+        - name: DEBUG - Display candlepin service status
+          ansible.builtin.debug:
+            msg: "{{ _candlepin_status.stdout_lines }}"
+
+        - name: DEBUG - Get candlepin journal logs
+          ansible.builtin.command:
+            cmd: journalctl --user -xeu candlepin.service -n 200
+          register: _candlepin_logs
+          failed_when: false
+
+        - name: DEBUG - Display candlepin logs
+          ansible.builtin.debug:
+            msg: "{{ _candlepin_logs.stdout_lines }}"
+
+        - name: DEBUG - Get candlepin container logs
+          ansible.builtin.command:
+            cmd: podman logs candlepin --tail 100
+          register: _candlepin_container_logs
+          failed_when: false
+
+        - name: DEBUG - Display candlepin container logs
+          ansible.builtin.debug:
+            msg: "{{ _candlepin_container_logs.stdout_lines }}"
+
+        - name: DEBUG - Test PostgreSQL TCP connectivity
+          ansible.builtin.command:
+            cmd: nc -zv {{ candlepin_database_host }} {{ candlepin_database_port }}
+          register: _candlepin_pg_tcp_test
+          failed_when: false
+
+        - name: DEBUG - Display PostgreSQL TCP test
+          ansible.builtin.debug:
+            msg: "PostgreSQL TCP test: {{ _candlepin_pg_tcp_test.stdout_lines + _candlepin_pg_tcp_test.stderr_lines }}"
+
+        - name: Re-raise the failure
+          ansible.builtin.fail:
+            msg: "Candlepin service failed to start"

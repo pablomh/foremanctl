@@ -31,11 +31,7 @@
       POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
       POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
       POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
-
-- name: Add POSTGRESQL_LISTEN_ADDRESSES for bridge networks or remote access
-  when: postgresql_network != "host" or postgresql_allow_remote_connections
-  ansible.builtin.set_fact:
-    _postgresql_env: "{{ _postgresql_env | combine({'POSTGRESQL_LISTEN_ADDRESSES': '*'}) }}"
+      POSTGRESQL_LISTEN_ADDRESSES: "*"
 
 - name: Configure PostgreSQL container as rootless user
   become: true

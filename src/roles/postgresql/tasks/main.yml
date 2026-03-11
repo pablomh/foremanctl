@@ -32,8 +32,8 @@
       POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
       POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
 
-- name: Add POSTGRESQL_LISTEN_ADDRESSES for bridge networks
-  when: postgresql_network != "host"
+- name: Add POSTGRESQL_LISTEN_ADDRESSES for bridge networks or remote access
+  when: postgresql_network != "host" or postgresql_allow_remote_connections
   ansible.builtin.set_fact:
     _postgresql_env: "{{ _postgresql_env | combine({'POSTGRESQL_LISTEN_ADDRESSES': '*'}) }}"
 
@@ -141,7 +141,7 @@
   changed_when: false
 
 - name: Wait for pg_hba.conf to be created
-  when: postgresql_network != "host"
+  when: postgresql_network != "host" or postgresql_allow_remote_connections
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
@@ -155,7 +155,7 @@
   changed_when: false
 
 - name: Check if pg_hba.conf already allows network connections
-  when: postgresql_network != "host"
+  when: postgresql_network != "host" or postgresql_allow_remote_connections
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
@@ -170,7 +170,7 @@
 
 - name: Configure pg_hba.conf to allow network connections
   when:
-    - postgresql_network != "host"
+    - postgresql_network != "host" or postgresql_allow_remote_connections
     - _postgresql_pg_hba_check.rc != 0
   become: true
   become_method: "{{ foremanctl_become_method }}"
@@ -185,7 +185,7 @@
     - Restart postgresql
 
 - name: Flush handlers to apply pg_hba configuration
-  when: postgresql_network != "host"
+  when: postgresql_network != "host" or postgresql_allow_remote_connections
   ansible.builtin.meta: flush_handlers
 
 # SCRAM-SHA-256 is default for PostgreSQL 14+,

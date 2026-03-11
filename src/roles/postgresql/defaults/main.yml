@@ -21,3 +21,6 @@ postgresql_admin_password: "CHANGEME"
 postgresql_max_connections: 500
 postgresql_shared_buffers: 512MB
 postgresql_effective_cache_size: 1GB
+
+# Allow remote connections (for external database deployments)
+postgresql_allow_remote_connections: false

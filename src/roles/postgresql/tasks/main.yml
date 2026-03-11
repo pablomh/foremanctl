@@ -52,7 +52,7 @@
         sdnotify: healthy
         network: "{{ postgresql_network }}"
         volumes:
-          - "{{ postgresql_data_dir }}:/var/lib/pgsql/data:Z"
+          - "{{ postgresql_data_dir }}:/var/lib/pgsql/data:z"
           - "{{ postgresql_socket_dir }}:/tmp/socket:z"
         secrets:
           - 'postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'
@@ -132,17 +132,18 @@
   until: _postgresql_healthcheck.rc == 0
   changed_when: false
 
-- name: Wait for PostgreSQL data directory initialization
+- name: Wait for pg_hba.conf to be created
+  when: postgresql_network != "host"
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.command:
-    cmd: podman exec {{ postgresql_container_name }} test -f /var/lib/pgsql/data/PG_VERSION
+    cmd: podman exec {{ postgresql_container_name }} test -f /var/lib/pgsql/data/pg_hba.conf
   retries: 30
   delay: 2
-  register: _postgresql_data_initialized
-  until: _postgresql_data_initialized.rc == 0
+  register: _postgresql_pg_hba_exists
+  until: _postgresql_pg_hba_exists.rc == 0
   changed_when: false
 
 - name: Check if pg_hba.conf already allows network connections

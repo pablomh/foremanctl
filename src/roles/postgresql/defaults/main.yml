@@ -10,7 +10,7 @@ postgresql_network: foreman-db
 postgresql_socket_dir: /var/lib/foremanctl/postgresql-socket
 postgresql_restart_policy: always
 
-postgresql_data_dir: /var/lib/foremanctl/postgresql-data
+postgresql_data_dir: /var/lib/pgsql/data
 
 # Container UID/GID for the postgres process (used for podman unshare chown)
 postgresql_container_uid: 26

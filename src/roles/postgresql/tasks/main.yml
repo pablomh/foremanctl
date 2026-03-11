@@ -25,6 +25,18 @@
     group: "{{ foremanctl_group }}"
     mode: "0777"
 
+- name: Set PostgreSQL environment variables
+  ansible.builtin.set_fact:
+    _postgresql_env:
+      POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
+      POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
+      POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
+
+- name: Add POSTGRESQL_LISTEN_ADDRESSES for bridge networks
+  when: postgresql_network != "host"
+  ansible.builtin.set_fact:
+    _postgresql_env: "{{ _postgresql_env | combine({'POSTGRESQL_LISTEN_ADDRESSES': '*'}) }}"
+
 - name: Configure PostgreSQL container as rootless user
   become: true
   become_method: "{{ foremanctl_become_method }}"
@@ -56,11 +68,7 @@
           - "{{ postgresql_socket_dir }}:/tmp/socket:z"
         secrets:
           - 'postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'
-        env:
-          POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
-          POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"
-          POSTGRESQL_EFFECTIVE_CACHE_SIZE: "{{ postgresql_effective_cache_size }}"
-          POSTGRESQL_LISTEN_ADDRESSES: "*"
+        env: "{{ _postgresql_env }}"
         quadlet_options:
           - |
             [Install]

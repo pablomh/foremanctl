@@ -4,46 +4,7 @@
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
-  block:
-    - name: Restart candlepin service
-      ansible.builtin.systemd:
-        name: candlepin
-        state: restarted
-        scope: user
-  rescue:
-    - name: DEBUG - Get candlepin service status after restart failure
-      ansible.builtin.systemd:
-        name: candlepin
-        scope: user
-      register: _candlepin_restart_status
-      failed_when: false
-
-    - name: DEBUG - Display candlepin service status
-      ansible.builtin.debug:
-        msg: "{{ _candlepin_restart_status }}"
-
-    - name: DEBUG - Get candlepin journal logs
-      ansible.builtin.command:
-        cmd: journalctl --user -xeu candlepin.service -n 200
-      register: _candlepin_restart_logs
-      failed_when: false
-      changed_when: false
-
-    - name: DEBUG - Display candlepin logs
-      ansible.builtin.debug:
-        msg: "{{ _candlepin_restart_logs.stdout_lines }}"
-
-    - name: DEBUG - Get candlepin container logs
-      ansible.builtin.command:
-        cmd: podman logs candlepin --tail 100
-      register: _candlepin_restart_container_logs
-      failed_when: false
-      changed_when: false
-
-    - name: DEBUG - Display candlepin container logs
-      ansible.builtin.debug:
-        msg: "{{ _candlepin_restart_container_logs.stdout_lines }}"
-
-    - name: Re-raise the failure
-      ansible.builtin.fail:
-        msg: "Candlepin restart failed. See debug output above."
+  ansible.builtin.systemd:
+    name: candlepin
+    state: restarted
+    scope: user

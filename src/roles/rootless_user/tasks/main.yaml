@@ -44,11 +44,11 @@
     create: true
     mode: '0644'
 
-- name: "Add subgid entry for group: {{ rootless_user_group }}"
+- name: "Add subgid entry for user: {{ rootless_user_name }}"
   ansible.builtin.lineinfile:
     path: /etc/subgid
-    regexp: "^{{ rootless_user_group }}:"
-    line: "{{ rootless_user_group }}:{{ rootless_user_subgid_start }}:{{ rootless_user_subgid_count }}"
+    regexp: "^{{ rootless_user_name }}:"
+    line: "{{ rootless_user_name }}:{{ rootless_user_subgid_start }}:{{ rootless_user_subgid_count }}"
     create: true
     mode: '0644'
 

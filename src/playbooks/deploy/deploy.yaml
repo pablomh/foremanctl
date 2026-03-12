@@ -32,14 +32,19 @@
         state: directory
         mode: '0711'
 
-    - name: Make installer certificates readable by rootless user
+    - name: Make installer certificate directories readable by rootless user
       when: "certificate_source == 'installer'"
       become: true
-      ansible.builtin.file:
-        path: /root/ssl-build
-        state: directory
-        mode: '0755'
-        recurse: true
+      ansible.builtin.command:
+        cmd: find /root/ssl-build -type d -exec chmod 0755 {} +
+      changed_when: false
+
+    - name: Make installer certificate files readable by rootless user
+      when: "certificate_source == 'installer'"
+      become: true
+      ansible.builtin.command:
+        cmd: find /root/ssl-build -type f -exec chmod 0644 {} +
+      changed_when: false
 
   roles:
     - role: pre_install

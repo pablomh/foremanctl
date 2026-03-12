@@ -103,6 +103,28 @@
         daemon_reload: true
         scope: user
 
+    # Pinpoint: verify DB is reachable from the same network context Candlepin will use
+    # (host-side nc to "postgresql" does not resolve when using bridge networks)
+    - name: DEBUG - Test PostgreSQL reachability from Candlepin network (pre-start)
+      when: database_mode == 'internal'
+      ansible.builtin.command:
+        cmd: >-
+          podman run --rm
+          {{ candlepin_networks | map('regex_replace', '^', '--network ') | join(' ') | trim }}
+          {{ postgresql_container_image }}:{{ postgresql_container_tag }}
+          pg_isready -h {{ candlepin_database_host }} -p {{ candlepin_database_port }} -U postgres
+      register: _candlepin_pg_prestart_test
+      changed_when: false
+      failed_when: false
+
+    - name: DEBUG - Display PostgreSQL pre-start reachability
+      when: database_mode == 'internal'
+      ansible.builtin.debug:
+        msg: >-
+          PostgreSQL reachability from Candlepin network ({{ candlepin_networks }}):
+          {{ 'SUCCESS' if _candlepin_pg_prestart_test.rc == 0 else 'FAILED' }}
+          {{ (_candlepin_pg_prestart_test.stderr_lines + _candlepin_pg_prestart_test.stdout_lines) | default([]) }}
+
     - name: Start the Candlepin Service with debugging
       block:
         - name: Start the Candlepin Service
@@ -144,16 +166,26 @@
           ansible.builtin.debug:
             msg: "{{ _candlepin_container_logs.stdout_lines }}"
 
-        - name: DEBUG - Test PostgreSQL TCP connectivity
+        # Run from container on Candlepin networks so "postgresql" hostname resolves
+        - name: DEBUG - Test PostgreSQL TCP from Candlepin network (rescue)
+          when: database_mode == 'internal'
           ansible.builtin.command:
-            cmd: nc -zv {{ candlepin_database_host }} {{ candlepin_database_port }}
-          register: _candlepin_pg_tcp_test
+            cmd: >-
+              podman run --rm
+              {{ candlepin_networks | map('regex_replace', '^', '--network ') | join(' ') | trim }}
+              {{ postgresql_container_image }}:{{ postgresql_container_tag }}
+              pg_isready -h {{ candlepin_database_host }} -p {{ candlepin_database_port }} -U postgres
+          register: _candlepin_pg_rescue_test
           failed_when: false
           changed_when: false
 
-        - name: DEBUG - Display PostgreSQL TCP test
+        - name: DEBUG - Display PostgreSQL TCP test (rescue)
+          when: database_mode == 'internal'
           ansible.builtin.debug:
-            msg: "PostgreSQL TCP test: {{ _candlepin_pg_tcp_test.stdout_lines + _candlepin_pg_tcp_test.stderr_lines }}"
+            msg: >-
+              PostgreSQL from Candlepin network (rescue):
+              {{ 'SUCCESS' if _candlepin_pg_rescue_test.rc == 0 else 'FAILED' }}
+              {{ (_candlepin_pg_rescue_test.stderr_lines + _candlepin_pg_rescue_test.stdout_lines) | default([]) }}
 
         - name: Re-raise the failure
           ansible.builtin.fail:

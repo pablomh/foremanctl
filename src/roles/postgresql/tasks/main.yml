@@ -184,6 +184,31 @@
     msg: "PostgreSQL TCP connection test: {{ 'SUCCESS' if _postgresql_tcp_test is successful else 'FAILED' }}"
   when: postgresql_network == "host"
 
+# When using bridge network, verify TCP reachability from another container on the
+# same network (as Candlepin will use). Host-side nc to "postgresql" would not resolve.
+- name: DEBUG - Test TCP to PostgreSQL from bridge network
+  when: postgresql_network != "host"
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  ansible.builtin.command:
+    cmd: >-
+      podman run --rm --network {{ postgresql_network }}
+      {{ postgresql_container_image }}:{{ postgresql_container_tag }}
+      pg_isready -h {{ postgresql_container_name }} -p 5432 -U postgres
+  register: _postgresql_bridge_tcp_test
+  changed_when: false
+  failed_when: false
+
+- name: DEBUG - Display PostgreSQL bridge TCP test result
+  when: postgresql_network != "host"
+  ansible.builtin.debug:
+    msg: >-
+      PostgreSQL bridge TCP (from {{ postgresql_network }}):
+      {{ 'SUCCESS' if _postgresql_bridge_tcp_test.rc == 0 else 'FAILED' }}
+      {{ (_postgresql_bridge_tcp_test.stderr_lines + _postgresql_bridge_tcp_test.stdout_lines) | default([]) }}
+
 # SCRAM-SHA-256 is default for PostgreSQL 14+,
 # after the upgrade, we can drop this task.
 - name: Use scram-sha-256 for password encryption

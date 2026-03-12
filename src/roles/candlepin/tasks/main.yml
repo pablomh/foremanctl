@@ -164,7 +164,7 @@
 
         - name: DEBUG - Get Podman error from journal (exit 125 etc.)
           ansible.builtin.shell:
-            cmd: journalctl --user -b -n 500 --no-pager -o short-iso 2>&1 | grep -E -i 'candlepin|podman|125|error|failed' || true
+            cmd: set -o pipefail && journalctl --user -b -n 500 --no-pager -o short-iso 2>&1 | grep -E -i 'candlepin|podman|125|error|failed' || true
           register: _candlepin_podman_journal
           failed_when: false
           changed_when: false
@@ -182,7 +182,10 @@
 
         - name: DEBUG - Display candlepin container logs
           ansible.builtin.debug:
-            msg: "{{ ((_candlepin_container_logs.stdout_lines | default([])) + (_candlepin_container_logs.stderr_lines | default([]))) or ['(container already removed or no output)'] }}"
+            msg: >-
+              {{ ((_candlepin_container_logs.stdout_lines | default([]))
+              + (_candlepin_container_logs.stderr_lines | default([])))
+              or ['(container already removed or no output)'] }}
 
         # Run from container on Candlepin networks so "postgresql" hostname resolves
         # Only applicable when using bridge networks, not host networking

@@ -184,6 +184,23 @@
     msg: "PostgreSQL TCP connection test: {{ 'SUCCESS' if _postgresql_tcp_test is successful else 'FAILED' }}"
   when: postgresql_network == "host"
 
+- name: Configure pg_hba.conf to allow TCP connections from bridge networks
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  ansible.builtin.command:
+    cmd: >-
+      podman exec {{ postgresql_container_name }}
+      bash -c "grep -q 'host all all 0.0.0.0/0 scram-sha-256' /var/lib/pgsql/data/pg_hba.conf ||
+      sed -i '1i host all all 0.0.0.0/0 scram-sha-256' /var/lib/pgsql/data/pg_hba.conf"
+  changed_when: false
+  notify:
+    - Restart postgresql
+
+- name: Flush handlers to apply pg_hba configuration
+  ansible.builtin.meta: flush_handlers
+
 # SCRAM-SHA-256 is default for PostgreSQL 14+,
 # after the upgrade, we can drop this task.
 - name: Use scram-sha-256 for password encryption

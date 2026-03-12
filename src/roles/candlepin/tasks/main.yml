@@ -105,8 +105,12 @@
 
     # Pinpoint: verify DB is reachable from the same network context Candlepin will use
     # (host-side nc to "postgresql" does not resolve when using bridge networks)
+    # Only applicable when using bridge networks, not host networking
     - name: DEBUG - Test PostgreSQL reachability from Candlepin network (pre-start)
-      when: database_mode == 'internal'
+      when:
+        - database_mode == 'internal'
+        - candlepin_networks is iterable
+        - candlepin_networks is not string
       ansible.builtin.command:
         cmd: >-
           podman run --rm
@@ -118,7 +122,10 @@
       failed_when: false
 
     - name: DEBUG - Display PostgreSQL pre-start reachability
-      when: database_mode == 'internal'
+      when:
+        - database_mode == 'internal'
+        - candlepin_networks is iterable
+        - candlepin_networks is not string
       ansible.builtin.debug:
         msg: >-
           PostgreSQL reachability from Candlepin network ({{ candlepin_networks }}):
@@ -167,8 +174,12 @@
             msg: "{{ _candlepin_container_logs.stdout_lines }}"
 
         # Run from container on Candlepin networks so "postgresql" hostname resolves
+        # Only applicable when using bridge networks, not host networking
         - name: DEBUG - Test PostgreSQL TCP from Candlepin network (rescue)
-          when: database_mode == 'internal'
+          when:
+            - database_mode == 'internal'
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
           ansible.builtin.command:
             cmd: >-
               podman run --rm
@@ -180,7 +191,10 @@
           changed_when: false
 
         - name: DEBUG - Display PostgreSQL TCP test (rescue)
-          when: database_mode == 'internal'
+          when:
+            - database_mode == 'internal'
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
           ansible.builtin.debug:
             msg: >-
               PostgreSQL from Candlepin network (rescue):

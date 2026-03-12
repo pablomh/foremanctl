@@ -122,6 +122,9 @@
           FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
         quadlet_options:
           - |
+            [Container]
+            AddHost={{ ansible_facts['fqdn'] }}:host-gateway
+          - |
             [Install]
             WantedBy=default.target foreman.target
             [Unit]

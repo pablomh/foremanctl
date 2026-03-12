@@ -52,7 +52,7 @@ def test_katello_services_status(foreman_status, katello_service):
 
 
 @pytest.mark.parametrize("dynflow_instance", ['orchestrator', 'worker', 'worker-hosts-queue'])
-def test_foreman_dynflow_container_instances(server):
+def test_foreman_dynflow_container_instances(dynflow_instance, server):
     file = server.file(f"/var/lib/foremanctl/.config/containers/systemd/dynflow-sidekiq@{dynflow_instance}.container")
     assert file.exists
     assert file.is_symlink

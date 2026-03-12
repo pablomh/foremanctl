@@ -23,6 +23,24 @@
     - "../../vars/database.yml"
     - "../../vars/foreman.yml"
     - "../../vars/base.yaml"
+  pre_tasks:
+    - name: Make /root directory traversable for rootless user
+      when: "certificate_source == 'installer'"
+      become: true
+      ansible.builtin.file:
+        path: /root
+        state: directory
+        mode: '0711'
+
+    - name: Make installer certificates readable by rootless user
+      when: "certificate_source == 'installer'"
+      become: true
+      ansible.builtin.file:
+        path: /root/ssl-build
+        state: directory
+        mode: '0755'
+        recurse: true
+
   roles:
     - role: pre_install
     - role: checks

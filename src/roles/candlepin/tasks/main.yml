@@ -153,16 +153,27 @@
 
         - name: DEBUG - Get candlepin journal logs
           ansible.builtin.command:
-            cmd: journalctl --user -xeu candlepin.service -n 200
+            cmd: journalctl --user -u candlepin.service -n 200 --no-pager -o short-iso
           register: _candlepin_logs
           failed_when: false
           changed_when: false
 
-        - name: DEBUG - Display candlepin logs
+        - name: DEBUG - Display candlepin journal logs
           ansible.builtin.debug:
-            msg: "{{ _candlepin_logs.stdout_lines }}"
+            msg: "{{ ((_candlepin_logs.stdout_lines | default([])) + (_candlepin_logs.stderr_lines | default([]))) or ['(no journal output)'] }}"
 
-        - name: DEBUG - Get candlepin container logs
+        - name: DEBUG - Get Podman error from journal (exit 125 etc.)
+          ansible.builtin.shell:
+            cmd: journalctl --user -b -n 500 --no-pager -o short-iso 2>&1 | grep -E -i 'candlepin|podman|125|error|failed' || true
+          register: _candlepin_podman_journal
+          failed_when: false
+          changed_when: false
+
+        - name: DEBUG - Display Podman/candlepin-related journal lines
+          ansible.builtin.debug:
+            msg: "{{ _candlepin_podman_journal.stdout_lines | default([], true) or ['(no matching journal lines)'] }}"
+
+        - name: DEBUG - Get candlepin container logs (if container existed)
           ansible.builtin.command:
             cmd: podman logs candlepin --tail 100
           register: _candlepin_container_logs
@@ -171,7 +182,7 @@
 
         - name: DEBUG - Display candlepin container logs
           ansible.builtin.debug:
-            msg: "{{ _candlepin_container_logs.stdout_lines }}"
+            msg: "{{ ((_candlepin_container_logs.stdout_lines | default([])) + (_candlepin_container_logs.stderr_lines | default([]))) or ['(container already removed or no output)'] }}"
 
         # Run from container on Candlepin networks so "postgresql" hostname resolves
         # Only applicable when using bridge networks, not host networking

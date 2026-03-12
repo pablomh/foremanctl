@@ -151,19 +151,35 @@
           ansible.builtin.debug:
             msg: "{{ _candlepin_status }}"
 
-        - name: DEBUG - Get candlepin journal logs
+        - name: DEBUG - Get candlepin journal logs (as current user)
           ansible.builtin.command:
             cmd: journalctl --user -u candlepin.service -n 200 --no-pager -o short-iso
           register: _candlepin_logs
           failed_when: false
           changed_when: false
 
-        - name: DEBUG - Display candlepin journal logs
+        - name: DEBUG - Get candlepin journal as root (user often lacks journal read)
+          become: true
+          become_user: root
+          ansible.builtin.shell:
+            cmd: |
+              UID=$(id -u "{{ foremanctl_user }}")
+              runuser -u "{{ foremanctl_user }}" -- env XDG_RUNTIME_DIR=/run/user/$UID \
+                journalctl --user -u candlepin.service -n 200 --no-pager -o short-iso
+          args:
+            executable: /bin/bash
+          register: _candlepin_journal_root
+          failed_when: false
+          changed_when: false
+
+        - name: DEBUG - Display candlepin journal logs (root or user)
           ansible.builtin.debug:
             msg: >-
-              {{ ((_candlepin_logs.stdout_lines | default([]))
-              + (_candlepin_logs.stderr_lines | default([])))
-              or ['(no journal output)'] }}
+              {{ (((_candlepin_journal_root.stdout_lines | default([]))
+              + (_candlepin_journal_root.stderr_lines | default([])))
+              or ((_candlepin_logs.stdout_lines | default([]))
+                  + (_candlepin_logs.stderr_lines | default([])))
+              or ['(no journal output)']) }}
 
         - name: DEBUG - Get Podman error from journal (exit 125 etc.)
           ansible.builtin.shell:
@@ -182,6 +198,33 @@
             msg: >-
               {{ _candlepin_podman_journal.stdout_lines | default([], true)
               or ['(no matching journal lines)'] }}
+
+        # Minimal run (image + networks only) to see if Podman 125 is from networks/image
+        # vs secrets/volumes/health/sdnotify
+        - name: DEBUG - Minimal podman run (image + Candlepin networks only)
+          when:
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
+          ansible.builtin.command:
+            cmd: >-
+              podman run --rm
+              {{ candlepin_networks | map('regex_replace', '^', '--network ') | join(' ') | trim }}
+              {{ candlepin_container_image }}:{{ candlepin_container_tag }}
+              sh -c "exit 0"
+          register: _candlepin_minimal_run
+          failed_when: false
+          changed_when: false
+
+        - name: DEBUG - Display minimal podman run result
+          when:
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
+          ansible.builtin.debug:
+            msg: >-
+              Minimal podman run rc={{ _candlepin_minimal_run.rc }}:
+              {{ (_candlepin_minimal_run.stderr_lines | default([]))
+              + (_candlepin_minimal_run.stdout_lines | default([]))
+              or ['(no output)'] }}
 
         - name: DEBUG - Get candlepin container logs (if container existed)
           ansible.builtin.command:

@@ -60,11 +60,14 @@
     sysctl_set: true
     reload: true
 
+- name: Check if lingering is already enabled
+  ansible.builtin.stat:
+    path: "/var/lib/systemd/linger/{{ rootless_user_name }}"
+  register: _rootless_user_linger_check
+
 - name: "Enable lingering for user: {{ rootless_user_name }}"
   ansible.builtin.command: loginctl enable-linger {{ rootless_user_name }}
-  register: _rootless_user_linger_result
-  changed_when: _rootless_user_linger_result is successful
-  failed_when: _rootless_user_linger_result is failed
+  when: not _rootless_user_linger_check.stat.exists
 
 - name: Verify XDG_RUNTIME_DIR exists
   ansible.builtin.stat:

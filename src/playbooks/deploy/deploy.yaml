@@ -43,7 +43,7 @@
       when: "certificate_source == 'installer'"
       become: true
       ansible.builtin.command:
-        cmd: find /root/ssl-build -type f -exec chmod 0644 {} +
+        cmd: find /root/ssl-build -type f ! -name '*.key' -exec chmod 0644 {} +
       changed_when: false
 
   roles:

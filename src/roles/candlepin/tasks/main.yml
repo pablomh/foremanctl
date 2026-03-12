@@ -103,9 +103,6 @@
         daemon_reload: true
         scope: user
 
-    - name: Flush handlers to restart services
-      ansible.builtin.meta: flush_handlers
-
     - name: Start the Candlepin Service with debugging
       block:
         - name: Start the Candlepin Service
@@ -161,3 +158,6 @@
         - name: Re-raise the failure
           ansible.builtin.fail:
             msg: "Candlepin service failed to start"
+
+    - name: Flush handlers to apply configuration changes
+      ansible.builtin.meta: flush_handlers

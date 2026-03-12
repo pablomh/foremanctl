@@ -4,8 +4,7 @@
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
-  ansible.builtin.shell: |
-    systemctl --user stop candlepin.service || true
-    systemctl --user start candlepin.service
-  args:
-    executable: /bin/bash
+  ansible.builtin.systemd:
+    name: candlepin
+    state: restarted
+    scope: user

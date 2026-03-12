@@ -1,70 +1,13 @@
 ---
-# When this handler runs first (e.g. after flush_handlers elsewhere), failure would
-# otherwise leave no diagnostics. Block/rescue ensures we capture logs and DB test.
+# Single-task handler so "Restart candlepin" is always found (block handlers can
+# fail to register in some contexts, e.g. upgrade playbook). Diagnostics on
+# startup failure remain in candlepin role task rescue block.
 - name: Restart candlepin
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
-  block:
-    - name: Restart candlepin (systemd)
-      ansible.builtin.systemd:
-        name: candlepin
-        state: restarted
-        scope: user
-  rescue:
-    - name: DEBUG (handler failure) - Candlepin service status
-      ansible.builtin.systemd:
-        name: candlepin
-        scope: user
-      register: _candlepin_handler_status
-      failed_when: false
-
-    - name: DEBUG (handler failure) - Display service status
-      ansible.builtin.debug:
-        msg: "{{ _candlepin_handler_status }}"
-
-    - name: DEBUG (handler failure) - Candlepin journal logs
-      ansible.builtin.command:
-        cmd: journalctl --user -xeu candlepin.service -n 200
-      register: _candlepin_handler_journal
-      failed_when: false
-      changed_when: false
-
-    - name: DEBUG (handler failure) - Display journal
-      ansible.builtin.debug:
-        msg: "{{ _candlepin_handler_journal.stdout_lines }}"
-
-    - name: DEBUG (handler failure) - Candlepin container logs
-      ansible.builtin.command:
-        cmd: podman logs candlepin --tail 100
-      register: _candlepin_handler_container_logs
-      failed_when: false
-      changed_when: false
-
-    - name: DEBUG (handler failure) - Display container logs
-      ansible.builtin.debug:
-        msg: "{{ _candlepin_handler_container_logs.stdout_lines }}"
-
-    - name: DEBUG (handler failure) - PostgreSQL from Candlepin network
-      when: database_mode == 'internal'
-      ansible.builtin.command:
-        cmd: >-
-          podman run --rm
-          {{ candlepin_networks | map('regex_replace', '^', '--network ') | join(' ') | trim }}
-          {{ postgresql_container_image }}:{{ postgresql_container_tag }}
-          pg_isready -h {{ candlepin_database_host }} -p {{ candlepin_database_port }} -U postgres
-      register: _candlepin_handler_pg_test
-      failed_when: false
-      changed_when: false
-
-    - name: DEBUG (handler failure) - Display PostgreSQL test
-      when: database_mode == 'internal'
-      ansible.builtin.debug:
-        msg: >-
-          PostgreSQL from Candlepin network: {{ 'SUCCESS' if _candlepin_handler_pg_test.rc == 0 else 'FAILED' }}
-          {{ (_candlepin_handler_pg_test.stderr_lines + _candlepin_handler_pg_test.stdout_lines) | default([]) }}
-
-    - name: Fail after handler diagnostics
-      ansible.builtin.fail:
-        msg: "Candlepin restart failed (see DEBUG output above)"
+  ansible.builtin.systemd:
+    name: candlepin
+    state: restarted
+    scope: user

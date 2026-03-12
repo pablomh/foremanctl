@@ -166,7 +166,9 @@
 
 - name: DEBUG - Display pg_hba.conf
   ansible.builtin.debug:
-    msg: "{{ _postgresql_pg_hba_contents.stdout_lines if _postgresql_pg_hba_contents.rc == 0 else 'pg_hba.conf not found (may be managed differently by sclorg container)' }}"
+    msg: >-
+      {{ _postgresql_pg_hba_contents.stdout_lines if _postgresql_pg_hba_contents.rc == 0
+      else 'pg_hba.conf not found (may be managed differently by sclorg container)' }}
 
 - name: DEBUG - Test TCP connection to PostgreSQL
   ansible.builtin.wait_for:

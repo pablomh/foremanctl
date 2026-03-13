@@ -38,10 +38,12 @@ def run_as(server, user, cmd):
             f"systemd-run --user --uid {user} --wait --pipe -- /bin/bash -c '{cmd}'"
         )
     else:  # runuser (default)
+        # Uses runuser -l to avoid inheriting the caller's CWD (which may be
+        # inaccessible to the target user, e.g. /root).
         xdg = f"XDG_RUNTIME_DIR=/run/user/$(id -u {user})"
-        dbus = f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u {user})/bus"
+        escaped = cmd.replace("'", "'\\''")
         return server.run(
-            f"runuser {user} -s /bin/bash -c 'export {xdg}; export {dbus}; {cmd}'"
+            f"runuser -l {user} -s /bin/bash -c 'export {xdg}; {escaped}'"
         )
 
 

@@ -14,24 +14,24 @@ def test_postgresql_socket(database):
 
 
 def test_postgresql_databases(database):
-    result = foremanctl_run(database, r"printf '%s\n' '\l' | podman exec -i postgresql psql -U postgres")
+    result = foremanctl_run(database, "podman exec postgresql psql -U postgres -c '\\l'")
     assert "foreman" in result.stdout
     assert "candlepin" in result.stdout
     assert "pulp" in result.stdout
 
 
 def test_postgresql_users(database):
-    result = foremanctl_run(database, r"printf '%s\n' '\du' | podman exec -i postgresql psql -U postgres")
+    result = foremanctl_run(database, "podman exec postgresql psql -U postgres -c '\\du'")
     assert "foreman" in result.stdout
     assert "candlepin" in result.stdout
     assert "pulp" in result.stdout
 
 
 def test_postgresql_password_encryption(database):
-    result = foremanctl_run(database, r"printf '%s\n' 'SHOW password_encryption;' | podman exec -i postgresql psql -U postgres")
+    result = foremanctl_run(database, "podman exec postgresql psql -U postgres -c 'SHOW password_encryption'")
     assert "scram-sha-256" in result.stdout
 
-    result = foremanctl_run(database, r"printf '%s\n' 'COPY (select * from pg_shadow) TO STDOUT (FORMAT CSV);' | podman exec -i postgresql psql -U postgres")
+    result = foremanctl_run(database, "echo 'COPY (select * from pg_shadow) TO STDOUT (FORMAT CSV);' | podman exec -i postgresql psql -U postgres")
 
     reader = csv.reader(result.stdout.splitlines())
     for row in reader:

@@ -22,7 +22,7 @@ def test_pulp_content_service(user_service):
     assert user_service("pulp-content").is_running
 
 def test_pulp_worker_services(server, user_service):
-    result = foremanctl_run(server, r"systemctl --user list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print \$1}'")
+    result = foremanctl_run(server, "systemctl --user list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print $1}'")
     worker_services = [s.strip() for s in result.stdout.split('\n') if s.strip()]
     assert len(worker_services) > 0
 

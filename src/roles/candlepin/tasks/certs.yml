@@ -1,9 +1,15 @@
 ---
+- name: Create temporary directory for keystores
+  ansible.builtin.file:
+    path: "/var/lib/{{ foremanctl_user }}/tmp"
+    state: directory
+    mode: '0700'
+
 - name: Generate keystore
   community.crypto.openssl_pkcs12:
     action: export
     passphrase: "{{ candlepin_keystore_password }}"
-    path: "/root/candlepin.keystore"
+    path: "/var/lib/{{ foremanctl_user }}/tmp/candlepin.keystore"
     friendly_name: 'tomcat'
     privatekey_path: "{{ candlepin_tomcat_key }}"
     certificate_path: "{{ candlepin_tomcat_certificate }}"
@@ -14,7 +20,7 @@
   community.crypto.openssl_pkcs12:
     action: export
     passphrase: "{{ candlepin_keystore_password }}"
-    path: "/root/candlepin.truststore"
+    path: "/var/lib/{{ foremanctl_user }}/tmp/candlepin.truststore"
     friendly_name: 'artemis-client'
     privatekey_path: "{{ candlepin_client_key }}"
     certificate_path: "{{ candlepin_client_certificate }}"
@@ -50,7 +56,7 @@
   containers.podman.podman_secret:
     state: present
     name: candlepin-tomcat-keystore
-    path: "/root/candlepin.keystore"
+    path: "/var/lib/{{ foremanctl_user }}/tmp/candlepin.keystore"
     labels:
       filename: candlepin.keystore
       app: tomcat
@@ -61,7 +67,7 @@
   containers.podman.podman_secret:
     state: present
     name: candlepin-tomcat-truststore
-    path: "/root/candlepin.truststore"
+    path: "/var/lib/{{ foremanctl_user }}/tmp/candlepin.truststore"
     labels:
       filename: candlepin.truststore
       app: tomcat

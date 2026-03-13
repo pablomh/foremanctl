@@ -225,8 +225,7 @@
     name: postgres_fdw
     db: "{{ iop_inventory_database_name }}"
     login_user: postgres
-    login_password: "{{ postgresql_admin_password }}"
-    login_host: localhost
+    login_unix_socket: "{{ postgresql_socket_dir }}"
 
 - name: Create inventory schema in inventory database
   community.postgresql.postgresql_schema:
@@ -234,15 +233,13 @@
     name: inventory
     owner: "{{ iop_inventory_database_user }}"
     login_user: postgres
-    login_password: "{{ postgresql_admin_password }}"
-    login_host: localhost
+    login_unix_socket: "{{ postgresql_socket_dir }}"
 
 - name: Create inventory.hosts view in inventory database
   community.postgresql.postgresql_query:
     db: "{{ iop_inventory_database_name }}"
     login_user: postgres
-    login_password: "{{ postgresql_admin_password }}"
-    login_host: localhost
+    login_unix_socket: "{{ postgresql_socket_dir }}"
     query: |
       CREATE OR REPLACE VIEW "inventory"."hosts" AS SELECT
         id,

@@ -10,15 +10,19 @@
     - /var/log/candlepin
     - /var/log/tomcat
 
+- name: Prepare certificates (as root to access /root/ files)
+  ansible.builtin.include_tasks:
+    file: certs_prepare.yml
+
 - name: Configure Candlepin container as rootless user
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
   block:
-    - name: Configure certificates
+    - name: Create certificate secrets (as foremanctl for correct Podman context)
       ansible.builtin.include_tasks:
-        file: certs.yml
+        file: certs_secrets.yml
     - name: Create Candlepin configuration
       containers.podman.podman_secret:
         state: present

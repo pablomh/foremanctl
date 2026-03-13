@@ -39,10 +39,12 @@ def run_as(server, user, cmd):
             f"systemd-run --user --uid {user} --wait --pipe -- /bin/bash -c '{cmd}'"
         )
     else:  # runuser (default)
+        # Uses runuser -l to avoid inheriting the caller's CWD (which may be
+        # inaccessible to the target user, e.g. /root).
         xdg = f"XDG_RUNTIME_DIR=/run/user/$(id -u {user})"
-        dbus = f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u {user})/bus"
+        escaped = cmd.replace("'", "'\\''")
         return server.run(
-            f"runuser {user} -s /bin/bash -c 'export {xdg}; export {dbus}; {cmd}'"
+            f"runuser -l {user} -s /bin/bash -c 'export {xdg}; {escaped}'"
         )
 
 
@@ -147,16 +149,6 @@ def get_user_home(host, user):
     result = host.run(f"getent passwd {user}")
     assert result.succeeded
     return result.stdout.split(':')[5].strip()
-
-
-def run_as(host, user, cmd):
-    """Run a command as the given user, propagating the exit code correctly.
-
-    Uses runuser -l to avoid inheriting the caller's CWD (which may be
-    inaccessible to the target user, e.g. /root).
-    """
-    escaped = cmd.replace("'", "'\\''")
-    return host.run(f"runuser -l {user} -s /bin/bash -c '{escaped}'")
 
 
 def get_service(host, service_name, user=None):

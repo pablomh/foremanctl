@@ -58,3 +58,47 @@
       -copy_extensions copy
       -out /root/ssl-build/candlepin/candlepin-tomcat.crt
   changed_when: true
+
+# IOP Gateway runs in an isolated container network but is published on
+# localhost:24443. To avoid requiring localhost certificates, we use DNS
+# name "iop-core-gateway" (added to /etc/hosts → 127.0.0.1) so clients can
+# connect to https://iop-core-gateway:24443/ and validate against a dedicated
+# certificate with SAN=iop-core-gateway.
+- name: Create iop-core-gateway cert directory
+  ansible.builtin.file:
+    path: /root/ssl-build/iop-core-gateway
+    state: directory
+    mode: '0755'
+
+- name: Generate iop-core-gateway private key
+  ansible.builtin.command: >
+    openssl genrsa
+      -out /root/ssl-build/iop-core-gateway/iop-core-gateway.key
+      4096
+  args:
+    creates: /root/ssl-build/iop-core-gateway/iop-core-gateway.key
+
+- name: Generate iop-core-gateway certificate signing request
+  ansible.builtin.command: >
+    openssl req
+      -new
+      -key /root/ssl-build/iop-core-gateway/iop-core-gateway.key
+      -subj "/CN=iop-core-gateway"
+      -addext "subjectAltName = DNS:iop-core-gateway"
+      -out /root/ssl-build/iop-core-gateway/iop-core-gateway.csr
+  args:
+    creates: /root/ssl-build/iop-core-gateway/iop-core-gateway.csr
+
+- name: Sign iop-core-gateway certificate with installer CA
+  ansible.builtin.command: >
+    openssl x509
+      -req
+      -in /root/ssl-build/iop-core-gateway/iop-core-gateway.csr
+      -CA /root/ssl-build/katello-default-ca.crt
+      -CAkey /root/ssl-build/katello-default-ca.key
+      -CAcreateserial
+      -days 7300
+      -passin "file:/root/ssl-build/katello-default-ca.pwd"
+      -copy_extensions copy
+      -out /root/ssl-build/iop-core-gateway/iop-core-gateway.crt
+  changed_when: true

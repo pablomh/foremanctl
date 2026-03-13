@@ -9,7 +9,7 @@ def test_gateway_service(server, user):
 
 
 def test_gateway_port(server, user):
-    addr = server.addr("localhost")
+    addr = server.addr("iop-core-gateway")
     assert addr.port("24443").is_reachable
 
 

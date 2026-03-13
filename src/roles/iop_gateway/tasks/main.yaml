@@ -1,4 +1,11 @@
 ---
+- name: Add iop-core-gateway to /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.0\.1\s+.*iop-core-gateway'
+    line: '127.0.0.1 iop-core-gateway'
+    state: present
+
 - name: Prepare certificates (as root to access /root/ files)
   ansible.builtin.include_tasks:
     file: certs_prepare.yaml

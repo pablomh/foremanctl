@@ -40,8 +40,9 @@ def run_as(server, user, cmd):
         )
     else:  # runuser (default)
         xdg = f"XDG_RUNTIME_DIR=/run/user/$(id -u {user})"
+        dbus = f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u {user})/bus"
         return server.run(
-            f"runuser -l {user} -s /bin/bash -c 'export {xdg}; {cmd}'"
+            f"runuser {user} -s /bin/bash -c 'export {xdg}; export {dbus}; {cmd}'"
         )
 
 

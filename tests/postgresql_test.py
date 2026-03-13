@@ -14,21 +14,21 @@ def test_postgresql_socket(database):
 
 
 def test_postgresql_databases(database):
-    result = foremanctl_run(database, "podman exec postgresql psql -U postgres -c '\\l'")
+    result = foremanctl_run(database, "echo '\\\\l' | podman exec -i postgresql psql -U postgres")
     assert "foreman" in result.stdout
     assert "candlepin" in result.stdout
     assert "pulp" in result.stdout
 
 
 def test_postgresql_users(database):
-    result = foremanctl_run(database, "podman exec postgresql psql -U postgres -c '\\du'")
+    result = foremanctl_run(database, "echo '\\\\du' | podman exec -i postgresql psql -U postgres")
     assert "foreman" in result.stdout
     assert "candlepin" in result.stdout
     assert "pulp" in result.stdout
 
 
 def test_postgresql_password_encryption(database):
-    result = foremanctl_run(database, "podman exec postgresql psql -U postgres -c 'SHOW password_encryption'")
+    result = foremanctl_run(database, "echo 'SHOW password_encryption;' | podman exec -i postgresql psql -U postgres")
     assert "scram-sha-256" in result.stdout
 
     result = foremanctl_run(database, "echo 'COPY (select * from pg_shadow) TO STDOUT (FORMAT CSV);' | podman exec -i postgresql psql -U postgres")

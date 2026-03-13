@@ -1,4 +1,8 @@
 ---
+- name: Prepare certificates (as root to access /root/ files)
+  ansible.builtin.include_tasks:
+    file: certs_prepare.yaml
+
 - name: Configure Foreman Proxy container as rootless user
   become: true
   become_method: "{{ foremanctl_become_method }}"
@@ -13,8 +17,8 @@
     - name: Create config secrets
       ansible.builtin.include_tasks: configs.yaml
 
-    - name: Create certs secrets
-      ansible.builtin.include_tasks: certs.yaml
+    - name: Create certificate secrets (as foremanctl for correct Podman context)
+      ansible.builtin.include_tasks: certs_secrets.yaml
 
     - name: Deploy Foreman Proxy Container
       containers.podman.podman_container:

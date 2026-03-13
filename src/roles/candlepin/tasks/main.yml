@@ -172,11 +172,32 @@
           failed_when: false
           changed_when: false
 
+        # Fallback: read user journal dir as root (CI often blocks runuser journal read)
+        - name: DEBUG - Get user journal via root reading journal dir
+          become: true
+          become_user: root
+          ansible.builtin.shell:
+            cmd: |
+              USER_UID=$(id -u "{{ foremanctl_user }}")
+              JDIR="/run/user/$USER_UID/journal"
+              if [ -d "$JDIR" ]; then
+                journalctl -D "$JDIR" -n 200 --no-pager -o short-iso 2>/dev/null | tail -100
+              else
+                echo "(journal dir $JDIR not found)"
+              fi
+          args:
+            executable: /bin/bash
+          register: _candlepin_journal_dir
+          failed_when: false
+          changed_when: false
+
         - name: DEBUG - Display candlepin journal logs (root or user)
           ansible.builtin.debug:
             msg: >-
               {{ (((_candlepin_journal_root.stdout_lines | default([]))
               + (_candlepin_journal_root.stderr_lines | default([])))
+              or ((_candlepin_journal_dir.stdout_lines | default([]))
+                  + (_candlepin_journal_dir.stderr_lines | default([])))
               or ((_candlepin_logs.stdout_lines | default([]))
                   + (_candlepin_logs.stderr_lines | default([])))
               or ['(no journal output)']) }}
@@ -321,6 +342,48 @@
               All secrets test rc={{ _candlepin_allsecrets_test.rc }}:
               {{ (_candlepin_allsecrets_test.stderr_lines | default([]))
               + (_candlepin_allsecrets_test.stdout_lines | default([]))
+              or ['(no output)'] }}
+
+        # Run full container in foreground (no -d, no sdnotify) to capture app stdout/stderr.
+        # Service fails with 125 because Podman waits for sdnotify; if the app exits first we see nothing.
+        - name: DEBUG - Run full Candlepin container in foreground to capture startup output
+          when:
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
+          ansible.builtin.shell:
+            cmd: >-
+              timeout 60 podman run --name candlepin-fg-debug --rm
+              --cgroups=split --hostname {{ ansible_facts['fqdn'] }}
+              {{ candlepin_networks | map('regex_replace', '^', '--network ') | join(' ') | trim }}
+              -v /var/log/candlepin:/var/log/candlepin:Z
+              -v /var/log/tomcat:/var/log/tomcat:Z
+              --secret candlepin-ca-cert,target=/etc/candlepin/certs/candlepin-ca.crt,mode=0440,type=mount
+              --secret candlepin-ca-key,target=/etc/candlepin/certs/candlepin-ca.key,mode=0440,type=mount
+              --secret candlepin-tomcat-keystore,target=/etc/candlepin/certs/keystore,mode=0440,type=mount
+              --secret candlepin-tomcat-truststore,target=/etc/candlepin/certs/truststore,mode=0440,type=mount
+              --secret candlepin-candlepin-conf,target=/etc/candlepin/candlepin.conf,mode=0440,type=mount
+              --secret candlepin-artemis-broker-xml,target=/etc/candlepin/broker.xml,mode=440,type=mount
+              --secret candlepin-tomcat-server-xml,target=/etc/tomcat/server.xml,mode=440,type=mount
+              --secret candlepin-tomcat-conf,target=/etc/tomcat/tomcat.conf,mode=440,type=mount
+              --secret candlepin-artemis-login-config,target=/etc/tomcat/login.config,mode=440,type=mount
+              --secret candlepin-artemis-cert-roles-properties,target=/etc/tomcat/cert-roles.properties,mode=440,type=mount
+              --secret candlepin-artemis-cert-users-properties,target=/etc/tomcat/cert-users.properties,mode=440,type=mount
+              --secret candlepin-artemis-jaas-conf,target=/etc/tomcat/conf.d/jaas.conf,mode=440,type=mount
+              {{ candlepin_container_image }}:{{ candlepin_container_tag }}
+          args:
+            executable: /bin/bash
+          register: _candlepin_fg_run
+          failed_when: false
+          changed_when: false
+
+        - name: DEBUG - Display Candlepin foreground run output (rc={{ _candlepin_fg_run.rc }})
+          when:
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
+          ansible.builtin.debug:
+            msg: >-
+              {{ (_candlepin_fg_run.stderr_lines | default([]))
+              + (_candlepin_fg_run.stdout_lines | default([]))
               or ['(no output)'] }}
 
         - name: DEBUG - Get candlepin container logs (if container existed)

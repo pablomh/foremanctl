@@ -283,6 +283,46 @@
               + (_candlepin_secret_test.stdout_lines | default([]))
               or ['(no output)'] }}
 
+        # Test with ALL secrets (no healthcheck/sdnotify)
+        - name: DEBUG - Test podman run with ALL secrets (no healthcheck)
+          when:
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
+          ansible.builtin.command:
+            cmd: >-
+              podman run --rm
+              {{ candlepin_networks | map('regex_replace', '^', '--network ') | join(' ') | trim }}
+              -v /var/log/candlepin:/var/log/candlepin:Z
+              -v /var/log/tomcat:/var/log/tomcat:Z
+              --secret candlepin-ca-cert,target=/etc/candlepin/certs/candlepin-ca.crt,mode=0440,type=mount
+              --secret candlepin-ca-key,target=/etc/candlepin/certs/candlepin-ca.key,mode=0440,type=mount
+              --secret candlepin-tomcat-keystore,target=/etc/candlepin/certs/keystore,mode=0440,type=mount
+              --secret candlepin-tomcat-truststore,target=/etc/candlepin/certs/truststore,mode=0440,type=mount
+              --secret candlepin-candlepin-conf,target=/etc/candlepin/candlepin.conf,mode=0440,type=mount
+              --secret candlepin-artemis-broker-xml,target=/etc/candlepin/broker.xml,mode=440,type=mount
+              --secret candlepin-tomcat-server-xml,target=/etc/tomcat/server.xml,mode=440,type=mount
+              --secret candlepin-tomcat-conf,target=/etc/tomcat/tomcat.conf,mode=440,type=mount
+              --secret candlepin-artemis-login-config,target=/etc/tomcat/login.config,mode=440,type=mount
+              --secret candlepin-artemis-cert-roles-properties,target=/etc/tomcat/cert-roles.properties,mode=440,type=mount
+              --secret candlepin-artemis-cert-users-properties,target=/etc/tomcat/cert-users.properties,mode=440,type=mount
+              --secret candlepin-artemis-jaas-conf,target=/etc/tomcat/conf.d/jaas.conf,mode=440,type=mount
+              {{ candlepin_container_image }}:{{ candlepin_container_tag }}
+              sh -c "exit 0"
+          register: _candlepin_allsecrets_test
+          failed_when: false
+          changed_when: false
+
+        - name: DEBUG - Display all-secrets test result
+          when:
+            - candlepin_networks is iterable
+            - candlepin_networks is not string
+          ansible.builtin.debug:
+            msg: >-
+              All secrets test rc={{ _candlepin_allsecrets_test.rc }}:
+              {{ (_candlepin_allsecrets_test.stderr_lines | default([]))
+              + (_candlepin_allsecrets_test.stdout_lines | default([]))
+              or ['(no output)'] }}
+
         - name: DEBUG - Get candlepin container logs (if container existed)
           ansible.builtin.command:
             cmd: podman logs candlepin --tail 100

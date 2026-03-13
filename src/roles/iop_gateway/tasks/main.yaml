@@ -1,4 +1,8 @@
 ---
+- name: Prepare certificates (as root to access /root/ files)
+  ansible.builtin.include_tasks:
+    file: certs_prepare.yaml
+
 - name: Deploy containers as rootless user
   environment:
     XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
@@ -10,47 +14,9 @@
         name: "{{ iop_gateway_container_image }}:{{ iop_gateway_container_tag }}"
         state: present
 
-    - name: Create Gateway server certificate secret
-      containers.podman.podman_secret:
-        state: present
-        name: iop-core-gateway-server-cert
-        path: "{{ iop_gateway_server_certificate }}"
-      notify: restart gateway
-
-    - name: Create Gateway server key secret
-      containers.podman.podman_secret:
-        state: present
-        name: iop-core-gateway-server-key
-        path: "{{ iop_gateway_server_key }}"
-      notify: restart gateway
-
-    - name: Create Gateway server CA certificate secret
-      containers.podman.podman_secret:
-        state: present
-        name: iop-core-gateway-server-ca-cert
-        path: "{{ iop_gateway_server_ca_certificate }}"
-      notify: restart gateway
-
-    - name: Create Gateway client certificate secret
-      containers.podman.podman_secret:
-        state: present
-        name: iop-core-gateway-client-cert
-        path: "{{ iop_gateway_client_certificate }}"
-      notify: restart gateway
-
-    - name: Create Gateway client key secret
-      containers.podman.podman_secret:
-        state: present
-        name: iop-core-gateway-client-key
-        path: "{{ iop_gateway_client_key }}"
-      notify: restart gateway
-
-    - name: Create Gateway client CA certificate secret
-      containers.podman.podman_secret:
-        state: present
-        name: iop-core-gateway-client-ca-cert
-        path: "{{ iop_gateway_client_ca_certificate }}"
-      notify: restart gateway
+    - name: Create certificate secrets (as foremanctl for correct Podman context)
+      ansible.builtin.include_tasks:
+        file: certs_secrets.yaml
 
     - name: Create Gateway relay configuration secret
       containers.podman.podman_secret:

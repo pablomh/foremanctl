@@ -177,6 +177,7 @@
           become_user: root
           ansible.builtin.shell:
             cmd: |
+              set -o pipefail
               USER_UID=$(id -u "{{ foremanctl_user }}")
               JDIR="/run/user/$USER_UID/journal"
               if [ -d "$JDIR" ]; then

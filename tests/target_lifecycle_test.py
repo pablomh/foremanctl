@@ -16,9 +16,15 @@ def _wait_for_foreman(server, server_fqdn, certificates):
             return
         time.sleep(FOREMAN_PING_DELAY)
     units = server.run("systemctl --machine=foremanctl@ --user list-units --all --no-pager --no-legend")
+    status = server.run("systemctl --machine=foremanctl@ --user status foreman.service --no-pager -l")
+    containers = server.run("runuser -l foremanctl -s /bin/bash -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) podman ps -a --format \"{{.Names}} {{.Status}}\"'")
+    logs = server.run("runuser -l foremanctl -s /bin/bash -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) podman logs --tail 50 foreman 2>&1'")
     raise AssertionError(
         f"Foreman did not become available after target lifecycle operation\n"
-        f"Service states at timeout:\n{units.stdout}"
+        f"Service states:\n{units.stdout}\n"
+        f"foreman.service status:\n{status.stdout}\n"
+        f"Container states:\n{containers.stdout}\n"
+        f"Foreman container logs:\n{logs.stdout}"
     )
 
 

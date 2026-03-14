@@ -60,7 +60,7 @@ def test_iop_gateway_api_ingress_endpoint(server, user):
 
 def test_iop_gateway_https_cert_auth(server, user):
     # Certificates are available inside the container via Podman secrets
-    result = run_as(server, user, f"podman exec iop-core-gateway curl -s -o /dev/null -w '%{{http_code}}' https://localhost:8443/ --cert /etc/nginx/smart-proxy-relay/certs/proxy.crt --key /etc/nginx/smart-proxy-relay/certs/proxy.key --cacert /etc/nginx/certs/ca.crt 2>/dev/null || echo '000'")
+    result = run_as(server, user, f"podman exec iop-core-gateway curl -s -o /dev/null -w '%{{http_code}}' https://iop-core-gateway:8443/ --cert /etc/nginx/smart-proxy-relay/certs/proxy.crt --key /etc/nginx/smart-proxy-relay/certs/proxy.key --cacert /etc/nginx/certs/ca.crt 2>/dev/null || echo '000'")
     assert "200" in result.stdout
 
 

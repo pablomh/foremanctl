@@ -1,7 +1,4 @@
 ---
-# Single-task handler so "Restart candlepin" is always found (block handlers can
-# fail to register in some contexts, e.g. upgrade playbook). Diagnostics on
-# startup failure remain in candlepin role task rescue block.
 - name: Restart candlepin
   become: true
   become_method: "{{ foremanctl_become_method }}"

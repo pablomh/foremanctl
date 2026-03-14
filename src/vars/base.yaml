@@ -14,8 +14,11 @@ foremanctl_become_method: sudo
 
 # Environment injected into every foremanctl become block.
 # Set to {} when using a become method that provides XDG_RUNTIME_DIR automatically.
+foremanctl_registry_auth_file: /etc/foreman/registry-auth.json
+
 foremanctl_runtime_env:
   XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  REGISTRY_AUTH_FILE: "{{ foremanctl_registry_auth_file }}"
 
 certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"

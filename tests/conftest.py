@@ -96,6 +96,19 @@ def user_service(server):
 
 
 @pytest.fixture(scope="module")
+def database_user_service(database):
+    """Like user_service but scoped to the database host.
+
+    In internal mode database==server, so this is identical to user_service.
+    In external mode database is a separate VM that also runs PostgreSQL as
+    a rootless foremanctl user service (set up by the remote-database playbook).
+    """
+    def _factory(name):
+        return UserService(database, "foremanctl", name)
+    return _factory
+
+
+@pytest.fixture(scope="module")
 def fixture_dir():
     return py.path.local(__file__).realpath() / '..' / 'fixtures'
 

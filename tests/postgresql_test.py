@@ -4,8 +4,8 @@ import pytest
 from conftest import foremanctl_run
 
 
-def test_postgresql_service(database, user_service):
-    assert user_service("postgresql").is_running
+def test_postgresql_service(database_user_service):
+    assert database_user_service("postgresql").is_running
 
 
 def test_postgresql_socket(database):

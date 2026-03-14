@@ -23,6 +23,7 @@
     - name: Create certificate secrets (as foremanctl for correct Podman context)
       ansible.builtin.include_tasks:
         file: certs_secrets.yml
+
     - name: Create Candlepin configuration
       containers.podman.podman_secret:
         state: present

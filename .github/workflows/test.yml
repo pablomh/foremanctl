@@ -238,7 +238,7 @@ jobs:
           ./foremanctl deploy --add-feature azure_rm --add-feature google
       - name: Stop services
         run: |
-          vagrant ssh quadlet -- runuser -u foremanctl systemctl --user stop foreman.target || true
+          vagrant ssh quadlet -- runuser -u foremanctl systemctl --user stop foreman.target
       - name: Configure upgrade version
         run: |
           sed -i '/container_tag_stream:/ s/:.*/: "${{ matrix.upgrade_to }}"/' src/vars/images.yml

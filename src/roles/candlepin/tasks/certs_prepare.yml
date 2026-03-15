@@ -1,0 +1,41 @@
+---
+# This file runs as ROOT to generate keystores/truststores from certificate files
+# that may be in /root/ or other locations only accessible to root
+- name: Create temporary directory for keystores
+  ansible.builtin.file:
+    path: "/var/lib/{{ foremanctl_user }}/tmp"
+    state: directory
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0755'
+
+- name: Generate keystore
+  community.crypto.openssl_pkcs12:
+    action: export
+    passphrase: "{{ candlepin_keystore_password }}"
+    path: "/var/lib/{{ foremanctl_user }}/tmp/candlepin.keystore"
+    friendly_name: 'tomcat'
+    privatekey_path: "{{ candlepin_tomcat_key }}"
+    certificate_path: "{{ candlepin_tomcat_certificate }}"
+    other_certificates: "{{ candlepin_ca_certificate }}"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    state: present
+
+- name: Generate truststore
+  community.crypto.openssl_pkcs12:
+    action: export
+    passphrase: "{{ candlepin_keystore_password }}"
+    path: "/var/lib/{{ foremanctl_user }}/tmp/candlepin.truststore"
+    friendly_name: 'artemis-client'
+    privatekey_path: "{{ candlepin_client_key }}"
+    certificate_path: "{{ candlepin_client_certificate }}"
+    other_certificates: "{{ candlepin_ca_certificate }}"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    state: present
+
+- name: Decrypt Candlepin CA key
+  ansible.builtin.command: openssl pkey -in "{{ candlepin_ca_key }}" -passin "file:{{ candlepin_ca_key_password }}"
+  register: _candlepin_ca_key
+  changed_when: false

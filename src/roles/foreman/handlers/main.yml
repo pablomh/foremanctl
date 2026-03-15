@@ -1,13 +1,23 @@
 ---
 - name: Restart foreman
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: foreman
     state: restarted
+    scope: user
 
 - name: Restart dynflow-sidekiq@
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: "dynflow-sidekiq@{{ item }}"
     state: restarted
+    scope: user
   loop:
     - orchestrator
     - worker

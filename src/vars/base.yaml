@@ -1,7 +1,28 @@
 ---
+# Rootless service user
+foremanctl_user: foremanctl
+foremanctl_group: foremanctl
+foremanctl_home: "/var/lib/{{ foremanctl_user }}"
+foremanctl_quadlet_dir: "{{ foremanctl_home }}/.config/containers/systemd"
+foremanctl_systemd_user_dir: "{{ foremanctl_home }}/.config/systemd/user"
+# foremanctl_xdg_runtime_dir is set dynamically by the rootless_user role
+
+# Which become method to use for rootless foremanctl tasks.
+# 'sudo': needs XDG_RUNTIME_DIR passed explicitly via foremanctl_runtime_env
+# 'community.general.machinectl': full login session, XDG_RUNTIME_DIR auto-set
+foremanctl_become_method: sudo
+
+# Environment injected into every foremanctl become block.
+# Set to {} when using a become method that provides XDG_RUNTIME_DIR automatically.
+foremanctl_registry_auth_file: /etc/foreman/registry-auth.json
+
+foremanctl_runtime_env:
+  XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  REGISTRY_AUTH_FILE: "{{ foremanctl_registry_auth_file }}"
+
 certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
-  - localhost
+  - candlepin
 
 certificates_ca_password: "CHANGEME"
 candlepin_keystore_password: "CHANGEME"
@@ -10,8 +31,8 @@ candlepin_oauth_secret: "CHANGEME"
 candlepin_ca_key_password: "{{ ca_key_password }}"
 candlepin_ca_key: "{{ ca_key }}"
 candlepin_ca_certificate: "{{ ca_certificate }}"
-candlepin_tomcat_key: "{{ localhost_key }}"
-candlepin_tomcat_certificate: "{{ localhost_certificate }}"
+candlepin_tomcat_key: "{{ candlepin_key }}"
+candlepin_tomcat_certificate: "{{ candlepin_certificate }}"
 candlepin_client_key: "{{ client_key }}"
 candlepin_client_certificate: "{{ client_certificate }}"
 

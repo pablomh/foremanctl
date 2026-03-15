@@ -1,5 +1,16 @@
 ---
-- name: Setup quadlet demo machine
+- name: Setup rootless user environment
+  hosts:
+    - quadlet
+  become: true
+  roles:
+    - role: rootless_user
+  tasks:
+    - name: Map rootless_user_xdg_runtime_dir to foremanctl namespace
+      ansible.builtin.set_fact:
+        foremanctl_xdg_runtime_dir: "{{ rootless_user_xdg_runtime_dir }}"
+
+- name: Deploy Foreman services
   hosts:
     - quadlet
   become: true
@@ -12,6 +23,26 @@
     - "../../vars/database.yml"
     - "../../vars/foreman.yml"
     - "../../vars/base.yaml"
+  pre_tasks:
+    - name: Make installer certificates readable by rootless user
+      when: "certificate_source == 'installer'"
+      block:
+        - name: Make /root directory traversable for rootless user
+          ansible.builtin.file:
+            path: /root
+            state: directory
+            mode: '0711'
+
+        - name: Make installer certificate directories readable by rootless user
+          ansible.builtin.command:
+            cmd: find /root/ssl-build -type d -exec chmod 0755 {} +
+          changed_when: false
+
+        - name: Make installer certificate files readable by rootless user
+          ansible.builtin.command:
+            cmd: find /root/ssl-build -type f ! -name '*.key' -exec chmod 0644 {} +
+          changed_when: false
+
   roles:
     - role: pre_install
     - role: checks
@@ -22,6 +53,22 @@
         certificate_checks_certificate: "{{ server_certificate }}"
         certificate_checks_key: "{{ server_key }}"
         certificate_checks_ca: "{{ ca_certificate }}"
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-db
+        deploy_network_internal: true
+        deploy_network_isolate: true
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-cache
+        deploy_network_internal: true
+        deploy_network_isolate: true
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-app
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-proxy-net
     - role: postgresql
       when:
         - database_mode == 'internal'

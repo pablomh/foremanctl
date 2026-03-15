@@ -1,0 +1,55 @@
+---
+# This file runs as ROOT to copy certificate files from /root/ or other locations
+# that may only be accessible to root to /var/lib/foremanctl/tmp/
+- name: Create temporary directory for certificates
+  ansible.builtin.file:
+    path: "/var/lib/{{ foremanctl_user }}/tmp"
+    state: directory
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0755'
+
+- name: Copy Foreman Proxy CA certificate to temporary directory
+  ansible.builtin.copy:
+    src: "{{ server_ca_certificate }}"
+    dest: "/var/lib/{{ foremanctl_user }}/tmp/foreman-proxy-ssl-ca.pem"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0644'
+    remote_src: true
+
+- name: Copy Foreman Proxy server certificate to temporary directory
+  ansible.builtin.copy:
+    src: "{{ server_certificate }}"
+    dest: "/var/lib/{{ foremanctl_user }}/tmp/foreman-proxy-ssl-cert.pem"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0644'
+    remote_src: true
+
+- name: Copy Foreman Proxy server key to temporary directory
+  ansible.builtin.copy:
+    src: "{{ server_key }}"
+    dest: "/var/lib/{{ foremanctl_user }}/tmp/foreman-proxy-ssl-key.pem"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0600'
+    remote_src: true
+
+- name: Copy Foreman client certificate to temporary directory
+  ansible.builtin.copy:
+    src: "{{ client_certificate }}"
+    dest: "/var/lib/{{ foremanctl_user }}/tmp/foreman-proxy-foreman-ssl-cert.pem"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0644'
+    remote_src: true
+
+- name: Copy Foreman client key to temporary directory
+  ansible.builtin.copy:
+    src: "{{ client_key }}"
+    dest: "/var/lib/{{ foremanctl_user }}/tmp/foreman-proxy-foreman-ssl-key.pem"
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0600'
+    remote_src: true

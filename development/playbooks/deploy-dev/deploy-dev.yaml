@@ -1,4 +1,14 @@
 ---
+- name: Setup rootless user environment
+  hosts: "{{ target_host if target_host is defined and target_host != '' else 'quadlet' }}"
+  become: true
+  roles:
+    - role: rootless_user
+  tasks:
+    - name: Map rootless_user_xdg_runtime_dir to foremanctl namespace
+      ansible.builtin.set_fact:
+        foremanctl_xdg_runtime_dir: "{{ rootless_user_xdg_runtime_dir }}"
+
 - name: Deploy Foreman Development Environment
   hosts: "{{ target_host if target_host is defined and target_host != '' else 'quadlet' }}"
   become: true
@@ -17,6 +27,7 @@
     - role: certificates
     - role: postgresql
       vars:
+        postgresql_network: host
         postgresql_databases:
           - name: "{{ candlepin_database_name }}"
             owner: "{{ candlepin_database_user }}"
@@ -35,9 +46,21 @@
           - name: "{{ pulp_database_user }}"
             password: "{{ pulp_database_password }}"
     - role: redis
+      vars:
+        redis_network: host
     - role: candlepin
+      vars:
+        candlepin_networks: host
+        candlepin_database_host: localhost
     - role: httpd
     - role: pulp
+      vars:
+        pulp_networks: host
+        pulp_migration_networks: host
+        pulp_database_host: localhost
+        pulp_redis_url: "redis://localhost:6379/8"
+        pulp_api_ports: []
+        pulp_content_ports: []
     - role: foreman_development
   post_tasks:
     - name: Display development environment information

@@ -110,6 +110,8 @@
             WantedBy=default.target foreman.target
             [Unit]
             PartOf=foreman.target
+            Wants=candlepin.service redis.service
+            After=candlepin.service redis.service
       notify: Restart foreman
 
     - name: Deploy Dynflow Container

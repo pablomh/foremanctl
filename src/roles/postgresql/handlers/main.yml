@@ -1,44 +1,10 @@
 ---
 - name: Restart postgresql
-  block:
-    - name: Restart postgresql service
-      become: true
-      become_method: "{{ foremanctl_become_method }}"
-      become_user: "{{ foremanctl_user }}"
-      environment: "{{ foremanctl_runtime_env }}"
-      ansible.builtin.systemd:
-        name: "{{ postgresql_container_name }}"
-        state: restarted
-        scope: user
-  rescue:
-    - name: Collect postgresql service status on failure
-      become: true
-      become_method: "{{ foremanctl_become_method }}"
-      become_user: "{{ foremanctl_user }}"
-      environment: "{{ foremanctl_runtime_env }}"
-      ansible.builtin.command:
-        cmd: systemctl --user status {{ postgresql_container_name }} --no-pager -l
-      ignore_errors: true
-      register: _postgresql_status
-
-    - name: Collect postgresql container logs on failure
-      become: true
-      become_method: "{{ foremanctl_become_method }}"
-      become_user: "{{ foremanctl_user }}"
-      environment: "{{ foremanctl_runtime_env }}"
-      ansible.builtin.command:
-        cmd: podman logs {{ postgresql_container_name }}
-      ignore_errors: true
-      register: _postgresql_logs
-
-    - name: Show postgresql service status
-      ansible.builtin.debug:
-        msg: "{{ _postgresql_status.stdout }}"
-
-    - name: Show postgresql container logs
-      ansible.builtin.debug:
-        msg: "{{ _postgresql_logs.stdout }}"
-
-    - name: Re-raise postgresql restart failure
-      ansible.builtin.fail:
-        msg: "PostgreSQL restart failed - see debug output above"
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  ansible.builtin.systemd:
+    name: "{{ postgresql_container_name }}"
+    state: restarted
+    scope: user

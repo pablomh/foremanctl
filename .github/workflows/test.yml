@@ -111,16 +111,16 @@ jobs:
           ./foremanctl pull-images
       - name: Run deployment
         run: |
-          ./foremanctl deploy --certificate-source=${{ matrix.certificate_source }} ${{ matrix.database == 'external' && '--database-mode=external --database-host=database.example.com' || '' }}  --foreman-initial-admin-password=changeme --tuning development
+          ./foremanctl deploy --certificate-source=${{ matrix.certificate_source }} ${{ matrix.database == 'external' && '--database-mode=external --database-host=database.example.com --database-ssl-ca $(pwd)/.var/lib/foremanctl/db-ca.crt --database-ssl-mode verify-full' || '' }} --foreman-initial-admin-password=changeme --tuning development
       - name: Add optional feature - hammer
         run: |
           ./foremanctl deploy --add-feature hammer
       - name: Add optional feature - foreman-proxy
         run: |
           ./foremanctl deploy --add-feature foreman-proxy
-      - name: Add optional features - azure_rm, google
+      - name: Add optional features - azure-rm, google and remote-execution
         run: |
-          ./foremanctl deploy --add-feature azure_rm --add-feature google
+          ./foremanctl deploy --add-feature azure-rm --add-feature google --add-feature remote-execution
       - name: Run tests
         run: |
           ./forge test --pytest-args="--certificate-source=${{ matrix.certificate_source }} --database-mode=${{ matrix.database }}"
@@ -227,9 +227,9 @@ jobs:
       - name: Add optional feature - foreman-proxy
         run: |
           ./foremanctl deploy --add-feature foreman-proxy
-      - name: Add optional features - azure_rm, google
+      - name: Add optional features - azure-rm, google and remote-execution
         run: |
-          ./foremanctl deploy --add-feature azure_rm --add-feature google
+          ./foremanctl deploy --add-feature azure-rm --add-feature google --add-feature remote-execution
       - name: Stop services
         run: |
           vagrant ssh quadlet -- sudo -u foremanctl sh -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user stop foreman.target'

@@ -1,75 +1,65 @@
 ---
-- name: Pull the Foreman Proxy container image
-  containers.podman.podman_image:
-    name: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
-    state: present
-  environment:
-    REGISTRY_AUTH_FILE: "{{ foreman_proxy_registry_auth_file }}"
+- name: Prepare certificates (as root to access /root/ files)
+  ansible.builtin.include_tasks:
+    file: certs_prepare.yaml
 
-- name: Create config secrets
-  ansible.builtin.include_tasks: configs.yaml
+- name: Configure Foreman Proxy container as rootless user
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  block:
+    - name: Pull the Foreman Proxy container image
+      containers.podman.podman_image:
+        name: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
+        state: present
 
-- name: Create certs secrets
-  ansible.builtin.include_tasks: certs.yaml
+    - name: Create config secrets
+      ansible.builtin.include_tasks: configs.yaml
 
-- name: Deploy Foreman Proxy Container
-  containers.podman.podman_container:
-    name: "foreman-proxy"
-    image: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
-    state: quadlet
-    sdnotify: true
-    network: host
-    hostname: "{{ ansible_facts['fqdn'] }}"
-    secrets:
-      - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'
-      - 'foreman-proxy-ssl-ca,type=mount,target=/etc/foreman-proxy/ssl_ca.pem'
-      - 'foreman-proxy-ssl-cert,type=mount,target=/etc/foreman-proxy/ssl_cert.pem'
-      - 'foreman-proxy-ssl-key,type=mount,target=/etc/foreman-proxy/ssl_key.pem'
-      - 'foreman-proxy-foreman-ssl-ca,type=mount,target=/etc/foreman-proxy/foreman_ssl_ca.pem'
-      - 'foreman-proxy-foreman-ssl-cert,type=mount,target=/etc/foreman-proxy/foreman_ssl_cert.pem'
-      - 'foreman-proxy-foreman-ssl-key,type=mount,target=/etc/foreman-proxy/foreman_ssl_key.pem'
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target foreman.target
-        [Unit]
-        PartOf=foreman.target
-        After=foreman.target
-  notify: Restart Foreman Proxy
+    - name: Create certificate secrets (as foremanctl for correct Podman context)
+      ansible.builtin.include_tasks: certs_secrets.yaml
 
-- name: Create foreman-proxy.container.d folder
-  ansible.builtin.file:
-    path: /etc/containers/systemd/foreman-proxy.container.d
-    state: directory
-    mode: '0755'
-    owner: 'root'
-    group: 'root'
+    - name: Deploy Foreman Proxy Container
+      containers.podman.podman_container:
+        name: "foreman-proxy"
+        image: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
+        state: quadlet
+        sdnotify: true
+        network: foreman-proxy-net
+        ports:
+          - "0.0.0.0:8443:8443"
+        hostname: "{{ ansible_facts['fqdn'] }}"
+        secrets:
+          - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'
+          - 'foreman-proxy-logs-yml,type=mount,target=/etc/foreman-proxy/settings.d/logs.yml'
+          - 'foreman-proxy-ssl-ca,type=mount,target=/etc/foreman-proxy/ssl_ca.pem'
+          - 'foreman-proxy-ssl-cert,type=mount,target=/etc/foreman-proxy/ssl_cert.pem'
+          - 'foreman-proxy-ssl-key,type=mount,target=/etc/foreman-proxy/ssl_key.pem'
+          - 'foreman-proxy-foreman-ssl-ca,type=mount,target=/etc/foreman-proxy/foreman_ssl_ca.pem'
+          - 'foreman-proxy-foreman-ssl-cert,type=mount,target=/etc/foreman-proxy/foreman_ssl_cert.pem'
+          - 'foreman-proxy-foreman-ssl-key,type=mount,target=/etc/foreman-proxy/foreman_ssl_key.pem'
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target foreman.target
+            [Unit]
+            PartOf=foreman.target
+      notify: Restart Foreman Proxy
 
-- name: Configure features
-  ansible.builtin.include_tasks: feature.yaml
-  vars:
-    feature_enabled: "true"
-  loop: "{{ foreman_proxy_features }}"
-  loop_control:
-    loop_var: feature_name
+    - name: Run daemon reload to make Quadlet create the service files
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
 
-- name: Disable features
-  ansible.builtin.include_tasks: feature.yaml
-  vars:
-    feature_enabled: "false"
-  loop: "{{ foreman_proxy_disabled_features }}"
-  loop_control:
-    loop_var: feature_name
+    - name: Flush handlers to restart services
+      ansible.builtin.meta: flush_handlers
 
-- name: Run daemon reload to make Quadlet create the service files
-  ansible.builtin.systemd:
-    daemon_reload: true
-
-- name: Start the Foreman Proxy Service
-  ansible.builtin.systemd:
-    name: foreman-proxy
-    state: started
-  register: _foreman_proxy_service
+    - name: Start the Foreman Proxy Service
+      ansible.builtin.systemd:
+        name: foreman-proxy
+        state: started
+        scope: user
 
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
@@ -79,6 +69,3 @@
     username: "{{ foreman_initial_admin_username }}"
     password: "{{ foreman_initial_admin_password }}"
     validate_certs: false
-
-- name: Flush handlers to restart services
-  ansible.builtin.meta: flush_handlers

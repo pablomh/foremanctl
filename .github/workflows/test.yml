@@ -49,6 +49,8 @@ jobs:
         box:
           - centos/stream9
           - centos/stream10
+        iop:
+          - enabled
         exclude:
           - certificate_source: installer
             box: centos/stream10
@@ -64,10 +66,10 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
-    name: "Tests (certificates: ${{ matrix.certificate_source }}, database: ${{ matrix.database }}, security: ${{ matrix.security }}, box: ${{ matrix.box }})"
+    name: "Tests (certificates: ${{ matrix.certificate_source }}, database: ${{ matrix.database }}, security: ${{ matrix.security }}, box: ${{ matrix.box }}, iop: ${{ matrix.iop }})"
     steps:
       - name: generate artifact suffix
-        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.database }}-${{ matrix.box }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
+        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.database }}-${{ matrix.box }}-${{ matrix.iop }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
       - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -104,22 +106,27 @@ jobs:
         run: |
           vagrant ssh --command "echo 'allow perm=any pattern=ld_so exe=/usr/bin/crun : path=/usr/lib64/libsystemd.so.0' | sudo tee -a /etc/fapolicyd/rules.d/15-foremanctl.rules" quadlet
           vagrant ssh --command "echo 'allow perm=any all : dir=/home/vagrant/.ansible/tmp/' | sudo tee -a /etc/fapolicyd/rules.d/15-foremanctl.rules" quadlet
+          vagrant ssh --command "echo 'allow perm=open exe=/usr/bin/python3.9 : dir=/var/tmp/ ftype=text/x-python' | sudo tee -a /etc/fapolicyd/rules.d/15-foremanctl.rules" quadlet
           vagrant ssh quadlet -- sudo systemctl restart fapolicyd
       - name: Run image pull
         run: |
           ./foremanctl pull-images
       - name: Run deployment
         run: |
-          ./foremanctl deploy --certificate-source=${{ matrix.certificate_source }} ${{ matrix.database == 'external' && '--database-mode=external --database-host=database.example.com --database-ssl-ca $(pwd)/.var/lib/foremanctl/db-ca.crt --database-ssl-mode verify-full' || '' }} --foreman-initial-admin-password=changeme --tuning development
+          ./foremanctl deploy --certificate-source=${{ matrix.certificate_source }} ${{ matrix.database == 'external' && '--database-mode=external --database-host=database.example.com' || '' }}  --foreman-initial-admin-password=changeme --tuning development
       - name: Add optional feature - hammer
         run: |
           ./foremanctl deploy --add-feature hammer
       - name: Add optional feature - foreman-proxy
         run: |
           ./foremanctl deploy --add-feature foreman-proxy
-      - name: Add optional features - azure-rm, google and remote-execution
+      - name: Add optional features - azure_rm, google
         run: |
-          ./foremanctl deploy --add-feature azure-rm --add-feature google --add-feature remote-execution
+          ./foremanctl deploy --add-feature azure_rm --add-feature google
+      - name: Enable iop
+        if: matrix.iop == 'enabled'
+        run: |
+          ./foremanctl deploy --add-feature iop
       - name: Run tests
         run: |
           ./forge test --pytest-args="--certificate-source=${{ matrix.certificate_source }} --database-mode=${{ matrix.database }}"
@@ -226,12 +233,12 @@ jobs:
       - name: Add optional feature - foreman-proxy
         run: |
           ./foremanctl deploy --add-feature foreman-proxy
-      - name: Add optional features - azure-rm, google and remote-execution
+      - name: Add optional features - azure_rm, google
         run: |
-          ./foremanctl deploy --add-feature azure-rm --add-feature google --add-feature remote-execution
+          ./foremanctl deploy --add-feature azure_rm --add-feature google
       - name: Stop services
-        run:
-          vagrant ssh quadlet -- sudo systemctl stop foreman.target
+        run: |
+          vagrant ssh quadlet -- sudo -u foremanctl sh -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user stop foreman.target'
       - name: Configure upgrade version
         run: |
           sed -i '/container_tag_stream:/ s/:.*/: "${{ matrix.upgrade_to }}"/' src/vars/images.yml

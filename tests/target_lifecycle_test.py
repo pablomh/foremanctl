@@ -1,8 +1,8 @@
 import time
 
+CURL_CMD = "curl --silent --output /dev/null"
 FOREMAN_PING_RETRIES = 60
 FOREMAN_PING_DELAY = 10
-CURL_CMD = "curl --silent --output /dev/null"
 
 
 def _wait_for_foreman(server, server_fqdn, certificates):
@@ -18,19 +18,19 @@ def _wait_for_foreman(server, server_fqdn, certificates):
     raise AssertionError("Foreman did not become available after target lifecycle operation")
 
 
-def test_foreman_target_stop_start(server, server_fqdn, certificates):
-    result = server.run("systemctl stop foreman.target")
+def test_foreman_target_stop_start(server, user_service, server_fqdn, certificates):
+    result = server.run("systemctl --machine=foremanctl@ --user stop foreman.target")
     assert result.rc == 0, f"Failed to stop foreman.target: {result.stderr}"
-    assert not server.service("foreman.target").is_running
+    assert not user_service("foreman.target").is_running
 
-    result = server.run("systemctl start foreman.target")
+    result = server.run("systemctl --machine=foremanctl@ --user start foreman.target")
     assert result.rc == 0, f"Failed to start foreman.target: {result.stderr}"
     _wait_for_foreman(server, server_fqdn, certificates)
-    assert server.service("foreman.target").is_running
+    assert user_service("foreman.target").is_running
 
 
-def test_foreman_target_restart(server, server_fqdn, certificates):
-    result = server.run("systemctl restart foreman.target")
+def test_foreman_target_restart(server, user_service, server_fqdn, certificates):
+    result = server.run("systemctl --machine=foremanctl@ --user restart foreman.target")
     assert result.rc == 0, f"Failed to restart foreman.target: {result.stderr}"
     _wait_for_foreman(server, server_fqdn, certificates)
-    assert server.service("foreman.target").is_running
+    assert user_service("foreman.target").is_running

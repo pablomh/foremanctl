@@ -1,13 +1,10 @@
 ---
 - name: Restart Foreman Proxy
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: foreman-proxy
-    state: "{{ (_foreman_proxy_service is changed) | ternary('started', 'restarted') }}"
-
-- name: Refresh Foreman Proxy
-  theforeman.foreman.smart_proxy_refresh:
-    smart_proxy: "{{ foreman_proxy_name }}"
-    server_url: "{{ foreman_url }}"
-    username: "{{ foreman_initial_admin_username }}"
-    password: "{{ foreman_initial_admin_password }}"
-    validate_certs: false
+    state: restarted
+    scope: user

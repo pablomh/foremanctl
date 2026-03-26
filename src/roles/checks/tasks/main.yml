@@ -8,6 +8,6 @@
 
 - name: Report status of checks
   ansible.builtin.fail:
-    msg: "{{ checks_results }}"
+    msg: "{{ _checks_results }}"
   when:
-    - checks_results|default([])|length > 0
+    - _checks_results|default([])|length > 0

@@ -1,6 +1,8 @@
 import json
 import pytest
 
+from conftest import foremanctl_run
+
 PULP_HOST = 'localhost'
 PULP_API_PORT = 24817
 PULP_CONTENT_PORT = 24816
@@ -13,22 +15,19 @@ def pulp_status_curl(server):
 def pulp_status(pulp_status_curl):
     return json.loads(pulp_status_curl.stdout)
 
-def test_pulp_api_service(server):
-    pulp_api = server.service("pulp-api")
-    assert pulp_api.is_running
+def test_pulp_api_service(user_service):
+    assert user_service("pulp-api").is_running
 
-def test_pulp_content_service(server):
-    pulp_content = server.service("pulp-content")
-    assert pulp_content.is_running
+def test_pulp_content_service(user_service):
+    assert user_service("pulp-content").is_running
 
-def test_pulp_worker_services(server):
-    result = server.run("systemctl list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print $1}'")
+def test_pulp_worker_services(server, user_service):
+    result = server.run("systemctl --machine=foremanctl@ --user list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print $1}'")
     worker_services = [s.strip() for s in result.stdout.split('\n') if s.strip()]
     assert len(worker_services) > 0
 
     for worker_service in worker_services:
-        worker = server.service(worker_service)
-        assert worker.is_running
+        assert user_service(worker_service).is_running
 
 def test_pulp_api_port(server):
     pulp_api = server.addr(PULP_HOST)
@@ -65,11 +64,10 @@ def test_pulp_status_workers(pulp_status):
 def test_pulp_volumes(server):
     assert server.file("/var/lib/pulp").is_directory
 
-def test_pulp_worker_target(server):
-    pulp_worker_target = server.service("pulp-worker.target")
-    assert pulp_worker_target.is_running
-    assert pulp_worker_target.is_enabled
+def test_pulp_worker_target(user_service):
+    assert user_service("pulp-worker.target").is_running
+    assert user_service("pulp-worker.target").is_enabled
 
 def test_pulp_manager_check(server):
-    result = server.run("podman exec -ti pulp-api pulpcore-manager check --deploy")
+    result = foremanctl_run(server, "podman exec pulp-api pulpcore-manager check --deploy")
     assert result.succeeded

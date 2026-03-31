@@ -18,7 +18,9 @@
     image: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
     state: quadlet
     sdnotify: true
-    network: host
+    network: foreman-proxy-net
+    ports:
+      - "0.0.0.0:8443:8443"
     hostname: "{{ ansible_facts['hostname'] }}.local"
     secrets:
       - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'
@@ -34,7 +36,6 @@
         WantedBy=default.target foreman.target
         [Unit]
         PartOf=foreman.target
-        After=foreman.target
   notify: Restart Foreman Proxy
 
 - name: Create foreman-proxy.container.d folder

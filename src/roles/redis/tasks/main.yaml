@@ -19,9 +19,9 @@
     name: redis
     image: "{{ redis_container_image }}:{{ redis_container_tag }}"
     state: quadlet
-    network: host
     sdnotify: true
     command: ["run-redis", "--supervised", "systemd"]
+    network: "{{ redis_network }}"
     volumes:
       - /var/lib/redis:/data:Z
     quadlet_options:
@@ -30,7 +30,6 @@
         WantedBy=default.target foreman.target
         [Unit]
         PartOf=foreman.target
-        After=foreman.target
 
 - name: Run daemon reload
   ansible.builtin.systemd:

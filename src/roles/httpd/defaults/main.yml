@@ -8,7 +8,7 @@ httpd_pub_dir: /var/www/html/pub
 #   %D  — request time in microseconds (enables cross-tier timing analysis)
 #   %{X-Forwarded-For}i — original client IP chain through proxy hops
 # Set to the string 'combined' to revert to Apache's default format.
-httpd_access_log_format: '%h %l %u %t \"%r\" %>s %b %D \"%{X-Forwarded-For}i\" \"%{User-agent}i\"'
+httpd_access_log_format: '%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\" %D \"%{X-Forwarded-For}i\"'
 
 # External authentication configuration
 httpd_external_authentication: "{{ external_authentication | default(None) }}"

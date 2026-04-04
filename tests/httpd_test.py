@@ -87,3 +87,18 @@ def test_https_foreman_login(server, certificates, server_fqdn):
     cmd = server.run(f"{CURL_CMD} --cacert {certificates['ca_certificate']} --write-out '%{{http_code}}' https://{server_fqdn}/users/login")
     assert cmd.succeeded
     assert cmd.stdout == '200'
+
+
+def test_foreman_combined_log_format_defined_in_http_vhost(server):
+    """foreman_combined LogFormat alias must be defined so operators can opt in
+    without a redeployment (set httpd_access_log_format: foreman_combined)."""
+    config = server.file('/etc/httpd/conf.d/foreman.conf')
+    assert config.exists
+    assert 'foreman_combined' in config.content_string
+
+
+def test_foreman_combined_log_format_defined_in_https_vhost(server):
+    """Same alias must be present in the SSL vhost used for API/RHSM traffic."""
+    config = server.file('/etc/httpd/conf.d/foreman-ssl.conf')
+    assert config.exists
+    assert 'foreman_combined' in config.content_string

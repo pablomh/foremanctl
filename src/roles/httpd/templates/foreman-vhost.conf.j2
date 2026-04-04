@@ -7,7 +7,7 @@
   ## Logging
   ErrorLog "/var/log/httpd/foreman_error.log"
   ServerSignature Off
-  CustomLog "/var/log/httpd/foreman_access.log" combined
+  CustomLog "/var/log/httpd/foreman_access.log" "{{ httpd_access_log_format }}"
 
   ## Request header rules
   ## as per http://httpd.apache.org/docs/2.4/mod/mod_headers.html#requestheader

@@ -4,6 +4,12 @@ httpd_pulp_content_backend: http://localhost:24816
 httpd_foreman_backend: http://localhost:3000
 httpd_pub_dir: /var/www/html/pub
 
+# Apache access log format. Defaults to an enhanced combined format that adds:
+#   %D  — request time in microseconds (enables cross-tier timing analysis)
+#   %{X-Forwarded-For}i — original client IP chain through proxy hops
+# Set to the string 'combined' to revert to Apache's default format.
+httpd_access_log_format: '%h %l %u %t \"%r\" %>s %b %D \"%{X-Forwarded-For}i\" \"%{User-agent}i\"'
+
 # External authentication configuration
 httpd_external_authentication: "{{ external_authentication | default(None) }}"
 httpd_ipa_manage_sssd: true

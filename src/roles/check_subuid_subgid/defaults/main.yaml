@@ -1,0 +1,3 @@
+---
+# Must match rootless_user_name in the rootless_user role.
+check_subuid_subgid_user_name: foremanctl

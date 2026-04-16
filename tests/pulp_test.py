@@ -1,6 +1,8 @@
 import json
 import pytest
 
+from conftest import container_exec, foremanctl_run, service_is_enabled, service_is_running
+
 PULP_HOST = 'localhost'
 PULP_API_PORT = 24817
 PULP_CONTENT_PORT = 24816
@@ -14,29 +16,27 @@ def pulp_status(pulp_status_curl):
     return json.loads(pulp_status_curl.stdout)
 
 def test_pulp_api_service(server):
-    pulp_api = server.service("pulp-api")
-    assert pulp_api.is_running
+    assert service_is_running(server, "pulp-api")
 
 def test_pulp_content_service(server):
-    pulp_content = server.service("pulp-content")
-    assert pulp_content.is_running
+    assert service_is_running(server, "pulp-content")
 
 def test_pulp_worker_services(server):
-    result = server.run("systemctl list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print $1}'")
+    result = foremanctl_run(server, "systemctl --user list-units --all --type=service --no-legend 'pulp-worker@*.service' | awk '{print $1}'")
     worker_services = [s.strip() for s in result.stdout.split('\n') if s.strip()]
     assert len(worker_services) > 0
 
     for worker_service in worker_services:
-        worker = server.service(worker_service)
-        assert worker.is_running
+        assert service_is_running(server, worker_service), f"{worker_service} is not running"
+        
 
 def test_pulp_api_port(server):
-    pulp_api = server.addr(PULP_HOST)
-    assert pulp_api.port(PULP_API_PORT).is_reachable
+    # Port 24817 is published to host loopback for httpd proxy access
+    assert server.addr(PULP_HOST).port(PULP_API_PORT).is_reachable
 
 def test_pulp_content_port(server):
-    pulp_content = server.addr(PULP_HOST)
-    assert pulp_content.port(PULP_CONTENT_PORT).is_reachable
+    # Port 24816 is published to host loopback for httpd proxy access
+    assert server.addr(PULP_HOST).port(PULP_CONTENT_PORT).is_reachable
 
 def test_pulp_status(pulp_status_curl):
     assert pulp_status_curl.succeeded
@@ -66,10 +66,9 @@ def test_pulp_volumes(server):
     assert server.file("/var/lib/pulp").is_directory
 
 def test_pulp_worker_target(server):
-    pulp_worker_target = server.service("pulp-worker.target")
-    assert pulp_worker_target.is_running
-    assert pulp_worker_target.is_enabled
+    assert service_is_running(server, "pulp-worker.target")
+    assert service_is_enabled(server, "pulp-worker.target")
 
 def test_pulp_manager_check(server):
-    result = server.run("podman exec -ti pulp-api pulpcore-manager check --deploy")
+    result = container_exec(server, "pulp-api", "pulpcore-manager check --deploy")
     assert result.succeeded

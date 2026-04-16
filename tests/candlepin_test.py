@@ -1,24 +1,26 @@
-import re
+from conftest import container_exec, foremanctl_run, service_is_running
 
 
 def assert_secret_content(server, secret_name, secret_value):
-    secret = server.run(f'podman secret inspect --format {"{{.SecretData}}"} --showsecret {secret_name}')
+    # Secrets live in the foremanctl user's Podman store
+    secret = foremanctl_run(server, f'podman secret inspect --format {{{{.SecretData}}}} --showsecret {secret_name}')
     assert secret.succeeded
     assert secret.stdout.strip() == secret_value
 
 
 def test_candlepin_service(server):
-    candlepin = server.service("candlepin")
-    assert candlepin.is_running
+    assert service_is_running(server, "candlepin")
 
 
 def test_candlepin_port(server):
-    candlepin = server.addr("localhost")
-    assert candlepin.port("23443").is_reachable
+    # Port 23443 is published to host loopback for httpd proxy access
+    assert server.addr("localhost").port("23443").is_reachable
 
 
 def test_candlepin_status(server, certificates):
-    status = server.run(f"curl --cacert {certificates['ca_certificate']} --silent --output /dev/null --write-out '%{{http_code}}' https://localhost:23443/candlepin/status")
+    # Use --resolve so curl verifies against the 'candlepin' SAN on the cert
+    # while connecting to the host-published port on 127.0.0.1.
+    status = server.run(f"curl --resolve candlepin:23443:127.0.0.1 --cacert {certificates['ca_certificate']} --silent --output /dev/null --write-out '%{{http_code}}' https://candlepin:23443/candlepin/status")
     assert status.succeeded
     assert status.stdout == '200'
 

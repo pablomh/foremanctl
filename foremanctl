@@ -14,4 +14,9 @@ ANSIBLE_COLLECTIONS_PATH=${OBSAH_BASE}/build/collections/foremanctl
 ANSIBLE_COLLECTIONS_SCAN_SYS_PATH=false
 export ANSIBLE_LOG_PATH ANSIBLE_COLLECTIONS_PATH ANSIBLE_COLLECTIONS_SCAN_SYS_PATH
 
+if [[ "${1:-}" == "service" ]]; then
+  shift
+  exec "${OBSAH_BASE}/src/scripts/foremanctl-service" "$@"
+fi
+
 exec obsah "$@"

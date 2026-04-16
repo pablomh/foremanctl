@@ -1,0 +1,111 @@
+#!/bin/bash
+# foremanctl-service — operational interface for Foreman services and containers.
+#
+# Usage:
+#   foremanctl service status [-b] [unit]
+#   foremanctl service start  [unit]
+#   foremanctl service stop   [unit]
+#   foremanctl service restart <unit>
+#   foremanctl service logs    <unit> [-f]
+#   foremanctl service ps
+#   foremanctl service exec    <container> [cmd...]
+
+set -euo pipefail
+
+DEFAULT_TARGET=foreman.target
+
+# ---------------------------------------------------------------------------
+# Brief status: one line per service in startup order
+# ---------------------------------------------------------------------------
+status_brief() {
+  local unit="${1:-${DEFAULT_TARGET}}"
+  local col_width=45
+
+  while IFS= read -r svc; do
+    # list-dependencies includes the target itself; skip it
+    [[ "${svc}" == "${unit}" ]] && continue
+    [[ -z "${svc}" ]] && continue
+
+    if systemctl is-active --quiet "${svc}" 2>/dev/null; then
+      state="[ OK   ]"
+    else
+      state="[ FAIL ]"
+    fi
+    printf "%-${col_width}s %s\n" "${svc}" "${state}"
+  done < <(systemctl list-dependencies --plain "${unit}" 2>/dev/null)
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand dispatch
+# ---------------------------------------------------------------------------
+subcommand="${1:-status}"
+shift || true
+
+case "${subcommand}" in
+  status)
+    brief=false
+    unit="${DEFAULT_TARGET}"
+    for arg in "$@"; do
+      case "${arg}" in
+        -b|--brief) brief=true ;;
+        *) unit="${arg}" ;;
+      esac
+    done
+    if [[ "${brief}" == true ]]; then
+      status_brief "${unit}"
+    else
+      systemctl status "${unit}"
+    fi
+    ;;
+
+  start)
+    systemctl start "${1:-${DEFAULT_TARGET}}"
+    ;;
+
+  stop)
+    systemctl stop "${1:-${DEFAULT_TARGET}}"
+    ;;
+
+  restart)
+    unit="${1:?Usage: foremanctl service restart <unit>}"
+    systemctl restart "${unit}"
+    ;;
+
+  logs)
+    unit="${1:?Usage: foremanctl service logs <unit> [-f]}"
+    shift
+    journalctl -u "${unit}" "$@"
+    ;;
+
+  ps)
+    podman ps "$@"
+    ;;
+
+  exec)
+    container="${1:?Usage: foremanctl service exec <container> [cmd...]}"
+    shift
+    podman exec "${container}" "${@:-bash}"
+    ;;
+
+  help|--help|-h)
+    cat <<'EOF'
+Usage: foremanctl service <subcommand> [options]
+
+Subcommands:
+  status [-b] [unit]       Show service status (default unit: foreman.target)
+                           -b / --brief: one-liner per service in startup order
+  start  [unit]            Start unit (default: foreman.target)
+  stop   [unit]            Stop unit (default: foreman.target)
+  restart <unit>           Restart a specific unit
+  logs    <unit> [-f ...]  Show journal for a unit (passes extra flags through)
+  ps                       List running containers
+  exec    <ctr> [cmd]      Exec into a container (default cmd: bash)
+EOF
+    ;;
+
+  *)
+    echo "foremanctl service: unknown subcommand '${subcommand}'" >&2
+    echo "Run 'foremanctl service help' for usage." >&2
+    exit 1
+    ;;
+esac

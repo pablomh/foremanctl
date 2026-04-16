@@ -9,26 +9,32 @@
   ansible.builtin.file:
     path: "{{ certificates_ca_directory_certs }}"
     state: directory
+    owner: "{{ certificates_owner }}"
+    group: "{{ certificates_group }}"
     mode: '0755'
 
 - name: 'Create keys directory'
   ansible.builtin.file:
     path: "{{ certificates_ca_directory_keys }}"
     state: directory
-    mode: '0755'
+    owner: "{{ certificates_owner }}"
+    group: "{{ certificates_group }}"
+    mode: '0750'
 
 - name: 'Create requests directory'
   ansible.builtin.file:
     path: "{{ certificates_ca_directory_requests }}"
     state: directory
+    owner: "{{ certificates_owner }}"
+    group: "{{ certificates_group }}"
     mode: '0755'
 
 - name: 'Create CA key password file'
   ansible.builtin.copy:
     content: "{{ certificates_ca_password }}"
     dest: "{{ certificates_ca_directory_keys }}/ca.pwd"
-    owner: root
-    group: root
+    owner: "{{ certificates_owner }}"
+    group: "{{ certificates_group }}"
     mode: '0600'
   no_log: true
 

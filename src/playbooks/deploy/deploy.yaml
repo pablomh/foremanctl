@@ -1,5 +1,9 @@
 ---
-- name: Setup quadlet demo machine
+- name: Setup rootless user environment
+  import_playbook: ../setup-rootless-user/setup-rootless-user.yaml
+
+# Play 2: Deploy all Foreman services.
+- name: Deploy Foreman services
   hosts:
     - quadlet
   become: true
@@ -12,6 +16,44 @@
     - "../../vars/database.yml"
     - "../../vars/foreman.yml"
     - "../../vars/base.yaml"
+  pre_tasks:
+    - name: Make installer certificates readable by the foremanctl rootless user
+      when: "certificate_source == 'installer'"
+      block:
+        - name: Make /root directory traversable for foremanctl
+          ansible.builtin.file:
+            path: /root
+            state: directory
+            mode: '0711'
+
+        - name: Make installer certificate directories readable by foremanctl
+          ansible.builtin.command:
+            cmd: find /root/ssl-build -type d -exec chmod 0755 {} +
+          changed_when: false
+
+        - name: Make installer certificate files readable by foremanctl
+          ansible.builtin.command:
+            cmd: find /root/ssl-build -type f ! -name '*.key' -exec chmod 0644 {} +
+          changed_when: false
+
+        - name: Make installer private keys readable by foremanctl
+          ansible.builtin.command:
+            cmd: find /root/ssl-build -type f -name '*.key' -exec chmod 0640 {} +
+          changed_when: false
+
+    - name: Add IOP databases when IOP is enabled and database is internal
+      when:
+        - "'iop' in enabled_features"
+        - database_mode == 'internal'
+      block:
+        - name: Load IOP database variables
+          ansible.builtin.include_vars:
+            file: "../../vars/database_iop.yml"
+
+        - name: Merge IOP databases and users into postgresql lists
+          ansible.builtin.set_fact:
+            postgresql_databases: "{{ postgresql_databases + iop_postgresql_databases }}"
+            postgresql_users: "{{ postgresql_users + iop_postgresql_users }}"
   roles:
     - role: pre_install
     - role: checks
@@ -22,6 +64,22 @@
         certificate_checks_certificate: "{{ server_certificate }}"
         certificate_checks_key: "{{ server_key }}"
         certificate_checks_ca: "{{ ca_certificate }}"
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-db
+        deploy_network_internal: true
+        deploy_network_isolate: true
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-cache
+        deploy_network_internal: true
+        deploy_network_isolate: true
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-app
+    - role: deploy_network
+      vars:
+        deploy_network_name: foreman-proxy-net
     - role: postgresql
       when:
         - database_mode == 'internal'
@@ -34,6 +92,10 @@
     - role: foreman_proxy
       when:
         - "'foreman-proxy' in enabled_features"
+    - role: iop_core
+      when:
+        - "'iop' in enabled_features"
+        - database_mode == 'internal'
     - role: hammer
       when:
         - "'hammer' in enabled_features"

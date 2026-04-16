@@ -14,31 +14,31 @@
       containers.podman.podman_secret:
         name: iop-core-host-inventory-database-username
         data: "{{ iop_inventory_database_user }}"
-      notify: restart inventory
+      notify: Restart inventory
 
     - name: Create podman secret for inventory database password
       containers.podman.podman_secret:
         name: iop-core-host-inventory-database-password
         data: "{{ iop_inventory_database_password }}"
-      notify: restart inventory
+      notify: Restart inventory
 
     - name: Create podman secret for inventory database name
       containers.podman.podman_secret:
         name: iop-core-host-inventory-database-name
         data: "{{ iop_inventory_database_name }}"
-      notify: restart inventory
+      notify: Restart inventory
 
     - name: Create podman secret for inventory database host
       containers.podman.podman_secret:
         name: iop-core-host-inventory-database-host
         data: "{{ iop_inventory_database_host }}"
-      notify: restart inventory
+      notify: Restart inventory
 
     - name: Create podman secret for inventory database port
       containers.podman.podman_secret:
         name: iop-core-host-inventory-database-port
         data: "{{ iop_inventory_database_port | string }}"
-      notify: restart inventory
+      notify: Restart inventory
 
     - name: Deploy Host Inventory Database Migration container
       containers.podman.podman_container:
@@ -180,7 +180,7 @@
           WantedBy=timers.target
         dest: "{{ foremanctl_systemd_user_dir }}/iop-core-host-inventory-cleanup.timer"
         mode: '0644'
-      notify: restart inventory
+      notify: Restart inventory
 
     - name: Run daemon reload to make Quadlet create the service files
       ansible.builtin.systemd:

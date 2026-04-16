@@ -1,5 +1,5 @@
 ---
-- name: restart advisor
+- name: Restart advisor
   become: true
   become_method: "{{ foremanctl_become_method }}"
   become_user: "{{ foremanctl_user }}"

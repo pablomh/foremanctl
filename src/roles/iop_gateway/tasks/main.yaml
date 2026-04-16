@@ -23,7 +23,7 @@
         state: present
         name: iop-core-gateway-relay-conf
         data: "{{ lookup('ansible.builtin.template', 'relay.conf.j2') }}"
-      notify: restart gateway
+      notify: Restart gateway
 
     - name: Deploy Gateway container
       containers.podman.podman_container:

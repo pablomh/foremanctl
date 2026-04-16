@@ -14,31 +14,31 @@
       containers.podman.podman_secret:
         name: iop-service-advisor-backend-database-username
         data: "{{ iop_advisor_database_user }}"
-      notify: restart advisor
+      notify: Restart advisor
 
     - name: Create podman secret for advisor database password
       containers.podman.podman_secret:
         name: iop-service-advisor-backend-database-password
         data: "{{ iop_advisor_database_password }}"
-      notify: restart advisor
+      notify: Restart advisor
 
     - name: Create podman secret for advisor database name
       containers.podman.podman_secret:
         name: iop-service-advisor-backend-database-name
         data: "{{ iop_advisor_database_name }}"
-      notify: restart advisor
+      notify: Restart advisor
 
     - name: Create podman secret for advisor database host
       containers.podman.podman_secret:
         name: iop-service-advisor-backend-database-host
         data: "{{ iop_advisor_database_host }}"
-      notify: restart advisor
+      notify: Restart advisor
 
     - name: Create podman secret for advisor database port
       containers.podman.podman_secret:
         name: iop-service-advisor-backend-database-port
         data: "{{ iop_advisor_database_port | string }}"
-      notify: restart advisor
+      notify: Restart advisor
 
     - name: Deploy Advisor Backend API container
       containers.podman.podman_container:

@@ -15,35 +15,35 @@
         state: present
         name: iop-service-remediations-db-username
         data: "{{ iop_remediation_database_user }}"
-      notify: restart remediation
+      notify: Restart remediation
 
     - name: Create Remediation database password secret
       containers.podman.podman_secret:
         state: present
         name: iop-service-remediations-db-password
         data: "{{ iop_remediation_database_password }}"
-      notify: restart remediation
+      notify: Restart remediation
 
     - name: Create Remediation database name secret
       containers.podman.podman_secret:
         state: present
         name: iop-service-remediations-db-name
         data: "{{ iop_remediation_database_name }}"
-      notify: restart remediation
+      notify: Restart remediation
 
     - name: Create Remediation database host secret
       containers.podman.podman_secret:
         state: present
         name: iop-service-remediations-db-host
         data: "{{ iop_remediation_database_host }}"
-      notify: restart remediation
+      notify: Restart remediation
 
     - name: Create Remediation database port secret
       containers.podman.podman_secret:
         state: present
         name: iop-service-remediations-db-port
         data: "{{ iop_remediation_database_port | string }}"
-      notify: restart remediation
+      notify: Restart remediation
 
     - name: Deploy Remediation API container
       containers.podman.podman_container:

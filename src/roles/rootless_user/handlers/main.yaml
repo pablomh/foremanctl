@@ -1,0 +1,5 @@
+---
+- name: Reload fapolicyd rootless_user
+  ansible.builtin.systemd:
+    name: fapolicyd
+    state: restarted

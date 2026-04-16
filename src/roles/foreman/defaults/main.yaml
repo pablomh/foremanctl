@@ -1,11 +1,10 @@
 ---
 foreman_container_image: "quay.io/foreman/foreman"
 foreman_container_tag: "nightly"
-foreman_registry_auth_file: /etc/foreman/registry-auth.json
 
 foreman_database_name: foreman
 foreman_database_user: foreman
-foreman_database_host: localhost
+foreman_database_host: postgresql
 foreman_database_port: 5432
 foreman_database_pool: 9
 foreman_database_ssl_mode: disable
@@ -41,3 +40,14 @@ foreman_recurring_tasks:
     schedule: "monthly"
 
 foreman_plugins: []
+
+# Networks: foreman needs app, db, cache, and proxy tiers
+foreman_networks:
+  - foreman-app
+  - foreman-db
+  - foreman-cache
+  - foreman-proxy-net
+
+# Port published to host loopback so httpd can proxy to Foreman
+foreman_publish_ports:
+  - "127.0.0.1:3000:3000"

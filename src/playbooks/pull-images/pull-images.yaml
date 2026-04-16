@@ -1,4 +1,8 @@
 ---
+- name: Setup rootless user environment
+  import_playbook: ../setup-rootless-user/setup-rootless-user.yaml
+
+# Play 2: Pull all container images in the foremanctl user context.
 - name: Pull images
   hosts:
     - quadlet
@@ -11,27 +15,27 @@
   roles:
     - role: pre_install
   post_tasks:
-    - name: Pull an image
-      containers.podman.podman_image:
-        name: "{{ item }}"
-      environment:
-        REGISTRY_AUTH_FILE: "{{ registry_auth_file }}"
-      loop: "{{ images }}"
+    - name: Pull images as rootless user
+      become: true
+      become_method: "{{ foremanctl_become_method }}"
+      become_user: "{{ foremanctl_user }}"
+      environment: "{{ foremanctl_runtime_env }}"
+      block:
+        - name: Pull core images
+          containers.podman.podman_image:
+            name: "{{ item }}"
+          loop: "{{ images }}"
 
-    - name: Pull foreman_proxy images
-      containers.podman.podman_image:
-        name: "{{ item }}"
-      environment:
-        REGISTRY_AUTH_FILE: "{{ registry_auth_file }}"
-      loop: "{{ foreman_proxy_images }}"
-      when:
-        - "'foreman-proxy' in enabled_features"
+        - name: Pull foreman_proxy images
+          containers.podman.podman_image:
+            name: "{{ item }}"
+          loop: "{{ foreman_proxy_images }}"
+          when:
+            - "'foreman-proxy' in enabled_features"
 
-    - name: Pull database images
-      containers.podman.podman_image:
-        name: "{{ item }}"
-      environment:
-        REGISTRY_AUTH_FILE: "{{ registry_auth_file }}"
-      loop: "{{ database_images }}"
-      when:
-        - database_mode == 'internal'
+        - name: Pull database images
+          containers.podman.podman_image:
+            name: "{{ item }}"
+          loop: "{{ database_images }}"
+          when:
+            - database_mode == 'internal'

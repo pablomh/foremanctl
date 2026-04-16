@@ -1,0 +1,126 @@
+---
+- name: Install acl to allow Ansible to become an unprivileged user
+  ansible.builtin.package:
+    name: acl
+    state: present
+
+- name: "Create group: {{ rootless_user_group }}"
+  ansible.builtin.group:
+    name: "{{ rootless_user_group }}"
+    state: present
+
+- name: "Create user: {{ rootless_user_name }}"
+  ansible.builtin.user:
+    name: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    home: "{{ rootless_user_home }}"
+    shell: "{{ rootless_user_shell }}"
+    comment: "{{ rootless_user_comment }}"
+    create_home: true
+    system: true
+    state: present
+
+- name: "Ensure home directory is owned by {{ rootless_user_name }}"
+  ansible.builtin.file:
+    path: "{{ rootless_user_home }}"
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0700'
+    state: directory
+
+- name: Get user info to determine UID
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ rootless_user_name }}"
+
+- name: Set XDG_RUNTIME_DIR based on actual UID
+  ansible.builtin.set_fact:
+    rootless_user_xdg_runtime_dir: "/run/user/{{ ansible_facts['getent_passwd'][rootless_user_name][1] }}"
+
+- name: "Add subuid entry for user: {{ rootless_user_name }}"
+  ansible.builtin.lineinfile:
+    path: /etc/subuid
+    regexp: "^{{ rootless_user_name }}:"
+    line: "{{ rootless_user_name }}:{{ rootless_user_subuid_start }}:{{ rootless_user_subuid_count }}"
+    create: true
+    mode: '0644'
+
+- name: "Add subgid entry for user: {{ rootless_user_name }}"
+  ansible.builtin.lineinfile:
+    path: /etc/subgid
+    regexp: "^{{ rootless_user_name }}:"
+    line: "{{ rootless_user_name }}:{{ rootless_user_subgid_start }}:{{ rootless_user_subgid_count }}"
+    create: true
+    mode: '0644'
+
+- name: Allow rootless containers to bind to privileged ports
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_unprivileged_port_start
+    value: "{{ rootless_user_unprivileged_port_start }}"
+    state: present
+    sysctl_set: true
+    reload: true
+
+- name: Check if lingering is already enabled
+  ansible.builtin.stat:
+    path: "/var/lib/systemd/linger/{{ rootless_user_name }}"
+  register: _rootless_user_linger_stat
+
+- name: "Enable lingering for user: {{ rootless_user_name }}"
+  ansible.builtin.command: loginctl enable-linger {{ rootless_user_name }}
+  when: not _rootless_user_linger_stat.stat.exists
+  changed_when: true
+
+- name: Verify XDG_RUNTIME_DIR exists (lingering must be active)
+  ansible.builtin.stat:
+    path: "{{ rootless_user_xdg_runtime_dir }}"
+  register: _rootless_user_xdg_stat
+  failed_when: not _rootless_user_xdg_stat.stat.exists
+
+- name: Check if fapolicyd is active
+  # See: https://access.redhat.com/solutions/7072618 / RHEL-37912
+  ansible.builtin.systemd:
+    name: fapolicyd
+  register: _rootless_user_fapolicyd_status
+  changed_when: false
+  failed_when: false
+
+- name: Add fapolicyd rule for Ansible become_user with foremanctl
+  # Ansible's become_user with sudo copies Python modules to /var/tmp/ before
+  # executing them as the target user. fapolicyd blocks this by default.
+  # This must run in the rootless_user role (not pre_install) so the rule is
+  # in place before any become_user: foremanctl operations — including those
+  # in pull-images.yaml which runs before pre_install.
+  when:
+    - _rootless_user_fapolicyd_status.status is defined
+    - _rootless_user_fapolicyd_status.status.ActiveState == 'active'
+  block:
+    - name: Allow Ansible become_user to copy Python modules to /var/tmp/
+      # Use file 05-* so the rule loads before default deny rules.
+      # Use 'all' as the subject (like the CI does for /home/vagrant/.ansible/tmp/)
+      # to avoid having to match a specific Python binary path — fapolicyd
+      # checks the actual executable, not symlinks, so 'python3' would not
+      # match 'python3.9' or 'python3.12'.
+      ansible.builtin.copy:
+        dest: /etc/fapolicyd/rules.d/05-foremanctl-ansible.rules
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          allow perm=open exe=/usr/bin/python3.9 : dir=/var/tmp/ ftype=text/x-python
+          allow perm=open exe=/usr/bin/python3.12 : dir=/var/tmp/ ftype=text/x-python
+      notify: Reload fapolicyd rootless_user
+
+    - name: Flush fapolicyd reload handler immediately
+      ansible.builtin.meta: flush_handlers
+
+- name: Create quadlet and systemd user unit directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0755'
+  loop:
+    - "{{ rootless_user_quadlet_dir }}"
+    - "{{ rootless_user_systemd_user_dir }}"

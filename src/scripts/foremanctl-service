@@ -1,6 +1,11 @@
 #!/bin/bash
 # foremanctl-service — operational interface for Foreman services and containers.
 #
+# Auto-detects deployment mode:
+#   rootful  (default) — services are system-scope units; podman runs as root
+#   rootless (future)  — services are user-scope units under the 'foremanctl'
+#                        system user; podman runs in that user's namespace
+#
 # Usage:
 #   foremanctl service status [-b] [unit]
 #   foremanctl service start  [unit]
@@ -12,7 +17,47 @@
 
 set -euo pipefail
 
+FOREMANCTL_USER=foremanctl
 DEFAULT_TARGET=foreman.target
+
+# ---------------------------------------------------------------------------
+# Mode detection: rootless if the foremanctl service user exists
+# ---------------------------------------------------------------------------
+if id -u "${FOREMANCTL_USER}" &>/dev/null; then
+  MODE=rootless
+else
+  MODE=rootful
+fi
+
+# ---------------------------------------------------------------------------
+# Wrappers that dispatch to the right tool for the active mode
+# ---------------------------------------------------------------------------
+
+run_systemctl() {
+  if [[ "${MODE}" == rootless ]]; then
+    systemctl --machine="${FOREMANCTL_USER}@" --user "$@"
+  else
+    systemctl "$@"
+  fi
+}
+
+run_journalctl() {
+  if [[ "${MODE}" == rootless ]]; then
+    journalctl --machine="${FOREMANCTL_USER}@" --user "$@"
+  else
+    journalctl "$@"
+  fi
+}
+
+run_podman() {
+  if [[ "${MODE}" == rootless ]]; then
+    local uid
+    uid=$(id -u "${FOREMANCTL_USER}")
+    XDG_RUNTIME_DIR="/run/user/${uid}" runuser -u "${FOREMANCTL_USER}" -- podman "$@"
+  else
+    podman "$@"
+  fi
+}
 
 # ---------------------------------------------------------------------------
 # Brief status: one line per service in startup order
@@ -26,13 +71,13 @@ status_brief() {
     [[ "${svc}" == "${unit}" ]] && continue
     [[ -z "${svc}" ]] && continue
 
-    if systemctl is-active --quiet "${svc}" 2>/dev/null; then
+    if run_systemctl is-active --quiet "${svc}" 2>/dev/null; then
       state="[ OK   ]"
     else
       state="[ FAIL ]"
     fi
     printf "%-${col_width}s %s\n" "${svc}" "${state}"
-  done < <(systemctl list-dependencies --plain "${unit}" 2>/dev/null)
+  done < <(run_systemctl list-dependencies --plain "${unit}" 2>/dev/null)
 }
 
 # ---------------------------------------------------------------------------
@@ -54,37 +99,37 @@ case "${subcommand}" in
     if [[ "${brief}" == true ]]; then
       status_brief "${unit}"
     else
-      systemctl status "${unit}"
+      run_systemctl status "${unit}"
     fi
     ;;
 
   start)
-    systemctl start "${1:-${DEFAULT_TARGET}}"
+    run_systemctl start "${1:-${DEFAULT_TARGET}}"
     ;;
 
   stop)
-    systemctl stop "${1:-${DEFAULT_TARGET}}"
+    run_systemctl stop "${1:-${DEFAULT_TARGET}}"
     ;;
 
   restart)
     unit="${1:?Usage: foremanctl service restart <unit>}"
-    systemctl restart "${unit}"
+    run_systemctl restart "${unit}"
     ;;
 
   logs)
     unit="${1:?Usage: foremanctl service logs <unit> [-f]}"
     shift
-    journalctl -u "${unit}" "$@"
+    run_journalctl -u "${unit}" "$@"
     ;;
 
   ps)
-    podman ps "$@"
+    run_podman ps "$@"
     ;;
 
   exec)
     container="${1:?Usage: foremanctl service exec <container> [cmd...]}"
     shift
-    podman exec "${container}" "${@:-bash}"
+    run_podman exec "${container}" "${@:-bash}"
     ;;
 
   help|--help|-h)
@@ -100,6 +145,10 @@ Subcommands:
   logs    <unit> [-f ...]  Show journal for a unit (passes extra flags through)
   ps                       List running containers
   exec    <ctr> [cmd]      Exec into a container (default cmd: bash)
+
+Deployment mode is detected automatically:
+  rootful  — services managed via system-scope systemctl / podman as root
+  rootless — services managed via systemctl --machine=foremanctl@ --user
 EOF
     ;;
 

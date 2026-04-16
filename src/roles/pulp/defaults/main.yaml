@@ -1,7 +1,6 @@
 ---
 pulp_container_image: quay.io/foreman/pulp
 pulp_container_tag: "3.73"
-pulp_registry_auth_file: /etc/foreman/registry-auth.json
 pulp_api_image: "{{ pulp_container_image }}:{{ pulp_container_tag }}"
 pulp_content_image: "{{ pulp_container_image }}:{{ pulp_container_tag }}"
 pulp_worker_image: "{{ pulp_container_image }}:{{ pulp_container_tag }}"
@@ -10,8 +9,29 @@ pulp_worker_count: "{{ [8, ansible_facts['processor_nproc']] | min }}"
 pulp_content_service_worker_count: "{{ (2 * ([8, ansible_facts['processor_nproc']] | min)) + 1 }}"
 pulp_api_service_worker_count: "{{ ([4, ansible_facts['processor_nproc']] | min) + 1 }}"
 
+# Container UID/GID for the pulp process (used for podman unshare chown)
+pulp_container_uid: 700
+pulp_container_gid: 700
+
+# Network for one-off migration/admin containers. Internal DB uses the
+# isolated foreman-db network; external DB uses foreman-app for routing.
+# Dev environments override to 'host' (no bridge networks exist).
+pulp_migration_networks: "{{ ['foreman-db'] if database_mode == 'internal' else ['foreman-app'] }}"
+
 pulp_volumes:
   - /var/lib/pulp:/var/lib/pulp
+
+# Networks: pulp containers need app (foreman), db (postgresql), and cache (redis)
+pulp_networks:
+  - foreman-app
+  - foreman-db
+  - foreman-cache
+
+# Ports published to host loopback so httpd can proxy to Pulp
+pulp_api_publish_ports:
+  - "127.0.0.1:24817:24817"
+pulp_content_publish_ports:
+  - "127.0.0.1:24816:24816"
 
 pulp_api_container_name: pulp-api
 pulp_content_container_name: pulp-content
@@ -33,7 +53,7 @@ pulp_enabled_plugins: "{{ pulp_default_plugins + pulp_plugins }}"
 
 pulp_database_name: pulp
 pulp_database_user: pulp
-pulp_database_host: localhost
+pulp_database_host: postgresql
 pulp_database_port: 5432
 pulp_database_ssl_mode: disabled
 pulp_database_ssl_ca:
@@ -57,7 +77,7 @@ pulp_settings_other_env:
     ['pulpcore.app.authentication.PulpNoCreateRemoteUserBackend']
   PULP_CACHE_ENABLED: "true"
   PULP_CONTENT_ORIGIN: "{{ pulp_content_origin }}"
-  PULP_REDIS_URL: "redis://localhost:6379/8"
+  PULP_REDIS_URL: "redis://redis:6379/8"
   PULP_REMOTE_USER_ENVIRON_NAME: "HTTP_REMOTE_USER"
   PULP_REST_FRAMEWORK__DEFAULT_AUTHENTICATION_CLASSES: >-
     ['rest_framework.authentication.SessionAuthentication', 'pulpcore.app.authentication.PulpRemoteUserAuthentication']

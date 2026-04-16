@@ -1,295 +1,291 @@
 ---
-- name: Pull the Pulp API container image
-  containers.podman.podman_image:
-    name: "{{ pulp_api_image }}"
-    state: present
-  environment:
-    REGISTRY_AUTH_FILE: "{{ pulp_registry_auth_file }}"
-
-- name: Pull the Pulp Content container image
-  containers.podman.podman_image:
-    name: "{{ pulp_content_image }}"
-    state: present
-  environment:
-    REGISTRY_AUTH_FILE: "{{ pulp_registry_auth_file }}"
-
-- name: Pull the Pulp Worker container image
-  containers.podman.podman_image:
-    name: "{{ pulp_worker_image }}"
-    state: present
-  environment:
-    REGISTRY_AUTH_FILE: "{{ pulp_registry_auth_file }}"
-
-- name: Create Pulp storage
+- name: Create Pulp storage directories
   ansible.builtin.file:
-    path: "{{ item | split(':') | first }}"
+    path: "{{ item }}"
     state: directory
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
     mode: "0755"
-  loop: "{{ pulp_volumes }}"
-
-- name: Create Pulp storage subdirs
-  ansible.builtin.file:
-    path: "/var/lib/pulp/{{ item }}"
-    state: directory
-    mode: "0755"
+    setype: container_var_lib_t
   loop:
-    - tmp
-    - assets
-    - media
-
-- name: Create DB password secret
-  containers.podman.podman_secret:
-    state: present
-    name: pulp-db-password
-    data: "{{ pulp_database_password }}"
-  notify:
-    - Restart pulp-api
-    - Restart pulp-content
-    - Restart pulp-worker
-
-- name: Create DB SSL cert
-  containers.podman.podman_secret:
-    state: present
-    name: pulp-db-ca
-    data: "{{ lookup('ansible.builtin.file', pulp_database_ssl_ca) if pulp_database_ssl_ca else 'empty' }}"
-  notify:
-    - Restart pulp-api
-    - Restart pulp-content
-    - Restart pulp-worker
+    - /var/lib/pulp
+    - /var/lib/pulp/tmp
+    - /var/lib/pulp/assets
+    - /var/lib/pulp/media
 
 - name: Generate Django secret key
-  ansible.builtin.command: "bash -c 'openssl rand -base64 50 | tr -d \"\\n\" | tr \"+/\" \"-_\" > /var/lib/pulp/django_secret_key'"
-  args:
-    creates: /var/lib/pulp/django_secret_key
-
-- name: Set secret key file permissions
-  ansible.builtin.file:
-    path: /var/lib/pulp/django_secret_key
-    owner: root
-    group: root
+  ansible.builtin.copy:
+    content: "{{ lookup('pipe', 'openssl rand -base64 50 | tr -d \"\\n\" | tr \"+/\" \"-_\"') }}"
+    dest: /var/lib/pulp/django_secret_key
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
     mode: '0600'
-
-- name: Create django pulp secret key secret
-  containers.podman.podman_secret:
-    state: present
-    name: pulp-django-secret-key
-    path: /var/lib/pulp/django_secret_key
-  notify:
-    - Restart pulp-api
-    - Restart pulp-content
-    - Restart pulp-worker
+    setype: container_var_lib_t
+    force: false
 
 - name: Generate database symmetric key
-  ansible.builtin.command: "bash -c 'openssl rand -base64 32 | tr \"+/\" \"-_\" > /var/lib/pulp/database_fields.symmetric.key'"
-  args:
-    creates: /var/lib/pulp/database_fields.symmetric.key
-
-- name: Create database symmetric key secret
-  containers.podman.podman_secret:
-    state: present
-    name: pulp-symmetric-key
-    path: /var/lib/pulp/database_fields.symmetric.key
-  notify:
-    - Restart pulp-api
-    - Restart pulp-content
-    - Restart pulp-worker
-
-- name: Deploy Pulp API Container
-  containers.podman.podman_container:
-    name: "{{ pulp_api_container_name }}"
-    image: "{{ pulp_api_image }}"
-    state: quadlet
-    sdnotify: true
-    command: pulp-api
-    network: host
-    hostname: "pulp-api.{{ ansible_facts['hostname'] }}.local"
-    volumes: "{{ pulp_volumes }}"
-    security_opt:
-      - "label=disable"
-    secrets:
-      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-      - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
-      - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
-    env: "{{ pulp_settings_env }}"
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target foreman.target
-        [Unit]
-        PartOf=foreman.target
-        Wants=redis.service postgresql.service
-        After=redis.service postgresql.service
-        [Service]
-        Restart=always
-        RestartSec=3
-  notify: Restart pulp-api
-
-- name: Deploy Pulp Content Container
-  containers.podman.podman_container:
-    name: "{{ pulp_content_container_name }}"
-    image: "{{ pulp_content_image }}"
-    state: quadlet
-    sdnotify: true
-    command: pulp-content
-    network: host
-    hostname: "pulp-content.{{ ansible_facts['hostname'] }}.local"
-    volumes: "{{ pulp_volumes }}"
-    security_opt:
-      - "label=disable"
-    secrets:
-      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-      - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
-      - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
-    env: "{{ pulp_settings_env }}"
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target foreman.target
-        [Unit]
-        PartOf=foreman.target
-        Wants=redis.service postgresql.service
-        After=redis.service postgresql.service
-        [Service]
-        Restart=always
-        RestartSec=3
-  notify: Restart pulp-content
-
-- name: Deploy Pulp Worker Template
-  containers.podman.podman_container:
-    name: "{{ pulp_worker_container_name }}-%i"
-    quadlet_filename: "{{ pulp_worker_container_name }}@"
-    image: "{{ pulp_worker_image }}"
-    state: quadlet
-    command: pulp-worker
-    network: host
-    hostname: "pulp-worker-%i.{{ ansible_facts['hostname'] }}.local"
-    volumes: "{{ pulp_volumes }}"
-    security_opt:
-      - "label=disable"
-    secrets:
-      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-      - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
-      - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
-    env: "{{ pulp_settings_env }}"
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=foreman.target pulp-worker.target
-        [Unit]
-        PartOf=pulp-worker.target foreman.target
-        Wants=redis.service postgresql.service
-        After=redis.service postgresql.service
-        [Service]
-        Restart=always
-        RestartSec=3
-        SyslogIdentifier={{ pulp_worker_container_name }}@%i
-  notify: Restart pulp-worker
-
-- name: Create Pulp Worker Container instances
-  ansible.builtin.file:
-    state: link
-    src: "/etc/containers/systemd/{{ pulp_worker_container_name }}@.container"
-    dest: "/etc/containers/systemd/{{ item }}.container"
-  loop: "{{ pulp_worker_services }}"
-
-- name: Create pulp-worker.target
   ansible.builtin.copy:
-    dest: /etc/systemd/system/pulp-worker.target
-    owner: root
-    group: root
-    mode: '0644'
-    content: |
-      [Unit]
-      Description=Pulp Worker Services
-      [Install]
-      WantedBy=foreman.target
+    content: "{{ lookup('pipe', 'openssl rand -base64 32 | tr \"+/\" \"-_\"') }}"
+    dest: /var/lib/pulp/database_fields.symmetric.key
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0600'
+    setype: container_var_lib_t
+    force: false
 
-- name: Run daemon reload to load service files
-  ansible.builtin.systemd:
-    daemon_reload: true
+- name: Configure and start Pulp containers as rootless user
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  block:
+    - name: Set Pulp storage directory ownership for container UID/GID
+      ansible.builtin.command:
+        cmd: "podman unshare chown -R {{ pulp_container_uid }}:{{ pulp_container_gid }} /var/lib/pulp"
+      changed_when: true
 
-- name: Migrate the Pulp database
-  containers.podman.podman_container:
-    name: pulpcore-manager-migrate
-    image: "{{ pulp_api_image }}"
-    command: pulpcore-manager migrate --noinput
-    detach: false
-    rm: true
-    network: host
-    volumes: "{{ pulp_volumes }}"
-    secrets:
-      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-      - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
-    env: "{{ pulp_settings_database_env }}"
+    - name: Pull the Pulp container image
+      containers.podman.podman_image:
+        name: "{{ pulp_api_image }}"
+        state: present
 
-- name: Ensure Pulp admin user exists
-  containers.podman.podman_container:
-    name: pulpcore-manager-admin-password
-    image: "{{ pulp_api_image }}"
-    command: pulpcore-manager reset-admin-password --random
-    detach: false
-    rm: true
-    network: host
-    volumes: "{{ pulp_volumes }}"
-    secrets:
-      - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
-      - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
-      - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
-    env: "{{ pulp_settings_database_env }}"
+    - name: Create DB password secret
+      containers.podman.podman_secret:
+        state: present
+        name: pulp-db-password
+        data: "{{ pulp_database_password }}"
+      notify:
+        - Restart pulp-api
+        - Restart pulp-content
+        - Restart pulp-worker
 
-- name: Flush handlers to restart services
-  ansible.builtin.meta: flush_handlers
+    - name: Create DB SSL cert
+      containers.podman.podman_secret:
+        state: present
+        name: pulp-db-ca
+        data: "{{ lookup('ansible.builtin.file', pulp_database_ssl_ca) if pulp_database_ssl_ca else 'empty' }}"
+      notify:
+        - Restart pulp-api
+        - Restart pulp-content
+        - Restart pulp-worker
 
-- name: Start Pulp services
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: started
-  async: 60
-  poll: 0
-  loop: "{{ pulp_all_services }}"
-  register: pulp_services
+    - name: Create django pulp secret key secret
+      containers.podman.podman_secret:
+        state: present
+        name: pulp-django-secret-key
+        path: /var/lib/pulp/django_secret_key
+      notify:
+        - Restart pulp-api
+        - Restart pulp-content
+        - Restart pulp-worker
 
-- name: Wait for Pulp services
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  register: _pulp_job_result
-  until: _pulp_job_result is finished
-  retries: 100
-  delay: 1
-  loop: "{{ pulp_services.results }}"
+    - name: Create database symmetric key secret
+      containers.podman.podman_secret:
+        state: present
+        name: pulp-symmetric-key
+        path: /var/lib/pulp/database_fields.symmetric.key
+      notify:
+        - Restart pulp-api
+        - Restart pulp-content
+        - Restart pulp-worker
 
-- name: Enable and start pulp-worker.target
-  ansible.builtin.systemd:
-    name: pulp-worker.target
-    enabled: true
-    state: started
+    - name: Deploy Pulp API container
+      containers.podman.podman_container:
+        name: "{{ pulp_api_container_name }}"
+        image: "{{ pulp_api_image }}"
+        state: quadlet
+        sdnotify: true
+        command: pulp-api
+        network: "{{ pulp_networks }}"
+        publish: "{{ pulp_api_publish_ports }}"
+        volumes: "{{ pulp_volumes }}"
+        security_opt:
+          - "label=disable"
+        secrets:
+          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+          - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
+          - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
+        env: "{{ pulp_settings_env }}"
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target foreman.target
+            [Unit]
+            PartOf=foreman.target
+            Wants=redis.service postgresql.service
+            After=redis.service postgresql.service
+            [Service]
+            Restart=always
+            RestartSec=3
+      notify: Restart pulp-api
 
-- name: Gather service facts to find existing pulp-worker instances
-  ansible.builtin.service_facts:
+    - name: Deploy Pulp Content container
+      containers.podman.podman_container:
+        name: "{{ pulp_content_container_name }}"
+        image: "{{ pulp_content_image }}"
+        state: quadlet
+        sdnotify: true
+        command: pulp-content
+        network: "{{ pulp_networks }}"
+        publish: "{{ pulp_content_publish_ports }}"
+        volumes: "{{ pulp_volumes }}"
+        security_opt:
+          - "label=disable"
+        secrets:
+          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+          - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
+          - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
+        env: "{{ pulp_settings_env }}"
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target foreman.target
+            [Unit]
+            PartOf=foreman.target
+            Wants=redis.service postgresql.service
+            After=redis.service postgresql.service
+            [Service]
+            Restart=always
+            RestartSec=3
+      notify: Restart pulp-content
 
-- name: Build list of existing pulp-worker services
-  ansible.builtin.set_fact:
-    pulp_existing_workers: "{{ ansible_facts.services.keys() | select('match', '^' + pulp_worker_container_name + '@\\d+\\.service$') | list }}"
+    - name: Deploy Pulp Worker template
+      containers.podman.podman_container:
+        name: "{{ pulp_worker_container_name }}-%i"
+        quadlet_filename: "{{ pulp_worker_container_name }}@"
+        image: "{{ pulp_worker_image }}"
+        state: quadlet
+        command: pulp-worker
+        network: "{{ pulp_networks }}"
+        volumes: "{{ pulp_volumes }}"
+        security_opt:
+          - "label=disable"
+        secrets:
+          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+          - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
+          - 'pulp-django-secret-key,type=env,target=PULP_SECRET_KEY'
+        env: "{{ pulp_settings_env }}"
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=foreman.target pulp-worker.target
+            [Unit]
+            PartOf=pulp-worker.target foreman.target
+            Wants=redis.service postgresql.service
+            After=redis.service postgresql.service
+            [Service]
+            Restart=always
+            RestartSec=3
+            SyslogIdentifier={{ pulp_worker_container_name }}@%i
+      notify: Restart pulp-worker
 
-- name: Stop and disable old pulp-worker instances
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    enabled: false
-    state: stopped
-  loop: "{{ pulp_existing_workers }}"
-  when:
-    - pulp_existing_workers | length > 0
-    - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)
+    - name: Create Pulp Worker container instance symlinks
+      ansible.builtin.file:
+        state: link
+        src: "{{ foremanctl_quadlet_dir }}/{{ pulp_worker_container_name }}@.container"
+        dest: "{{ foremanctl_quadlet_dir }}/{{ item }}.container"
+      loop: "{{ pulp_worker_services }}"
 
-- name: Remove container symlinks for old pulp-worker instances
-  ansible.builtin.file:
-    path: "/etc/containers/systemd/{{ item | regex_replace('\\.service$', '.container') }}"
-    state: absent
-  loop: "{{ pulp_existing_workers }}"
-  when:
-    - pulp_existing_workers | length > 0
-    - (item | regex_replace('^' + pulp_worker_container_name + '@(\\d+)\\.service$', '\\1') | int) > (pulp_worker_count | int)
+    - name: Create pulp-worker.target
+      ansible.builtin.copy:
+        dest: "{{ foremanctl_systemd_user_dir }}/pulp-worker.target"
+        owner: "{{ foremanctl_user }}"
+        group: "{{ foremanctl_group }}"
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Pulp Worker Services
+          [Install]
+          WantedBy=foreman.target
+
+    - name: Run daemon reload
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+
+    - name: Migrate the Pulp database
+      containers.podman.podman_container:
+        name: pulpcore-manager-migrate
+        image: "{{ pulp_api_image }}"
+        command: pulpcore-manager migrate --noinput
+        detach: false
+        rm: true
+        network: "{{ pulp_migration_networks }}"
+        volumes: "{{ pulp_volumes }}"
+        secrets:
+          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+          - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
+        env: "{{ pulp_settings_database_env }}"
+
+    - name: Ensure Pulp admin user exists
+      containers.podman.podman_container:
+        name: pulpcore-manager-admin-password
+        image: "{{ pulp_api_image }}"
+        command: pulpcore-manager reset-admin-password --random
+        detach: false
+        rm: true
+        network: "{{ pulp_migration_networks }}"
+        volumes: "{{ pulp_volumes }}"
+        secrets:
+          - 'pulp-symmetric-key,type=mount,target=/etc/pulp/certs/database_fields.symmetric.key'
+          - 'pulp-db-password,type=env,target=PULP_DATABASES__default__PASSWORD'
+          - 'pulp-db-ca,type=mount,target={{ pulp_database_ssl_ca_path }}'
+        env: "{{ pulp_settings_database_env }}"
+
+    - name: Start Pulp services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        scope: user
+      loop: "{{ pulp_all_services }}"
+
+    - name: Enable and start pulp-worker.target
+      ansible.builtin.systemd:
+        name: pulp-worker.target
+        enabled: true
+        state: started
+        scope: user
+
+    - name: Flush handlers to restart services if secrets changed
+      ansible.builtin.meta: flush_handlers
+
+# Clean up worker symlinks for instances beyond the configured count.
+# Uses find on the quadlet dir rather than service_facts (which only sees system scope).
+- name: Find existing pulp-worker instance symlinks
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  ansible.builtin.find:
+    paths: "{{ foremanctl_quadlet_dir }}"
+    patterns: "pulp-worker@*.container"
+    file_type: link
+  register: _pulp_existing_worker_symlinks
+
+- name: Stop and remove old pulp-worker instances
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  block:
+    - name: Stop excess pulp-worker services
+      ansible.builtin.systemd:
+        name: "{{ item.path | basename | regex_replace('\\.container$', '.service') }}"
+        enabled: false
+        state: stopped
+        scope: user
+      loop: "{{ _pulp_existing_worker_symlinks.files }}"
+      when: >
+        (item.path | basename | regex_replace('^pulp-worker@(\d+)\.container$', '\1') | int) > (pulp_worker_count | int)
+
+    - name: Remove symlinks for excess pulp-worker instances
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ _pulp_existing_worker_symlinks.files }}"
+      when: >
+        (item.path | basename | regex_replace('^pulp-worker@(\d+)\.container$', '\1') | int) > (pulp_worker_count | int)

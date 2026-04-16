@@ -9,3 +9,14 @@
   with_items: "{{ certificates_hostnames }}"
   loop_control:
     loop_var: certificates_hostname
+
+# openssl commands run as root and create root-owned files inside the
+# foremanctl-owned directories. Chown everything so the rootless user
+# can read them when creating Podman secrets.
+- name: Set ownership of certificate files for rootless user
+  ansible.builtin.file:
+    path: "{{ certificates_ca_directory }}"
+    state: directory
+    owner: "{{ certificates_owner }}"
+    group: "{{ certificates_group }}"
+    recurse: true

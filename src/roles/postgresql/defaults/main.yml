@@ -1,12 +1,21 @@
 ---
-postgresql_container_image: quay.io/sclorg/postgresql-13-c9s
+postgresql_container_image: quay.io/sclorg/postgresql-16-c10s
 postgresql_container_tag: "latest"
-postgresql_registry_auth_file: /etc/foreman/registry-auth.json
 postgresql_container_name: postgresql
-postgresql_network: host
-postgresql_restart_policy: always
+postgresql_networks:
+  - foreman-db
 
+# Host directory that PostgreSQL data is stored in
 postgresql_data_dir: /var/lib/pgsql/data
+
+# postgresql_socket_dir: undefined by default
+# Set in the deploy playbook for internal DB deployments to expose a Unix
+# socket on the host for IOP containers and Ansible community.postgresql tasks.
+# Not set for external DB deployments (TCP access via login_host: localhost).
+
+# Container UID/GID for the postgres process (used for podman unshare chown)
+postgresql_container_uid: 26
+postgresql_container_gid: 26
 
 postgresql_admin_password: "CHANGEME"
 

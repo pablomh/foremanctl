@@ -38,7 +38,7 @@
 
         - name: Make installer private keys readable by foremanctl
           ansible.builtin.command:
-            cmd: find /root/ssl-build -type f -name '*.key' -exec chmod 0640 {} +
+            cmd: find /root/ssl-build -type f -name '*.key' -exec chmod 0644 {} +
           changed_when: false
 
     - name: Add IOP databases when IOP is enabled and database is internal

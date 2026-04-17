@@ -30,15 +30,3 @@ postgresql_effective_cache_size: 1GB
 # 'system' default keeps the role self-contained for rootful deployments.
 # The rootless deployment (deploy.yaml) overrides this to 'user'.
 postgresql_systemd_scope: system
-
-# Rootful fallback values for foremanctl_* variables.
-# These are overridden for rootless deployments when base.yaml is loaded
-# (vars_files has higher precedence than role defaults).
-foremanctl_user: root
-foremanctl_group: root
-foremanctl_home: /root
-foremanctl_quadlet_dir: /etc/containers/systemd
-foremanctl_become_method: sudo
-foremanctl_registry_auth_file: /etc/foreman/registry-auth.json
-foremanctl_runtime_env:
-  REGISTRY_AUTH_FILE: /etc/foreman/registry-auth.json

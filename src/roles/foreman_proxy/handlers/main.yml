@@ -6,6 +6,7 @@
   environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: foreman-proxy
+    daemon_reload: true
     state: "{{ (_foreman_proxy_service is changed) | ternary('started', 'restarted') }}"
     scope: user
 

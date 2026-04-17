@@ -3,8 +3,8 @@
   ansible.builtin.file:
     path: "{{ postgresql_data_dir }}"
     state: directory
-    owner: "{{ foremanctl_user }}"
-    group: "{{ foremanctl_group }}"
+    owner: "{{ foremanctl_user | default('root') }}"
+    group: "{{ foremanctl_group | default('root') }}"
     mode: "0700"
     setype: container_var_lib_t
 
@@ -13,17 +13,18 @@
   ansible.builtin.file:
     path: "{{ postgresql_socket_dir }}"
     state: directory
-    owner: "{{ foremanctl_user }}"
-    group: "{{ foremanctl_group }}"
+    owner: "{{ foremanctl_user | default('root') }}"
+    group: "{{ foremanctl_group | default('root') }}"
     mode: "0777"
 
 - name: Configure and start PostgreSQL container as rootless user
   become: true
-  become_method: "{{ foremanctl_become_method }}"
-  become_user: "{{ foremanctl_user }}"
-  environment: "{{ foremanctl_runtime_env }}"
+  become_method: "{{ foremanctl_become_method | default('sudo') }}"
+  become_user: "{{ foremanctl_user | default('root') }}"
+  environment: "{{ foremanctl_runtime_env | default({}) }}"
   block:
     - name: Set PostgreSQL data directory ownership for container UID/GID
+      when: postgresql_systemd_scope == 'user'
       ansible.builtin.command:
         cmd: "podman unshare chown -R {{ postgresql_container_uid }}:{{ postgresql_container_gid }} {{ postgresql_data_dir }}"
       changed_when: true
@@ -130,9 +131,9 @@
     - postgresql_networks != 'host'
     - "'/tmp/socket' not in (_postgresql_socket_dirs.stdout | default(''))"
   become: true
-  become_method: "{{ foremanctl_become_method }}"
-  become_user: "{{ foremanctl_user }}"
-  environment: "{{ foremanctl_runtime_env }}"
+  become_method: "{{ foremanctl_become_method | default('sudo') }}"
+  become_user: "{{ foremanctl_user | default('root') }}"
+  environment: "{{ foremanctl_runtime_env | default({}) }}"
   ansible.builtin.command:
     cmd: podman healthcheck run {{ postgresql_container_name }}
   retries: 30
@@ -170,9 +171,9 @@
     - postgresql_ssl_key is defined
     - postgresql_ssl_key != ''
   become: true
-  become_method: "{{ foremanctl_become_method }}"
-  become_user: "{{ foremanctl_user }}"
-  environment: "{{ foremanctl_runtime_env }}"
+  become_method: "{{ foremanctl_become_method | default('sudo') }}"
+  become_user: "{{ foremanctl_user | default('root') }}"
+  environment: "{{ foremanctl_runtime_env | default({}) }}"
   block:
     - name: Create Podman secret for PostgreSQL SSL cert
       containers.podman.podman_secret:
@@ -200,7 +201,7 @@
 
     - name: Create postgresql.container.d folder
       ansible.builtin.file:
-        path: "{{ foremanctl_quadlet_dir }}/postgresql.container.d"
+        path: "{{ foremanctl_quadlet_dir | default('/etc/containers/systemd') }}/postgresql.container.d"
         state: directory
         mode: '0755'
         owner: "{{ foremanctl_user }}"
@@ -208,7 +209,7 @@
 
     - name: Configure PostgreSQL SSL-related secrets
       ansible.builtin.copy:
-        dest: "{{ foremanctl_quadlet_dir }}/postgresql.container.d/ssl.conf"
+        dest: "{{ foremanctl_quadlet_dir | default('/etc/containers/systemd') }}/postgresql.container.d/ssl.conf"
         mode: '0644'
         owner: "{{ foremanctl_user }}"
         group: "{{ foremanctl_group }}"

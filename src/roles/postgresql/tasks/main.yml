@@ -204,15 +204,15 @@
         path: "{{ foremanctl_quadlet_dir | default('/etc/containers/systemd') }}/postgresql.container.d"
         state: directory
         mode: '0755'
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
+        owner: "{{ foremanctl_user | default('root') }}"
+        group: "{{ foremanctl_group | default('root') }}"
 
     - name: Configure PostgreSQL SSL-related secrets
       ansible.builtin.copy:
         dest: "{{ foremanctl_quadlet_dir | default('/etc/containers/systemd') }}/postgresql.container.d/ssl.conf"
         mode: '0644'
-        owner: "{{ foremanctl_user }}"
-        group: "{{ foremanctl_group }}"
+        owner: "{{ foremanctl_user | default('root') }}"
+        group: "{{ foremanctl_group | default('root') }}"
         content: |
           [Container]
           Secret=postgresql-ssl-crt,type=mount,target=/opt/app-root/src/certs/ssl.crt,mode=0640

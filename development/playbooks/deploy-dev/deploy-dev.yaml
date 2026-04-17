@@ -20,6 +20,7 @@
     - role: certificates
     - role: postgresql
       vars:
+        postgresql_networks: host
         postgresql_databases:
           - name: "{{ candlepin_database_name }}"
             owner: "{{ candlepin_database_user }}"
@@ -38,9 +39,18 @@
           - name: "{{ pulp_database_user }}"
             password: "{{ pulp_database_password }}"
     - role: redis
+      vars:
+        redis_network: host
     - role: candlepin
+      vars:
+        candlepin_networks: host
+        candlepin_database_host: localhost
     - role: httpd
     - role: pulp
+      vars:
+        pulp_networks: host
+        pulp_database_host: localhost
+        pulp_redis_url: "redis://localhost:6379/8"
     - role: foreman_development
   post_tasks:
     - name: Display development environment information

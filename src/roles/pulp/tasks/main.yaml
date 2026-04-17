@@ -19,6 +19,11 @@
   become_user: "{{ foremanctl_user }}"
   environment: "{{ foremanctl_runtime_env }}"
   block:
+    - name: Set Pulp storage directory ownership for container UID/GID
+      ansible.builtin.command:
+        cmd: "podman unshare chown -R {{ pulp_container_uid }}:{{ pulp_container_gid }} /var/lib/pulp"
+      changed_when: true
+
     - name: Pull the Pulp container image
       containers.podman.podman_image:
         name: "{{ pulp_api_image }}"

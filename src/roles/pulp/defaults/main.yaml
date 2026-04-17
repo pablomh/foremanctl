@@ -9,6 +9,10 @@ pulp_worker_count: "{{ [8, ansible_facts['processor_nproc']] | min }}"
 pulp_content_service_worker_count: "{{ (2 * ([8, ansible_facts['processor_nproc']] | min)) + 1 }}"
 pulp_api_service_worker_count: "{{ ([4, ansible_facts['processor_nproc']] | min) + 1 }}"
 
+# Container UID/GID for the pulp process (used for podman unshare chown)
+pulp_container_uid: 700
+pulp_container_gid: 700
+
 pulp_volumes:
   - /var/lib/pulp:/var/lib/pulp
 

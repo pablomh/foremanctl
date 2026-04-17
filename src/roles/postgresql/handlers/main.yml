@@ -6,5 +6,6 @@
   environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: "{{ postgresql_container_name }}"
+    daemon_reload: true
     state: restarted
     scope: user

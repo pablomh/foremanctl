@@ -13,6 +13,11 @@ pulp_api_service_worker_count: "{{ ([4, ansible_facts['processor_nproc']] | min)
 pulp_container_uid: 700
 pulp_container_gid: 700
 
+# Network for one-off migration/admin containers. Internal DB uses the
+# isolated foreman-db network; external DB uses foreman-app for routing.
+# Dev environments override to 'host' (no bridge networks exist).
+pulp_migration_networks: "{{ ['foreman-db'] if database_mode == 'internal' else ['foreman-app'] }}"
+
 pulp_volumes:
   - /var/lib/pulp:/var/lib/pulp
 

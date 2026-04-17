@@ -49,6 +49,7 @@
     - role: pulp
       vars:
         pulp_networks: host
+        pulp_migration_networks: host
         pulp_database_host: localhost
         pulp_redis_url: "redis://localhost:6379/8"
     - role: foreman_development

@@ -83,6 +83,10 @@
     - role: postgresql
       when:
         - database_mode == 'internal'
+      vars:
+        postgresql_networks:
+          - foreman-db
+        postgresql_systemd_scope: user
     - redis
     - candlepin
     - httpd

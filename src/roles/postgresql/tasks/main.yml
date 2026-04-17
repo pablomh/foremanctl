@@ -70,13 +70,13 @@
     - name: Run daemon reload
       ansible.builtin.systemd:
         daemon_reload: true
-        scope: user
+        scope: "{{ postgresql_systemd_scope }}"
 
     - name: Start the PostgreSQL service
       ansible.builtin.systemd:
         name: "{{ postgresql_container_name }}"
         state: started
-        scope: user
+        scope: "{{ postgresql_systemd_scope }}"
 
     - name: Flush handlers to restart if secrets changed
       ansible.builtin.meta: flush_handlers

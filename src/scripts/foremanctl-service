@@ -51,9 +51,7 @@ run_journalctl() {
 
 run_podman() {
   if [[ "${MODE}" == rootless ]]; then
-    local uid
-    uid=$(id -u "${FOREMANCTL_USER}")
-    XDG_RUNTIME_DIR="/run/user/${uid}" runuser -u "${FOREMANCTL_USER}" -- podman "$@"
+    systemd-run --machine="${FOREMANCTL_USER}@" --user --wait --pipe -- podman "$@"
   else
     podman "$@"
   fi

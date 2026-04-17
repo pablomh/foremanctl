@@ -2,11 +2,8 @@
 postgresql_container_image: quay.io/sclorg/postgresql-16-c10s
 postgresql_container_tag: "latest"
 postgresql_container_name: postgresql
-# Default to host networking so the role works out-of-the-box in rootful
-# contexts (development, external DB) without requiring bridge networks.
-# The rootless deployment overrides this via the postgresql role call in
-# deploy.yaml to attach the container to the foreman-db bridge network.
-postgresql_networks: host
+postgresql_networks:
+  - foreman-db
 
 # Host directory that PostgreSQL data is stored in
 postgresql_data_dir: /var/lib/pgsql/data
@@ -25,8 +22,3 @@ postgresql_admin_password: "CHANGEME"
 postgresql_max_connections: 500
 postgresql_shared_buffers: 512MB
 postgresql_effective_cache_size: 1GB
-
-# Systemd scope for service management.
-# 'system' default keeps the role self-contained for rootful deployments.
-# The rootless deployment (deploy.yaml) overrides this to 'user'.
-postgresql_systemd_scope: system

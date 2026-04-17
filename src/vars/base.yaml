@@ -18,7 +18,7 @@ foremanctl_runtime_env:
 
 certificates_hostnames: >-
   {{ [ansible_facts['fqdn'], 'candlepin'] +
-     (['iop-core-gateway'] if 'iop' in enabled_features else []) }}
+     (['iop-core-gateway'] if enabled_features is defined and 'iop' in enabled_features else []) }}
 
 certificates_ca_password: "CHANGEME"
 candlepin_keystore_password: "CHANGEME"

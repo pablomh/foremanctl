@@ -1,10 +1,10 @@
 ---
 - name: Restart postgresql
   become: true
-  become_method: "{{ foremanctl_become_method | default('sudo') }}"
-  become_user: "{{ foremanctl_user | default('root') }}"
-  environment: "{{ foremanctl_runtime_env | default({}) }}"
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: "{{ postgresql_container_name }}"
     state: restarted
-    scope: "{{ postgresql_systemd_scope }}"
+    scope: user

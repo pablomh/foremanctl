@@ -1,4 +1,7 @@
 ---
+- name: Setup rootless user environment
+  import_playbook: ../../../src/playbooks/setup-rootless-user/setup-rootless-user.yaml
+
 - name: Deploy Foreman Development Environment
   hosts: "{{ target_host if target_host is defined and target_host != '' else 'quadlet' }}"
   become: true

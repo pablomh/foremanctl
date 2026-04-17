@@ -3,8 +3,8 @@
   ansible.builtin.file:
     path: "{{ postgresql_data_dir }}"
     state: directory
-    owner: "{{ foremanctl_user | default('root') }}"
-    group: "{{ foremanctl_group | default('root') }}"
+    owner: "{{ foremanctl_user | default(postgresql_container_uid) }}"
+    group: "{{ foremanctl_group | default(postgresql_container_gid) }}"
     mode: "0700"
     setype: container_var_lib_t
 

@@ -7,7 +7,7 @@
   ansible.builtin.systemd:
     name: foreman-proxy
     daemon_reload: true
-    state: "{{ (_foreman_proxy_service is changed) | ternary('started', 'restarted') }}"
+    state: restarted
     scope: user
 
 - name: Refresh Foreman Proxy

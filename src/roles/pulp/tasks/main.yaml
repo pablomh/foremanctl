@@ -13,6 +13,26 @@
     - /var/lib/pulp/assets
     - /var/lib/pulp/media
 
+- name: Generate Django secret key
+  ansible.builtin.copy:
+    content: "{{ lookup('pipe', 'openssl rand -base64 50 | tr -d \"\\n\" | tr \"+/\" \"-_\"') }}"
+    dest: /var/lib/pulp/django_secret_key
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0600'
+    setype: container_var_lib_t
+    force: false
+
+- name: Generate database symmetric key
+  ansible.builtin.copy:
+    content: "{{ lookup('pipe', 'openssl rand -base64 32 | tr \"+/\" \"-_\"') }}"
+    dest: /var/lib/pulp/database_fields.symmetric.key
+    owner: "{{ foremanctl_user }}"
+    group: "{{ foremanctl_group }}"
+    mode: '0600'
+    setype: container_var_lib_t
+    force: false
+
 - name: Configure and start Pulp containers as rootless user
   become: true
   become_method: "{{ foremanctl_become_method }}"
@@ -49,11 +69,6 @@
         - Restart pulp-content
         - Restart pulp-worker
 
-    - name: Generate Django secret key
-      ansible.builtin.command: "bash -c 'openssl rand -base64 50 | tr -d \"\\n\" | tr \"+/\" \"-_\" > /var/lib/pulp/django_secret_key'"
-      args:
-        creates: /var/lib/pulp/django_secret_key
-
     - name: Create django pulp secret key secret
       containers.podman.podman_secret:
         state: present
@@ -63,11 +78,6 @@
         - Restart pulp-api
         - Restart pulp-content
         - Restart pulp-worker
-
-    - name: Generate database symmetric key
-      ansible.builtin.command: "bash -c 'openssl rand -base64 32 | tr \"+/\" \"-_\" > /var/lib/pulp/database_fields.symmetric.key'"
-      args:
-        creates: /var/lib/pulp/database_fields.symmetric.key
 
     - name: Create database symmetric key secret
       containers.podman.podman_secret:

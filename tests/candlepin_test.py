@@ -18,7 +18,9 @@ def test_candlepin_port(server):
 
 
 def test_candlepin_status(server, certificates):
-    status = server.run(f"curl --cacert {certificates['ca_certificate']} --silent --output /dev/null --write-out '%{{http_code}}' https://localhost:23443/candlepin/status")
+    # Use --resolve so curl verifies against the 'candlepin' SAN on the cert
+    # while connecting to the host-published port on 127.0.0.1.
+    status = server.run(f"curl --resolve candlepin:23443:127.0.0.1 --cacert {certificates['ca_certificate']} --silent --output /dev/null --write-out '%{{http_code}}' https://candlepin:23443/candlepin/status")
     assert status.succeeded
     assert status.stdout == '200'
 
@@ -26,7 +28,7 @@ def test_candlepin_status(server, certificates):
 def test_artemis_port(server):
     # Artemis is internal to the foreman-app bridge network; verify it is
     # listening inside the container rather than on the host loopback.
-    result = foremanctl_exec(server, "candlepin", "bash -c 'ss -tlnp | grep 61613'")
+    result = foremanctl_exec(server, "candlepin", "bash -c 'echo > /dev/tcp/localhost/61613'")
     assert result.succeeded
 
 

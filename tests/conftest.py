@@ -52,50 +52,43 @@ def foremanctl_run(server, cmd):
     return run_as(server, "foremanctl", cmd)
 
 
-def foremanctl_exec(server, container, cmd="bash"):
-    """Run *cmd* inside *container* via `foremanctl service exec`.
+FOREMANCTL_USER = "foremanctl"
+SYSTEMCTL_USER = f"systemctl --machine={FOREMANCTL_USER}@ --user"
 
-    Uses the foremanctl service tool rather than raw podman exec, so tests
-    exercise the tool at the same time as verifying container behaviour.
-    *cmd* is a single string passed directly to the container entrypoint.
-    """
-    return server.run(f"foremanctl service exec {container} {cmd}")
+
+def foremanctl_exec(server, container, cmd="bash"):
+    """Run *cmd* inside *container* via podman exec in the foremanctl namespace."""
+    return foremanctl_run(server, f"podman exec {container} {cmd}")
 
 
 def service_is_running(server, name):
-    """Return True if *name* is active according to `foremanctl service status`.
-
-    Preferred over testinfra's server.service() for user-scope services
-    because it exercises the operational tool at the same time.
-    `systemctl status` exits 0 only when the unit is active.
-    """
-    return server.run(f"foremanctl service status {name}").rc == 0
+    """Return True if *name* is active in the foremanctl user scope."""
+    return server.run(f"{SYSTEMCTL_USER} is-active {name}").rc == 0
 
 
 def service_is_enabled(server, name):
     """Check if a user-scope service is enabled."""
-    return run_as(server, "foremanctl", f"systemctl --user is-enabled {name}").rc == 0
+    return server.run(f"{SYSTEMCTL_USER} is-enabled {name}").rc == 0
 
 
 def service_exists(server, name):
     """Check if a user-scope service unit exists."""
-    # systemctl --user status exits 4 when the unit is not found
-    return run_as(server, "foremanctl", f"systemctl --user status {name}").rc != 4
+    return server.run(f"{SYSTEMCTL_USER} status {name}").rc != 4
 
 
 def service_start(server, name):
-    """Start *name* via `foremanctl service start`. Returns the command result."""
-    return server.run(f"foremanctl service start {name}")
+    """Start a user-scope service. Returns the command result."""
+    return server.run(f"{SYSTEMCTL_USER} start {name}")
 
 
 def service_stop(server, name):
-    """Stop *name* via `foremanctl service stop`. Returns the command result."""
-    return server.run(f"foremanctl service stop {name}")
+    """Stop a user-scope service. Returns the command result."""
+    return server.run(f"{SYSTEMCTL_USER} stop {name}")
 
 
 def service_restart(server, name):
-    """Restart *name* via `foremanctl service restart`. Returns the command result."""
-    return server.run(f"foremanctl service restart {name}")
+    """Restart a user-scope service. Returns the command result."""
+    return server.run(f"{SYSTEMCTL_USER} restart {name}")
 
 
 def pytest_addoption(parser):

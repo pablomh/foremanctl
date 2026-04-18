@@ -40,16 +40,6 @@
       notify:
         - Restart postgresql
 
-    - name: Create Podman secret for socket configuration
-      when: postgresql_networks != 'host'
-      containers.podman.podman_secret:
-        name: postgresql-socket-conf
-        data: |
-          unix_socket_directories = '/var/run/postgresql,/tmp/socket'
-          unix_socket_permissions = 0777
-      notify:
-        - Restart postgresql
-
     - name: Deploy PostgreSQL container
       containers.podman.podman_container:
         name: "{{ postgresql_container_name }}"
@@ -60,10 +50,9 @@
         network: "{{ postgresql_networks }}"
         volumes: >-
           {{ [postgresql_data_dir + ':/var/lib/pgsql/data:z'] +
-             ([postgresql_socket_dir + ':/tmp/socket:z'] if postgresql_networks != 'host' else []) }}
-        secrets: >-
-          {{ ['postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'] +
-             (['postgresql-socket-conf,type=mount,target=/opt/app-root/src/postgresql-cfg/socket.conf'] if postgresql_networks != 'host' else []) }}
+             ([postgresql_socket_dir + ':/tmp:z'] if postgresql_networks != 'host' else []) }}
+        secrets:
+          - 'postgresql-admin-password,target=POSTGRESQL_ADMIN_PASSWORD,type=env'
         env:
           POSTGRESQL_MAX_CONNECTIONS: "{{ postgresql_max_connections }}"
           POSTGRESQL_SHARED_BUFFERS: "{{ postgresql_shared_buffers }}"

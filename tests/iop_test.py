@@ -9,7 +9,7 @@ Covers:
 
 import pytest
 
-from conftest import foremanctl_exec, foremanctl_run, service_is_running
+from conftest import container_exec, foremanctl_run, service_is_running
 
 IOP_SERVICES = [
     "iop-core-kafka",
@@ -29,8 +29,7 @@ IOP_SERVICES = [
 @pytest.fixture(scope="module")
 def iop_enabled(server):
     """Skip all IOP tests if the iop feature is not enabled."""
-    result = foremanctl_run(server, "systemctl --user is-active iop-core-kafka 2>/dev/null || true")
-    if result.rc != 0:
+    if not service_is_running(server, "iop-core-kafka"):
         pytest.skip("IOP feature not enabled or not deployed")
 
 
@@ -64,14 +63,14 @@ def test_iop_gateway_no_host_port(server, iop_enabled):
 
 def test_iop_network_isolation(server, iop_enabled):
     # Containers on iop-core-network (internal=true) must not reach the public internet.
-    result = foremanctl_exec(server, "iop-core-kafka",
+    result = container_exec(server, "iop-core-kafka",
                              "bash -c 'curl --max-time 3 --silent https://example.com; echo $?'")
     # curl exits non-zero (6 = cannot resolve host, 28 = timeout) for an isolated network
     assert result.stdout.strip() != "0", "IOP container should not reach the public internet"
 
 
 def test_kafka_topics_exist(server, iop_enabled):
-    result = foremanctl_exec(server, "iop-core-kafka",
+    result = container_exec(server, "iop-core-kafka",
                              "bash -c './bin/kafka-topics.sh --bootstrap-server iop-core-kafka:9092 --list'")
     assert result.succeeded
     assert "platform.inventory.events" in result.stdout
@@ -89,6 +88,6 @@ def test_iop_gateway_registered_in_foreman(server, iop_enabled, foremanapi):
 
 def test_iop_postgresql_socket_accessible(server, iop_enabled):
     # IOP containers must be able to connect to PostgreSQL via the Unix socket.
-    result = foremanctl_exec(server, "iop-core-host-inventory",
+    result = container_exec(server, "iop-core-host-inventory",
                              "bash -c 'psql -U inventory_admin -h /var/run/postgresql -c \"SELECT 1\" inventory_db'")
     assert result.succeeded

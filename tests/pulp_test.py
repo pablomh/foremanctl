@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from conftest import foremanctl_exec, foremanctl_run, service_is_enabled, service_is_running
+from conftest import container_exec, foremanctl_run, service_is_enabled, service_is_running
 
 PULP_HOST = 'localhost'
 PULP_API_PORT = 24817
@@ -27,8 +27,7 @@ def test_pulp_worker_services(server):
     assert len(worker_services) > 0
 
     for worker_service in worker_services:
-        result = foremanctl_run(server, f"systemctl --user is-active {worker_service}")
-        assert result.rc == 0, f"{worker_service} is not running"
+        assert service_is_running(server, worker_service), f"{worker_service} is not running"
 
 def test_pulp_api_port(server):
     # Port 24817 is published to host loopback for httpd proxy access
@@ -70,5 +69,5 @@ def test_pulp_worker_target(server):
     assert service_is_enabled(server, "pulp-worker.target")
 
 def test_pulp_manager_check(server):
-    result = foremanctl_exec(server, "pulp-api", "pulpcore-manager check --deploy")
+    result = container_exec(server, "pulp-api", "pulpcore-manager check --deploy")
     assert result.succeeded

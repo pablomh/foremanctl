@@ -35,7 +35,7 @@
         state: quadlet
         network: iop-core-network
         volumes:
-          - iop-service-vmaas-data:/data:rw
+          - iop-service-vmaas-data:/data
           - "{{ postgresql_socket_dir }}:/var/run/postgresql:z"
         command: "/vmaas/entrypoint.sh database-upgrade reposcan"
         env:

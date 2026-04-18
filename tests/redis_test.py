@@ -1,4 +1,4 @@
-from conftest import foremanctl_exec, service_is_running
+from conftest import container_exec, service_is_running
 
 
 def test_redis_service(server):
@@ -6,6 +6,6 @@ def test_redis_service(server):
 
 
 def test_redis_ping(server):
-    result = foremanctl_exec(server, "redis", "redis-cli ping")
+    result = container_exec(server, "redis", "valkey-cli ping")
     assert result.succeeded
     assert result.stdout.strip() == "PONG"

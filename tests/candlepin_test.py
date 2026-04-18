@@ -1,4 +1,4 @@
-from conftest import foremanctl_exec, foremanctl_run, service_is_running
+from conftest import container_exec, foremanctl_run, service_is_running
 
 
 def assert_secret_content(server, secret_name, secret_value):
@@ -28,13 +28,13 @@ def test_candlepin_status(server, certificates):
 def test_artemis_port(server):
     # Artemis is internal to the foreman-app bridge network; verify it is
     # listening inside the container rather than on the host loopback.
-    result = foremanctl_exec(server, "candlepin", "bash -c 'echo > /dev/tcp/localhost/61613'")
+    result = container_exec(server, "candlepin", "bash -c 'echo > /dev/tcp/candlepin/61613'")
     assert result.succeeded
 
 
 def test_artemis_auth(server, certificates):
     # Test TLS client-cert auth to Artemis from within the candlepin container
-    cmd = foremanctl_exec(server, "candlepin",
+    cmd = container_exec(server, "candlepin",
                           f'bash -c \'echo "" | openssl s_client -CAfile {certificates["ca_certificate"]} -cert {certificates["client_certificate"]} -key {certificates["client_key"]} -connect localhost:61613\'')
     assert cmd.succeeded, f"exit: {cmd.rc}\n\nstdout:\n{cmd.stdout}\n\nstderr:\n{cmd.stderr}"
 

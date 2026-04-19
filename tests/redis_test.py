@@ -1,15 +1,11 @@
-import pytest
-
-
-REDIS_HOST = 'localhost'
-REDIS_PORT = 6379
+from conftest import container_exec, service_is_running
 
 
 def test_redis_service(server):
-    redis = server.service("redis")
-    assert redis.is_running
+    assert service_is_running(server, "redis")
 
 
-def test_redis_port(server):
-    redis = server.addr(REDIS_HOST)
-    assert redis.port(REDIS_PORT).is_reachable
+def test_redis_ping(server):
+    result = container_exec(server, "redis", "valkey-cli ping")
+    assert result.succeeded
+    assert result.stdout.strip() == "PONG"

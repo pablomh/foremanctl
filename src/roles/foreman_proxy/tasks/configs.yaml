@@ -1,8 +1,14 @@
 ---
-- name: Create settings config secret
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-proxy-settings-yml
-    data: "{{ lookup('ansible.builtin.template', 'settings.yml.j2') }}"
-  notify:
-    - Restart Foreman Proxy
+- name: Create Foreman Proxy config secrets as rootless user
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
+  block:
+    - name: Create settings config secret
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-proxy-settings-yml
+        data: "{{ lookup('ansible.builtin.template', 'settings.yml.j2') }}"
+      notify:
+        - Restart Foreman Proxy

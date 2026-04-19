@@ -1,35 +1,41 @@
-import re
+from conftest import container_exec, foremanctl_run, service_is_running
 
 
 def assert_secret_content(server, secret_name, secret_value):
-    secret = server.run(f'podman secret inspect --format {"{{.SecretData}}"} --showsecret {secret_name}')
+    # Secrets live in the foremanctl user's Podman store
+    secret = foremanctl_run(server, f'podman secret inspect --format {{{{.SecretData}}}} --showsecret {secret_name}')
     assert secret.succeeded
     assert secret.stdout.strip() == secret_value
 
 
 def test_candlepin_service(server):
-    candlepin = server.service("candlepin")
-    assert candlepin.is_running
+    assert service_is_running(server, "candlepin")
 
 
 def test_candlepin_port(server):
-    candlepin = server.addr("localhost")
-    assert candlepin.port("23443").is_reachable
+    # Port 23443 is published to host loopback for httpd proxy access
+    assert server.addr("localhost").port("23443").is_reachable
 
 
 def test_candlepin_status(server, certificates):
-    status = server.run(f"curl --cacert {certificates['ca_certificate']} --silent --output /dev/null --write-out '%{{http_code}}' https://localhost:23443/candlepin/status")
+    # Use --resolve so curl verifies against the 'candlepin' SAN on the cert
+    # while connecting to the host-published port on 127.0.0.1.
+    status = server.run(f"curl --resolve candlepin:23443:127.0.0.1 --cacert {certificates['ca_certificate']} --silent --output /dev/null --write-out '%{{http_code}}' https://candlepin:23443/candlepin/status")
     assert status.succeeded
     assert status.stdout == '200'
 
 
 def test_artemis_port(server):
-    candlepin = server.addr("localhost")
-    assert candlepin.port("61613").is_reachable
+    # Artemis is internal to the foreman-app bridge network; verify it is
+    # listening inside the container rather than on the host loopback.
+    result = container_exec(server, "candlepin", "bash -c 'echo > /dev/tcp/candlepin/61613'")
+    assert result.succeeded
 
 
 def test_artemis_auth(server, certificates):
-    cmd = server.run(f'echo "" | openssl s_client -CAfile {certificates["ca_certificate"]} -cert {certificates["client_certificate"]} -key {certificates["client_key"]} -connect localhost:61613')
+    # Test TLS client-cert auth to Artemis from within the candlepin container
+    cmd = container_exec(server, "candlepin",
+                          f'bash -c \'echo "" | openssl s_client -CAfile {certificates["ca_certificate"]} -cert {certificates["client_certificate"]} -key {certificates["client_key"]} -connect localhost:61613\'')
     assert cmd.succeeded, f"exit: {cmd.rc}\n\nstdout:\n{cmd.stdout}\n\nstderr:\n{cmd.stderr}"
 
 

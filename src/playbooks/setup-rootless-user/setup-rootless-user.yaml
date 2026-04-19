@@ -1,0 +1,35 @@
+---
+# Shared play: set up the rootless foremanctl user.
+# Imported by deploy.yaml, pull-images.yaml, and any other playbook that
+# needs to run operations in the foremanctl Podman/systemd namespace.
+#
+# If the foremanctl user already exists (i.e. this is not the first run),
+# the full rootless_user role is skipped. foremanctl_xdg_runtime_dir is
+# always derived from the user's actual UID so it is available to all
+# subsequent roles regardless of which playbook calls this play.
+- name: Setup rootless user environment
+  hosts:
+    - quadlet
+  become: true
+  tasks:
+    - name: Check if foremanctl user already exists
+      ansible.builtin.command: "id -u {{ rootless_user_name | default('foremanctl') }}"
+      register: _setup_foremanctl_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: First-time setup — create foremanctl user
+      when: _setup_foremanctl_check is failed
+      block:
+        - name: Run full rootless user setup
+          ansible.builtin.include_role:
+            name: rootless_user
+
+    - name: Get foremanctl user UID
+      ansible.builtin.command: "id -u {{ rootless_user_name | default('foremanctl') }}"
+      register: _setup_foremanctl_uid
+      changed_when: false
+
+    - name: Set foremanctl_xdg_runtime_dir from user UID
+      ansible.builtin.set_fact:
+        foremanctl_xdg_runtime_dir: "/run/user/{{ _setup_foremanctl_uid.stdout | trim }}"

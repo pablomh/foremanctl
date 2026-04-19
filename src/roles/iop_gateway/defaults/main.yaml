@@ -1,0 +1,13 @@
+---
+iop_gateway_container_image: "quay.io/iop/gateway"
+iop_gateway_container_tag: "foreman-3.18"
+
+# Certificate paths under the foremanctl certificates directory.
+# iop-core-gateway is listed in certificates_hostnames so dedicated certs
+# are generated for it rather than reusing the localhost ones.
+iop_gateway_server_certificate: "/var/lib/foremanctl/certificates/certs/iop-core-gateway.crt"
+iop_gateway_server_key: "/var/lib/foremanctl/certificates/private/iop-core-gateway.key"
+iop_gateway_server_ca_certificate: "/var/lib/foremanctl/certificates/certs/ca.crt"
+iop_gateway_client_certificate: "/var/lib/foremanctl/certificates/certs/iop-core-gateway-client.crt"
+iop_gateway_client_key: "/var/lib/foremanctl/certificates/private/iop-core-gateway-client.key"
+iop_gateway_client_ca_certificate: "/var/lib/foremanctl/certificates/certs/ca.crt"

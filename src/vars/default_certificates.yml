@@ -1,5 +1,5 @@
 ---
-certificates_ca_directory: /root/certificates
+certificates_ca_directory: /var/lib/foremanctl/certificates
 ca_key_password: "{{ certificates_ca_directory }}/private/ca.pwd"
 ca_certificate: "{{ certificates_ca_directory }}/certs/ca.crt"
 ca_key: "{{ certificates_ca_directory }}/private/ca.key"
@@ -11,3 +11,5 @@ client_key: "{{ certificates_ca_directory }}/private/{{ ansible_facts['fqdn'] }}
 client_ca_certificate: "{{ certificates_ca_directory }}/certs/ca.crt"
 localhost_key: "{{ certificates_ca_directory }}/private/localhost.key"
 localhost_certificate: "{{ certificates_ca_directory }}/certs/localhost.crt"
+candlepin_key: "{{ certificates_ca_directory }}/private/candlepin.key"
+candlepin_certificate: "{{ certificates_ca_directory }}/certs/candlepin.crt"

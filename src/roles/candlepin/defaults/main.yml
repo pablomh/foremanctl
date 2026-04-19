@@ -1,6 +1,6 @@
 ---
 candlepin_ssl_port: 23443
-candlepin_hostname: localhost
+candlepin_hostname: candlepin
 candlepin_tls_versions:
   - "TLSv1.2"
 candlepin_ciphers:
@@ -14,9 +14,13 @@ candlepin_ciphers:
   - TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256
 candlepin_container_image: quay.io/foreman/candlepin
 candlepin_container_tag: "4.4.14"
-candlepin_registry_auth_file: /etc/foreman/registry-auth.json
+# Candlepin needs foreman-app (to communicate with Foreman) and
+# foreman-db (to connect to PostgreSQL by container DNS name).
+candlepin_networks:
+  - foreman-app
+  - foreman-db
 
-candlepin_database_host: localhost
+candlepin_database_host: postgresql
 candlepin_database_port: 5432
 candlepin_database_ssl: false
 candlepin_database_ssl_mode: disable
@@ -24,3 +28,12 @@ candlepin_database_ssl_ca:
 candlepin_database_ssl_ca_path: /etc/candlepin/certs/db-ca.crt
 candlepin_database_ssl_cert:
 candlepin_database_ssl_key:
+
+# Keystore/truststore written during cert preparation; stored under foremanctl
+# home so the rootless user can read them when creating Podman secrets.
+candlepin_keystore_path: "{{ foremanctl_home }}/candlepin.keystore"
+candlepin_truststore_path: "{{ foremanctl_home }}/candlepin.truststore"
+
+# Port published to host loopback so httpd can proxy to Candlepin
+candlepin_publish_ports:
+  - "127.0.0.1:23443:23443"

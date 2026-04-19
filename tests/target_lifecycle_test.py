@@ -1,5 +1,7 @@
 import time
 
+from conftest import service_is_running, service_start, service_stop, service_restart
+
 FOREMAN_PING_RETRIES = 60
 FOREMAN_PING_DELAY = 10
 CURL_CMD = "curl --silent --output /dev/null"
@@ -19,18 +21,18 @@ def _wait_for_foreman(server, server_fqdn, certificates):
 
 
 def test_foreman_target_stop_start(server, server_fqdn, certificates):
-    result = server.run("systemctl stop foreman.target")
+    result = service_stop(server, "foreman.target")
     assert result.rc == 0, f"Failed to stop foreman.target: {result.stderr}"
-    assert not server.service("foreman.target").is_running
+    assert not service_is_running(server, "foreman.target")
 
-    result = server.run("systemctl start foreman.target")
+    result = service_start(server, "foreman.target")
     assert result.rc == 0, f"Failed to start foreman.target: {result.stderr}"
     _wait_for_foreman(server, server_fqdn, certificates)
-    assert server.service("foreman.target").is_running
+    assert service_is_running(server, "foreman.target")
 
 
 def test_foreman_target_restart(server, server_fqdn, certificates):
-    result = server.run("systemctl restart foreman.target")
+    result = service_restart(server, "foreman.target")
     assert result.rc == 0, f"Failed to restart foreman.target: {result.stderr}"
     _wait_for_foreman(server, server_fqdn, certificates)
-    assert server.service("foreman.target").is_running
+    assert service_is_running(server, "foreman.target")

@@ -12,6 +12,59 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 SSH_CONFIG='./.tmp/ssh-config'
 
+# ---------------------------------------------------------------------------
+# Rootless helpers
+# ---------------------------------------------------------------------------
+
+FOREMANCTL_USER = "foremanctl"
+SYSTEMCTL_USER = f"systemctl --machine={FOREMANCTL_USER}@ --user"
+SYSTEMD_RUN = f"systemd-run --machine={FOREMANCTL_USER}@ --user --wait --pipe --quiet"
+
+
+def foremanctl_run(server, cmd):
+    """Run *cmd* in the foremanctl user scope via systemd-run.
+
+    Uses --machine= to enter the user's systemd scope directly — no
+    runuser, no D-Bus dependency, no manual XDG_RUNTIME_DIR handling.
+    Same mechanism as foremanctl-service uses for podman operations.
+    """
+    return server.run(f"{SYSTEMD_RUN} -- {cmd}")
+
+
+def container_exec(server, container, cmd="bash"):
+    """Run *cmd* inside *container* via podman exec in the foremanctl namespace."""
+    return foremanctl_run(server, f"podman exec {container} {cmd}")
+
+
+def service_is_running(server, name):
+    """Return True if *name* is active in the foremanctl user scope."""
+    return server.run(f"{SYSTEMCTL_USER} is-active {name}").rc == 0
+
+
+def service_is_enabled(server, name):
+    """Check if a user-scope service is enabled."""
+    return server.run(f"{SYSTEMCTL_USER} is-enabled {name}").rc == 0
+
+
+def service_exists(server, name):
+    """Check if a user-scope service unit exists."""
+    return server.run(f"{SYSTEMCTL_USER} status {name}").rc != 4
+
+
+def service_start(server, name):
+    """Start a user-scope service. Returns the command result."""
+    return server.run(f"{SYSTEMCTL_USER} start {name}")
+
+
+def service_stop(server, name):
+    """Stop a user-scope service. Returns the command result."""
+    return server.run(f"{SYSTEMCTL_USER} stop {name}")
+
+
+def service_restart(server, name):
+    """Restart a user-scope service. Returns the command result."""
+    return server.run(f"{SYSTEMCTL_USER} restart {name}")
+
 
 def pytest_addoption(parser):
     parser.addoption("--certificate-source", action="store", default="default", choices=('default', 'installer'), help="Where to obtain certificates from")
@@ -48,7 +101,7 @@ def certificates(pytestconfig, server_fqdn):
     source = pytestconfig.getoption("certificate_source")
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
     template = env.get_template(f"./src/vars/{source}_certificates.yml")
-    context = {'certificates_ca_directory': '/root/certificates',
+    context = {'certificates_ca_directory': '/var/lib/foremanctl/certificates',
                'ansible_facts': {'fqdn': server_fqdn}}
     return yaml.safe_load(template.render(context))
 

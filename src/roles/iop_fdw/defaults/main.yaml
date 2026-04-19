@@ -7,8 +7,8 @@ iop_fdw_remote_database_name: ""
 iop_fdw_remote_user: ""
 iop_fdw_remote_password: ""
 
-# Optional parameters - can use defaults
-iop_fdw_database_host: "localhost"
+# Database host - uses the Unix socket directory mounted into IOP containers
+iop_fdw_database_host: "/var/run/postgresql"
 iop_fdw_database_port: 5432
 
 # Constants - same for all invocations (matching puppet-iop)

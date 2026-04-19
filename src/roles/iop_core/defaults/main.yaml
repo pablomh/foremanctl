@@ -1,4 +1,12 @@
 ---
-iop_core_foreman_url: "https://{{ ansible_facts['fqdn'] }}"
-iop_core_foreman_admin_username: admin
-iop_core_foreman_admin_password: changeme
+iop_core_network_gateway: "10.130.0.1"
+
+# The IOP gateway is reachable by container DNS on foreman-proxy at port 8443
+# (the gateway nginx internal port). This differs from the reference implementation
+# which published the gateway as localhost:24443.
+iop_core_gateway_url: "https://iop-core-gateway:8443"
+
+# Foreman credentials for registering the IOP gateway as a smart proxy
+iop_core_foreman_url: "{{ foreman_url }}"
+iop_core_foreman_admin_username: "{{ foreman_initial_admin_username }}"
+iop_core_foreman_admin_password: "{{ foreman_initial_admin_password }}"

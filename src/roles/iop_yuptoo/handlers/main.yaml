@@ -1,5 +1,10 @@
 ---
 - name: Restart yuptoo
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: iop-core-yuptoo
     state: restarted
+    scope: user

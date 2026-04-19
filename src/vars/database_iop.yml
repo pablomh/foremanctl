@@ -1,5 +1,5 @@
 ---
-iop_database_host: host.containers.internal
+iop_database_host: "/var/run/postgresql"
 iop_database_port: 5432
 
 iop_inventory_database_host: "{{ iop_database_host }}"

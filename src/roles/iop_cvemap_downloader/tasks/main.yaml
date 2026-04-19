@@ -18,7 +18,9 @@
 
       [Service]
       Type=oneshot
-      ExecStart=/usr/local/bin/iop-cvemap-download.sh '{{ iop_cvemap_downloader_base_url }}' '{{ iop_cvemap_downloader_output_dir }}/{{ iop_cvemap_downloader_relative_path }}'
+      ExecStart=/usr/local/bin/iop-cvemap-download.sh \
+        '{{ iop_cvemap_downloader_base_url }}' \
+        '{{ iop_cvemap_downloader_output_dir }}/{{ iop_cvemap_downloader_relative_path }}'
       User=root
       Group=root
     mode: '0644'

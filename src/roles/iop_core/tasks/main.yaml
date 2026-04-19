@@ -1,7 +1,14 @@
 ---
-- name: Deploy IOP Network
+- name: Deploy IOP network
   ansible.builtin.include_role:
-    name: iop_network
+    name: deploy_network
+  vars:
+    deploy_network_name: iop-core-network
+    deploy_network_subnet: "10.130.0.0/24"
+    deploy_network_gateway: "{{ iop_core_network_gateway }}"
+    deploy_network_driver: bridge
+    deploy_network_internal: true
+    deploy_network_isolate: true
 
 - name: Deploy IOP Kafka service
   ansible.builtin.include_role:
@@ -27,10 +34,10 @@
   ansible.builtin.include_role:
     name: iop_gateway
 
-- name: Register IOP Gateway as smart proxy
+- name: Register IOP Gateway as a Foreman smart proxy
   theforeman.foreman.smart_proxy:
-    name: "iop-gateway"
-    url: "https://localhost:24443"
+    name: iop-gateway
+    url: "{{ iop_core_gateway_url }}"
     server_url: "{{ iop_core_foreman_url }}"
     username: "{{ iop_core_foreman_admin_username }}"
     password: "{{ iop_core_foreman_admin_password }}"
@@ -59,6 +66,14 @@
 - name: Deploy IOP Vulnerability service
   ansible.builtin.include_role:
     name: iop_vulnerability
+
+# foreman-selinux provides frontend assets; skip on EL10 until available
+# https://community.theforeman.org/t/foreman-katello-server-support-on-el10/44137
+- name: Install foreman-selinux package for frontend assets
+  ansible.builtin.package:
+    name: foreman-selinux
+    state: present
+  when: ansible_facts['distribution_major_version'] | int < 10
 
 - name: Deploy IOP Inventory Frontend
   ansible.builtin.include_role:

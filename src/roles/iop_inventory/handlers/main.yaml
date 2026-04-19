@@ -1,10 +1,14 @@
 ---
 - name: Restart inventory
+  become: true
+  become_method: "{{ foremanctl_become_method }}"
+  become_user: "{{ foremanctl_user }}"
+  environment: "{{ foremanctl_runtime_env }}"
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: restarted
+    scope: user
   loop:
     - iop-core-host-inventory-migrate
     - iop-core-host-inventory
     - iop-core-host-inventory-api
-    - iop-core-host-inventory-cleanup

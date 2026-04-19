@@ -11,7 +11,7 @@ foremanctl_home: "/var/lib/{{ foremanctl_user }}"
 foremanctl_quadlet_dir: "{{ foremanctl_home }}/.config/containers/systemd"
 foremanctl_systemd_user_dir: "{{ foremanctl_home }}/.config/systemd/user"
 foremanctl_become_method: sudo
-foremanctl_registry_auth_file: /etc/foreman/registry-auth.json
+foremanctl_registry_auth_file: "{{ foremanctl_home }}/registry-auth.json"
 foremanctl_runtime_env:
   XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
   REGISTRY_AUTH_FILE: "{{ foremanctl_registry_auth_file }}"

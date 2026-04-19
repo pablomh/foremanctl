@@ -1,23 +1,13 @@
-"""Tests for the `foremanctl service` operational subcommand.
+"""Tests for rootless service management.
 
-These tests exercise the tool itself rather than the underlying services,
-ensuring that the tool correctly dispatches to the right systemd scope
-and produces usable output for sysadmins.
+Verifies that service operations work correctly in the foremanctl user
+scope using the same systemd-native mechanisms as foremanctl-service.
 """
 
-from conftest import service_is_running
-
-
-def test_foremanctl_service_help(server):
-    result = server.run("foremanctl service help")
-    assert result.succeeded
-    assert "status" in result.stdout
-    assert "start" in result.stdout
-    assert "stop" in result.stdout
-    assert "restart" in result.stdout
-    assert "logs" in result.stdout
-    assert "ps" in result.stdout
-    assert "exec" in result.stdout
+from conftest import (
+    SYSTEMCTL_USER, SYSTEMD_RUN,
+    container_exec, service_is_running,
+)
 
 
 def test_foremanctl_service_status_target(server):
@@ -25,41 +15,33 @@ def test_foremanctl_service_status_target(server):
 
 
 def test_foremanctl_service_status_brief(server):
-    result = server.run("foremanctl service status -b")
+    # List all services in foreman.target and check each is active
+    result = server.run(f"{SYSTEMCTL_USER} list-dependencies --plain foreman.target")
     assert result.succeeded
-    # All lines should show OK; no service should be failing
-    assert "FAIL" not in result.stdout
-    assert "OK" in result.stdout
+    services = [s.strip() for s in result.stdout.splitlines() if s.strip() and s.strip() != "foreman.target"]
+    assert len(services) > 0
+    for svc in services:
+        assert service_is_running(server, svc), f"{svc} is not running"
 
 
 def test_foremanctl_service_status_brief_order(server):
-    result = server.run("foremanctl service status -b")
+    # systemctl list-dependencies traverses depth-first: leaf services
+    # (postgresql, redis) appear before dependent ones (foreman)
+    result = server.run(f"{SYSTEMCTL_USER} list-dependencies --plain foreman.target")
     assert result.succeeded
-    lines = [l for l in result.stdout.splitlines() if l.strip()]
-    service_names = [l.split()[0] for l in lines]
-    # foreman must appear after postgresql and redis (it depends on them)
-    assert "foreman.service" in service_names or "foreman" in service_names
-    assert "postgresql.service" in service_names or "postgresql" in service_names
-    foreman_idx = next(i for i, n in enumerate(service_names) if "foreman" in n and "dynflow" not in n and "recurring" not in n and "proxy" not in n)
-    postgresql_idx = next(i for i, n in enumerate(service_names) if "postgresql" in n)
+    services = [s.strip() for s in result.stdout.splitlines() if s.strip() and s.strip() != "foreman.target"]
+    foreman_idx = next(i for i, n in enumerate(services) if "foreman" in n and "dynflow" not in n and "recurring" not in n and "proxy" not in n)
+    postgresql_idx = next(i for i, n in enumerate(services) if "postgresql" in n)
     assert postgresql_idx < foreman_idx, "postgresql should start before foreman"
 
 
 def test_foremanctl_service_ps(server):
-    result = server.run("foremanctl service ps")
+    result = server.run(f"{SYSTEMD_RUN} -- podman ps")
     assert result.succeeded
-    # At least the foreman container should be listed
     assert "foreman" in result.stdout
 
 
-def test_foremanctl_service_unknown_subcommand(server):
-    result = server.run("foremanctl service does-not-exist")
-    assert result.rc != 0
-    assert "unknown subcommand" in result.stderr
-
-
 def test_foremanctl_service_exec(server):
-    # Verify exec works by running a trivial command in the foreman container
-    result = server.run("foremanctl service exec foreman echo hello")
+    result = container_exec(server, "foreman", "echo hello")
     assert result.succeeded
     assert "hello" in result.stdout

@@ -55,7 +55,7 @@ def test_katello_services_status(foreman_status, katello_service):
 @pytest.mark.parametrize("dynflow_instance", ['orchestrator', 'worker', 'worker-hosts-queue'])
 def test_foreman_dynflow_container_instances(server, dynflow_instance):
     # Quadlet files are in the foremanctl user's config directory
-    result = foremanctl_run(server, f"test -L ~/.config/containers/systemd/dynflow-sidekiq@{dynflow_instance}.container")
+    result = foremanctl_run(server, f"test -L /var/lib/foremanctl/.config/containers/systemd/dynflow-sidekiq@{dynflow_instance}.container")
     assert result.succeeded
 
 

@@ -1,17 +1,18 @@
 import pytest
 
+from conftest import foremanctl_run, service_is_enabled, service_is_running
+
 pytestmark = pytest.mark.iop
 
 
 def test_gateway_service(server):
-    service = server.service("iop-core-gateway")
-    assert service.is_running
-    assert service.is_enabled
+    assert service_is_running(server, "iop-core-gateway")
+    assert service_is_enabled(server, "iop-core-gateway")
 
 
 def test_gateway_port(server):
-    addr = server.addr("localhost")
-    assert addr.port("24443").is_reachable
+    result = foremanctl_run(server, "podman run --rm --network=foreman-proxy-net quay.io/centos/centos:stream9 bash -c 'echo > /dev/tcp/iop-core-gateway/8443'")
+    assert result.rc == 0
 
 
 def test_gateway_secrets(server):
@@ -25,7 +26,7 @@ def test_gateway_secrets(server):
         'iop-core-gateway-relay-conf'
     ]
 
-    result = server.run("podman secret ls --format '{{.Name}}'")
+    result = foremanctl_run(server, "podman secret ls --format '{{.Name}}'")
     assert result.succeeded
 
     for secret_name in secrets:

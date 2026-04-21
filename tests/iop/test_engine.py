@@ -1,22 +1,28 @@
 import pytest
 
+from conftest import (
+    SYSTEMCTL_USER,
+    foremanctl_run,
+    service_is_enabled,
+    service_is_running,
+)
+
 pytestmark = pytest.mark.iop
 
 
 def test_engine_service(server):
-    service = server.service("iop-core-engine")
-    assert service.is_running
-    assert service.is_enabled
+    assert service_is_running(server, "iop-core-engine")
+    assert service_is_enabled(server, "iop-core-engine")
 
 
 def test_engine_secret(server):
-    result = server.run("podman secret ls --format '{{.Name}}'")
+    result = foremanctl_run(server, "podman secret ls --format '{{.Name}}'")
     assert result.succeeded
     assert "iop-core-engine-config-yml" in result.stdout
 
 
 def test_engine_config_content(server):
-    result = server.run("podman secret inspect iop-core-engine-config-yml --showsecret")
+    result = foremanctl_run(server, "podman secret inspect iop-core-engine-config-yml --showsecret")
     assert result.succeeded
 
     config_data = result.stdout.strip()
@@ -26,12 +32,12 @@ def test_engine_config_content(server):
 
 
 def test_engine_service_dependencies(server):
-    result = server.run("systemctl show iop-core-engine --property=After")
+    result = server.run(f"{SYSTEMCTL_USER} show iop-core-engine --property=After")
     assert result.succeeded
     assert "iop-core-ingress.service" in result.stdout
     assert "iop-core-kafka.service" in result.stdout
 
 
 def test_engine_kafka_connectivity(server):
-    result = server.run("podman logs iop-core-engine 2>&1 | grep -i 'kafka\\|bootstrap'")
+    result = foremanctl_run(server, "podman logs iop-core-engine 2>&1 | grep -i 'kafka\\|bootstrap'")
     assert result.succeeded

@@ -1,22 +1,28 @@
 import pytest
 
+from conftest import (
+    container_exec,
+    foremanctl_run,
+    service_is_enabled,
+    service_is_running,
+)
+
 pytestmark = pytest.mark.iop
 
 
 def test_kafka_service(server):
-    service = server.service("iop-core-kafka")
-    assert service.is_running
-    assert service.is_enabled
+    assert service_is_running(server, "iop-core-kafka")
+    assert service_is_enabled(server, "iop-core-kafka")
 
 
 def test_kafka_volume(server):
-    result = server.run("podman volume ls --format '{{.Name}}'")
+    result = foremanctl_run(server, "podman volume ls --format '{{.Name}}'")
     assert result.succeeded
     assert "iop-core-kafka-data" in result.stdout
 
 
 def test_kafka_topics_initialized(server):
-    result = server.run("podman exec iop-core-kafka /opt/kafka/init.sh --check")
+    result = container_exec(server, "iop-core-kafka", "/opt/kafka/init.sh --check")
     assert result.succeeded
 
 
@@ -27,7 +33,7 @@ def test_kafka_secrets(server):
         'iop-core-kafka-init'
     ]
 
-    result = server.run("podman secret ls --format '{{.Name}}'")
+    result = foremanctl_run(server, "podman secret ls --format '{{.Name}}'")
     assert result.succeeded
 
     for secret_name in secrets:
@@ -35,7 +41,7 @@ def test_kafka_secrets(server):
 
 
 def test_kafka_config_content(server):
-    result = server.run("podman secret inspect iop-core-kafka-server-properties --showsecret")
+    result = foremanctl_run(server, "podman secret inspect iop-core-kafka-server-properties --showsecret")
     assert result.succeeded
 
     config_data = result.stdout.strip()
@@ -64,7 +70,7 @@ def test_kafka_topic_creation(server):
         "vulnerability.grouper.advisor.upload"
     ]
 
-    result = server.run("podman exec iop-core-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server iop-core-kafka:9092 --list")
+    result = container_exec(server, "iop-core-kafka", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server iop-core-kafka:9092 --list")
     assert result.succeeded
 
     for topic in topics:

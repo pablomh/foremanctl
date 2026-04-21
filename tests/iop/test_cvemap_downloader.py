@@ -33,9 +33,9 @@ def test_cvemap_download_timer_unit(server):
 
 
 def test_cvemap_download_timer_enabled(server):
-    timer = server.service("iop-cvemap-download.timer")
-    assert timer.is_enabled
-    assert timer.is_running
+    service = server.service("iop-cvemap-download.timer")
+    assert service.is_enabled
+    assert service.is_running
 
 
 def test_cvemap_download_path_unit(server):
@@ -50,6 +50,6 @@ def test_cvemap_download_path_unit(server):
 
 
 def test_cvemap_download_path_enabled(server):
-    path = server.service("iop-cvemap-download.path")
-    assert path.is_enabled
-    assert path.is_running
+    service = server.service("iop-cvemap-download.path")
+    assert service.is_enabled
+    assert service.is_running

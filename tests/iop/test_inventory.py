@@ -1,62 +1,64 @@
 import pytest
 
+from conftest import (
+    SYSTEMCTL_USER,
+    foremanctl_run,
+    service_is_enabled,
+    service_is_running,
+)
+
 pytestmark = pytest.mark.iop
 
 
 def test_inventory_migrate_service(server):
-    service = server.service("iop-core-host-inventory-migrate")
-    assert service.is_enabled
+    assert service_is_enabled(server, "iop-core-host-inventory-migrate")
 
 
 def test_inventory_mq_service(server):
-    service = server.service("iop-core-host-inventory")
-    assert service.is_running
-    assert service.is_enabled
+    assert service_is_running(server, "iop-core-host-inventory")
+    assert service_is_enabled(server, "iop-core-host-inventory")
 
 
 def test_inventory_api_service(server):
-    service = server.service("iop-core-host-inventory-api")
-    assert service.is_running
-    assert service.is_enabled
+    assert service_is_running(server, "iop-core-host-inventory-api")
+    assert service_is_enabled(server, "iop-core-host-inventory-api")
 
 
 def test_inventory_service_dependencies(server):
-    result = server.run("systemctl show iop-core-host-inventory --property=After")
+    result = server.run(f"{SYSTEMCTL_USER} show iop-core-host-inventory --property=After")
     assert result.succeeded
     assert "iop-core-host-inventory-migrate.service" in result.stdout
 
 
 def test_inventory_api_endpoint(server):
-    result = server.run("podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{http_code}' http://iop-core-host-inventory-api:8081/health")
+    result = foremanctl_run(server, "podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{http_code}' http://iop-core-host-inventory-api:8081/health")
     if result.succeeded:
         assert "200" in result.stdout
 
 
 def test_inventory_hosts_endpoint(server):
-    result = server.run("podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{http_code}' http://iop-core-host-inventory-api:8081/api/inventory/v1/hosts")
+    result = foremanctl_run(server, "podman run --rm quay.io/iop/host-inventory:latest curl -s -o /dev/null -w '%{http_code}' http://iop-core-host-inventory-api:8081/api/inventory/v1/hosts")
     if result.succeeded:
         assert "200" in result.stdout
 
 
 def test_inventory_cleanup_service(server):
-    service = server.service("iop-core-host-inventory-cleanup")
-    assert not service.is_running
+    assert not service_is_running(server, "iop-core-host-inventory-cleanup")
 
 
 def test_inventory_cleanup_service_enabled(server):
-    result = server.run("systemctl is-enabled iop-core-host-inventory-cleanup")
+    result = server.run(f"{SYSTEMCTL_USER} is-enabled iop-core-host-inventory-cleanup")
     assert result.succeeded
     assert "generated" in result.stdout
 
 
 def test_inventory_cleanup_timer(server):
-    service = server.service("iop-core-host-inventory-cleanup.timer")
-    assert service.is_enabled
-    assert service.is_running
+    assert service_is_enabled(server, "iop-core-host-inventory-cleanup.timer")
+    assert service_is_running(server, "iop-core-host-inventory-cleanup.timer")
 
 
 def test_inventory_cleanup_timer_config(server):
-    timer_file = server.file("/etc/systemd/system/iop-core-host-inventory-cleanup.timer")
+    timer_file = server.file("/var/lib/foremanctl/.config/systemd/user/iop-core-host-inventory-cleanup.timer")
     assert timer_file.exists
     assert timer_file.is_file
 

@@ -24,6 +24,12 @@ variables:
       - ipa_with_api
   external_authentication_pam_service:
     help: Name of the PAM service to use for IPA authentication
+  foreman_proxy_rex_mode:
+    help: Remote Execution transport mode.
+    parameter: --rex-mode
+    choices:
+      - ssh
+      - pull-mqtt
   certificates_cnames:
     help: Additional DNS name to include in Subject Alternative Names for certificates. Can be specified multiple times.
     action: append_unique

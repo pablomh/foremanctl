@@ -34,3 +34,7 @@
   notify:
     - Restart Foreman Proxy
     - Refresh Foreman Proxy
+
+- name: Deploy MQTT broker
+  ansible.builtin.include_role:
+    name: mosquitto

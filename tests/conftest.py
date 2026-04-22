@@ -58,6 +58,16 @@ def database_mode(pytestconfig):
     return pytestconfig.getoption("database_mode")
 
 @pytest.fixture(scope="module")
+def rex_mode(server):
+    result = server.run("podman exec foreman-proxy cat /etc/foreman-proxy/settings.d/remote_execution_ssh.yml")
+    if result.rc != 0:
+        return None
+    for line in result.stdout.splitlines():
+        if ':mode:' in line:
+            return line.split(':mode:')[1].strip()
+    return 'ssh'
+
+@pytest.fixture(scope="module")
 def server(server_hostname):
     yield testinfra.get_host(f'paramiko://{server_hostname}', sudo=True, ssh_config=SSH_CONFIG)
 

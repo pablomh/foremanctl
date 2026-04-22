@@ -1,0 +1,6 @@
+---
+mosquitto_container_image: "docker.io/library/eclipse-mosquitto"
+mosquitto_container_tag: "2"
+
+mosquitto_publish_ports:
+  - "0.0.0.0:1883:1883"

@@ -52,22 +52,31 @@ jobs:
         exclude:
           - certificate_source: installer
             box: centos/stream10
+        rex_mode:
+          - ssh
         include:
           - certificate_source: default
             security: fapolicyd
             database: internal
             box: centos/stream9
+            rex_mode: ssh
           - certificate_source: default
             security: none
             database: external
             box: centos/stream9
+            rex_mode: ssh
+          - certificate_source: default
+            security: none
+            database: internal
+            box: centos/stream9
+            rex_mode: pull-mqtt
     runs-on: ubuntu-24.04
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
-    name: "Tests (certificates: ${{ matrix.certificate_source }}, database: ${{ matrix.database }}, security: ${{ matrix.security }}, box: ${{ matrix.box }})"
+    name: "Tests (certificates: ${{ matrix.certificate_source }}, database: ${{ matrix.database }}, security: ${{ matrix.security }}, box: ${{ matrix.box }}, rex: ${{ matrix.rex_mode }})"
     steps:
       - name: generate artifact suffix
-        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.database }}-${{ matrix.box }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
+        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.database }}-${{ matrix.box }}-${{ matrix.rex_mode }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
       - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -119,7 +128,11 @@ jobs:
           ./foremanctl deploy --add-feature foreman-proxy
       - name: Add optional features - azure-rm, google and remote-execution
         run: |
-          ./foremanctl deploy --add-feature azure-rm --add-feature google --add-feature remote-execution
+          ./foremanctl deploy --add-feature azure-rm --add-feature google --add-feature remote-execution ${{ matrix.rex_mode != 'ssh' && format('--rex-mode={0}', matrix.rex_mode) || '' }}
+      - name: Setup Foreman client repo on client VM
+        if: matrix.rex_mode == 'pull-mqtt'
+        run: |
+          vagrant ssh client -- sudo dnf install -y https://yum.theforeman.org/client/nightly/el9/x86_64/foreman-client-release.rpm
       - name: Run tests
         run: |
           ./forge test --pytest-args="--certificate-source=${{ matrix.certificate_source }} --database-mode=${{ matrix.database }}"

@@ -17,3 +17,7 @@ def test_foreman_proxy_service(server):
 def test_foreman_proxy_port(server):
     foreman_proxy = server.addr('localhost')
     assert foreman_proxy.port(FOREMAN_PROXY_PORT).is_reachable
+
+def test_foreman_proxy_rex_mode(rex_mode):
+    assert rex_mode is not None, "remote_execution_ssh settings not found in proxy container"
+    assert rex_mode in ('ssh', 'pull-mqtt'), f"Unexpected REX mode: {rex_mode}"

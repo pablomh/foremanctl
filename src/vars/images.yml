@@ -20,6 +20,8 @@ pulp_container_image: quay.io/foreman/pulp
 pulp_container_tag: "foreman-{{ container_tag_stream }}"
 redis_container_image: quay.io/sclorg/redis-6-c9s
 redis_container_tag: "latest"
+mosquitto_container_image: "docker.io/library/eclipse-mosquitto"
+mosquitto_container_tag: "2"
 
 images:
  - "{{ candlepin_container_image }}:{{ candlepin_container_tag }}"
@@ -32,3 +34,4 @@ database_images:
 
 foreman_proxy_images:
  - "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
+ - "{{ mosquitto_container_image }}:{{ mosquitto_container_tag }}"

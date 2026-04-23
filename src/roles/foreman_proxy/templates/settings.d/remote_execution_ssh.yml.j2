@@ -1,15 +1,17 @@
 ---
 :enabled: {{ feature_enabled }}
-:ssh_identity_key_file: '~/.ssh/id_rsa_foreman_proxy'
 :local_working_dir: '/var/tmp'
 :remote_working_dir: '/var/tmp'
 :socket_working_dir: '/var/tmp'
-# :kerberos_auth: false
+:kerberos_auth: false
 
-# :cockpit_integration: true
+:cockpit_integration: true
 
 # Mode of operation, one of ssh, pull, pull-mqtt
-:mode: ssh
+:mode: {{ foreman_proxy_rex_mode | default('ssh') }}
+
+{% if foreman_proxy_rex_mode | default('ssh') == 'ssh' %}
+:ssh_identity_key_file: '~/.ssh/id_rsa_foreman_proxy'
 
 # Enables the use of SSH certificate for smart proxy authentication
 # The file should contain an SSH CA public key that the SSH public key of smart proxy is signed by
@@ -31,10 +33,10 @@
 
 # Remove working directories on job completion
 # :cleanup_working_dirs: true
-
+{% elif foreman_proxy_rex_mode | default('ssh') == 'pull-mqtt' %}
 # MQTT configuration, need to be set if mode is set to pull-mqtt
-# :mqtt_broker: localhost
-# :mqtt_port: 1883
+:mqtt_broker: {{ foreman_proxy_mqtt_broker | default('localhost') }}
+:mqtt_port: {{ foreman_proxy_mqtt_port | default(1883) }}
 
 # Use of SSL can be forced either way by explicitly setting mqtt_tls setting. If
 # unset, SSL gets used if smart-proxy's foreman_ssl_cert, foreman_ssl_key and
@@ -43,4 +45,5 @@
 
 # The notification is sent over mqtt every $mqtt_resend_interval seconds, until
 # the job is picked up by the host or cancelled
-# :mqtt_resend_interval: 900
+:mqtt_resend_interval: {{ foreman_proxy_mqtt_resend_interval | default(900) }}
+{% endif %}

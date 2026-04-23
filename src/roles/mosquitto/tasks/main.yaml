@@ -1,0 +1,40 @@
+---
+- name: Pull Mosquitto container image
+  containers.podman.podman_image:
+    name: "{{ mosquitto_container_image }}:{{ mosquitto_container_tag }}"
+    state: present
+
+- name: Create Mosquitto config secret
+  containers.podman.podman_secret:
+    state: present
+    name: mosquitto-conf
+    data: "{{ lookup('ansible.builtin.template', 'mosquitto.conf.j2') }}"
+  notify: Restart mosquitto
+
+- name: Deploy Mosquitto container
+  containers.podman.podman_container:
+    name: mosquitto
+    image: "{{ mosquitto_container_image }}:{{ mosquitto_container_tag }}"
+    state: quadlet
+    network: host
+    secrets:
+      - 'mosquitto-conf,type=mount,target=/mosquitto/config/mosquitto.conf'
+      - 'foreman-proxy-ssl-ca,type=mount,target=/mosquitto/certs/ssl_ca.pem'
+      - 'foreman-proxy-ssl-cert,type=mount,target=/mosquitto/certs/ssl_cert.pem'
+      - 'foreman-proxy-ssl-key,type=mount,target=/mosquitto/certs/ssl_key.pem'
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target foreman.target
+        [Unit]
+        PartOf=foreman.target
+  notify: Restart mosquitto
+
+- name: Run daemon reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Start the Mosquitto service
+  ansible.builtin.systemd:
+    name: mosquitto
+    state: started

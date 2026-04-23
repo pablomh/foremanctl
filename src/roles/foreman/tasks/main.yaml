@@ -105,7 +105,7 @@
       - foreman-db
       - foreman-cache
       - foreman-app
-      - foreman-proxy-net
+      - foreman-proxy
     ports:
       - "127.0.0.1:3000:3000"
     hostname: "{{ ansible_facts['hostname'] }}.local"

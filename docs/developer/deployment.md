@@ -301,22 +301,24 @@ The application network. Containers that need to communicate with each other at 
 
 Candlepin does not publish any ports to the host: `foreman` reaches it directly over the bridge using its DNS name. `foreman`, `pulp-api`, and `pulp-content` publish their respective ports to `127.0.0.1` so that the `httpd` reverse proxy running on the host can reach them.
 
-#### `foreman-proxy-net`
+#### `foreman-proxy`
 
 **Properties:** none (`internal: false`, `isolate: false`)
 
-The proxy network, used exclusively for communication between Foreman and Foreman Proxy. Keeping this traffic on a dedicated network makes it straightforward to apply stricter controls in future without affecting the rest of the application.
+The smart proxy network. All smart proxies and their support services are attached here, along with Foreman which needs to communicate with them. This network is also used in external capsule deployments, where the proxy and MQTT broker share the same bridge.
 
 | Container | Role |
 |-----------|------|
 | `foreman-proxy` | Server — listens on 0.0.0.0:8443 (external) |
-| `foreman` | Client |
+| `foreman` | Client — registers and communicates with smart proxies |
 
-`foreman-proxy` publishes port `0.0.0.0:8443` so that remote Foreman Proxies and clients can register and communicate with it from outside the host.
+`foreman-proxy` publishes port `0.0.0.0:8443` so that managed hosts and the Foreman server can reach it from outside the host.
+
+The proxy container mounts `/etc/hosts` read-only from the host (`/etc/hosts:/etc/hosts:ro`). This is necessary because Podman's aardvark-dns only forwards DNS protocol queries to upstream resolvers — it does not read the host's `/etc/hosts` file. Without the mount, managed hosts that are only defined in `/etc/hosts` (common in environments without full DNS infrastructure) would be unreachable from the proxy container. This applies to all Podman network modes (host, bridge, and pasta) since Podman always generates a container-specific `/etc/hosts` file.
 
 ### Network membership summary
 
-| Container | foreman-db | foreman-cache | foreman-app | foreman-proxy-net |
+| Container | foreman-db | foreman-cache | foreman-app | foreman-proxy |
 |-----------|:----------:|:-------------:|:-----------:|:-----------------:|
 | `postgresql` | ✓ | | | |
 | `redis` | | ✓ | | |

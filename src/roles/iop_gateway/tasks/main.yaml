@@ -32,7 +32,7 @@
         state: quadlet
         network:
           - iop-core-network
-          - foreman-proxy
+          - foreman-proxy-net
         env:
           REGISTRY_AUTH_FILE: "/etc/foreman/registry-auth.json"
         secrets:

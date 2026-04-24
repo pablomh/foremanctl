@@ -46,7 +46,7 @@ foreman_networks:
   - foreman-app
   - foreman-db
   - foreman-cache
-  - foreman-proxy
+  - foreman-proxy-net
 
 # Port published to host loopback so httpd can proxy to Foreman
 foreman_publish_ports:

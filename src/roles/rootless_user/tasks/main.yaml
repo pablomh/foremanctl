@@ -124,3 +124,21 @@
   loop:
     - "{{ rootless_user_quadlet_dir }}"
     - "{{ rootless_user_systemd_user_dir }}"
+
+- name: Create containers config directory
+  ansible.builtin.file:
+    path: "{{ rootless_user_home }}/.config/containers"
+    state: directory
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0755'
+
+- name: Configure Podman to include host /etc/hosts entries
+  ansible.builtin.copy:
+    dest: "{{ rootless_user_home }}/.config/containers/containers.conf"
+    owner: "{{ rootless_user_name }}"
+    group: "{{ rootless_user_group }}"
+    mode: '0644'
+    content: |
+      [containers]
+      base_hosts_file = "/etc/hosts"

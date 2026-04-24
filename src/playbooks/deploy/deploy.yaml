@@ -79,7 +79,7 @@
         deploy_network_name: foreman-app
     - role: deploy_network
       vars:
-        deploy_network_name: foreman-proxy
+        deploy_network_name: foreman-proxy-net
     - role: postgresql
       when:
         - database_mode == 'internal'

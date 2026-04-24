@@ -1,7 +1,7 @@
 ---
 iop_core_network_gateway: "10.130.0.1"
 
-# The IOP gateway is reachable by container DNS on foreman-proxy at port 8443
+# The IOP gateway is reachable by container DNS on foreman-proxy-net at port 8443
 # (the gateway nginx internal port). This differs from the reference implementation
 # which published the gateway as localhost:24443.
 iop_core_gateway_url: "https://iop-core-gateway:8443"

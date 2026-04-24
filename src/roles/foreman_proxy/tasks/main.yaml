@@ -22,10 +22,10 @@
         image: "{{ foreman_proxy_container_image }}:{{ foreman_proxy_container_tag }}"
         state: quadlet
         sdnotify: true
-        network: foreman-proxy
+        network: foreman-proxy-net
         publish: "{{ foreman_proxy_publish_ports }}"
         volume:
-          - "/etc/hosts:/etc/hosts:ro"
+          - "/etc/hosts:/etc/hosts:ro,z"
         secrets:
           - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'
           - 'foreman-proxy-ssl-ca,type=mount,target=/etc/foreman-proxy/ssl_ca.pem'

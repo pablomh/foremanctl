@@ -236,3 +236,97 @@ As `foremanctl` is Ansible-based, this means that the ["control node"](https://d
 To simplify the "install `foremanctl`" step, our test infrastructure uses different systems for the "control node" (the system the source code is cloned to) and the "target node" (the VM created by our development tooling).
 
 There is a desire to allow deployments where a single `foremanctl` control node manages multiple managed nodes, but no code exists yet for this.
+
+## Container Networking
+
+All containers are connected to one or more named Podman bridge networks instead of sharing the host network namespace, limiting lateral movement: a container can only reach the services it is explicitly connected to.
+
+### Networks
+
+#### `foreman-db`
+
+**Properties:** `internal: true`, `isolate: true`
+
+The database network. Only containers that need to read or write persistent data are attached.
+
+- `internal: true` removes the default gateway, so no container on this network can initiate outbound internet connections. Database servers have no reason to reach the internet, and clients that need internet access (e.g. for content sync) are multi-homed and use a different network for that.
+- `isolate: true` prevents containers on this network from forwarding packets to containers on other bridge networks, closing off lateral movement paths between network segments.
+
+| Container | Role |
+|-----------|------|
+| `postgresql` | Server — listens on port 5432 (internal DB only) |
+| `foreman` | Client |
+| `dynflow-sidekiq@*` | Client |
+| `foreman-recurring@*` | Client |
+| `candlepin` | Client (internal DB only) |
+| `pulp-api` | Client |
+| `pulp-content` | Client |
+| `pulp-worker@*` | Client |
+
+Ansible's `community.postgresql.*` modules reach the database during deployment via a Unix socket: `/var/run/postgresql` is bind-mounted from the host into the container so the socket is accessible on the host without publishing a TCP port.
+
+#### `foreman-cache`
+
+**Properties:** `internal: true`, `isolate: true`
+
+The cache network. Only containers that need to reach Redis are attached. The same rationale as `foreman-db` applies: cache servers have no business reaching the internet, and the `isolate` flag prevents bridge pivoting.
+
+| Container | Role |
+|-----------|------|
+| `redis` | Server — listens on port 6379 |
+| `foreman` | Client — app cache and Dynflow queue |
+| `dynflow-sidekiq@*` | Client — job queue |
+| `foreman-recurring@*` | Client — job queue |
+| `pulp-api` | Client |
+| `pulp-content` | Client |
+| `pulp-worker@*` | Client |
+
+Redis does not publish any port to the host: it is a purely internal service with no legitimate consumers outside the container network.
+
+#### `foreman-app`
+
+**Properties:** none (`internal: false`, `isolate: false`)
+
+The application network. Containers that need to communicate with each other at the application layer, or that need outbound internet access (e.g. for content synchronisation), are attached here.
+
+| Container | Role |
+|-----------|------|
+| `candlepin` | Server — Tomcat (23443) and Artemis STOMP broker (61613) |
+| `foreman` | Client to Candlepin; serves Foreman Proxy requests |
+| `dynflow-sidekiq@*` | Client |
+| `foreman-recurring@*` | Client |
+| `pulp-api` | Server — API (24817); needs internet for content sync |
+| `pulp-content` | Server — content (24816); needs internet for content sync |
+| `pulp-worker@*` | Worker — needs internet for content sync |
+
+Candlepin does not publish any ports to the host: `foreman` reaches it directly over the bridge using its DNS name. `foreman`, `pulp-api`, and `pulp-content` publish their respective ports to `127.0.0.1` so that the `httpd` reverse proxy running on the host can reach them.
+
+#### `foreman-proxy`
+
+**Properties:** none (`internal: false`, `isolate: false`)
+
+The smart proxy network. All smart proxies and their support services are attached here, along with Foreman which needs to communicate with them. This network is also used in external capsule deployments, where the proxy and MQTT broker share the same bridge.
+
+| Container | Role |
+|-----------|------|
+| `foreman-proxy` | Server — listens on 0.0.0.0:8443 (external) |
+| `foreman` | Client — registers and communicates with smart proxies |
+
+`foreman-proxy` publishes port `0.0.0.0:8443` so that managed hosts and the Foreman server can reach it from outside the host.
+
+The proxy container mounts `/etc/hosts` read-only from the host (`/etc/hosts:/etc/hosts:ro`). This is necessary because Podman's aardvark-dns only forwards DNS protocol queries to upstream resolvers — it does not read the host's `/etc/hosts` file. Without the mount, managed hosts that are only defined in `/etc/hosts` (common in environments without full DNS infrastructure) would be unreachable from the proxy container. This applies to all Podman network modes (host, bridge, and pasta) since Podman always generates a container-specific `/etc/hosts` file.
+
+### Network membership summary
+
+| Container | foreman-db | foreman-cache | foreman-app | foreman-proxy |
+|-----------|:----------:|:-------------:|:-----------:|:-----------------:|
+| `postgresql` | ✓ | | | |
+| `redis` | | ✓ | | |
+| `candlepin` | ✓ (internal DB) | | ✓ | |
+| `foreman` | ✓ | ✓ | ✓ | ✓ |
+| `dynflow-sidekiq@*` | ✓ | ✓ | ✓ | |
+| `foreman-recurring@*` | ✓ | ✓ | ✓ | |
+| `foreman-proxy` | | | | ✓ |
+| `pulp-api` | ✓ | ✓ | ✓ | |
+| `pulp-content` | ✓ | ✓ | ✓ | |
+| `pulp-worker@*` | ✓ | ✓ | ✓ | |

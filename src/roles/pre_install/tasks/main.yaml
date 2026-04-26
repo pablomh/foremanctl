@@ -8,6 +8,20 @@
     name:
       - podman
 
+- name: Create containers config drop-in directory
+  ansible.builtin.file:
+    path: /etc/containers/containers.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Configure Podman to include host /etc/hosts entries
+  ansible.builtin.copy:
+    dest: /etc/containers/containers.conf.d/foremanctl.conf
+    mode: '0644'
+    content: |
+      [containers]
+      base_hosts_file = "/etc/hosts"
+
 - name: Install other dependencies
   ansible.builtin.package:
     name:

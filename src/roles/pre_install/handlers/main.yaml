@@ -1,0 +1,5 @@
+---
+- name: Reload fapolicyd
+  ansible.builtin.systemd:
+    name: fapolicyd
+    state: reloaded

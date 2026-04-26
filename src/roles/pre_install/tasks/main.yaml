@@ -11,9 +11,13 @@
 - name: Install other dependencies
   ansible.builtin.package:
     name:
+      - acl
       - bash-completion
       - python3-cryptography
       - python3-libsemanage
       - python3-psycopg2
       - python3-requests
       - python3-requests-oauthlib
+
+# fapolicyd rule is applied in the rootless_user role so it is in place
+# before any become_user: foremanctl operations — including pull-images.

@@ -1,0 +1,88 @@
+---
+- name: Deploy IOP network
+  ansible.builtin.include_role:
+    name: deploy_network
+  vars:
+    deploy_network_name: iop-core-network
+    deploy_network_subnet: "10.130.0.0/24"
+    deploy_network_gateway: "{{ iop_core_network_gateway }}"
+    deploy_network_driver: bridge
+    deploy_network_internal: true
+    deploy_network_isolate: true
+
+- name: Deploy IOP Kafka service
+  ansible.builtin.include_role:
+    name: iop_kafka
+
+- name: Deploy IOP Ingress service
+  ansible.builtin.include_role:
+    name: iop_ingress
+
+- name: Deploy IOP Puptoo service
+  ansible.builtin.include_role:
+    name: iop_puptoo
+
+- name: Deploy IOP Yuptoo service
+  ansible.builtin.include_role:
+    name: iop_yuptoo
+
+- name: Deploy IOP Engine service
+  ansible.builtin.include_role:
+    name: iop_engine
+
+- name: Deploy IOP Gateway service
+  ansible.builtin.include_role:
+    name: iop_gateway
+
+- name: Register IOP Gateway as a Foreman smart proxy
+  theforeman.foreman.smart_proxy:
+    name: iop-gateway
+    url: "{{ iop_core_gateway_url }}"
+    server_url: "{{ iop_core_foreman_url }}"
+    username: "{{ iop_core_foreman_admin_username }}"
+    password: "{{ iop_core_foreman_admin_password }}"
+    validate_certs: false
+
+- name: Deploy IOP Inventory service
+  ansible.builtin.include_role:
+    name: iop_inventory
+
+- name: Deploy IOP Advisor service
+  ansible.builtin.include_role:
+    name: iop_advisor
+
+- name: Deploy IOP Remediation service
+  ansible.builtin.include_role:
+    name: iop_remediation
+
+- name: Deploy IOP CVE Map Downloader
+  ansible.builtin.include_role:
+    name: iop_cvemap_downloader
+
+- name: Deploy IOP VMAAS service
+  ansible.builtin.include_role:
+    name: iop_vmaas
+
+- name: Deploy IOP Vulnerability service
+  ansible.builtin.include_role:
+    name: iop_vulnerability
+
+# foreman-selinux provides frontend assets; skip on EL10 until available
+# https://community.theforeman.org/t/foreman-katello-server-support-on-el10/44137
+- name: Install foreman-selinux package for frontend assets
+  ansible.builtin.package:
+    name: foreman-selinux
+    state: present
+  when: ansible_facts['distribution_major_version'] | int < 10
+
+- name: Deploy IOP Inventory Frontend
+  ansible.builtin.include_role:
+    name: iop_inventory_frontend
+
+- name: Deploy IOP Advisor Frontend
+  ansible.builtin.include_role:
+    name: iop_advisor_frontend
+
+- name: Deploy IOP Vulnerability Frontend
+  ansible.builtin.include_role:
+    name: iop_vulnerability_frontend

@@ -1,0 +1,10 @@
+---
+iop_vmaas_container_image: "quay.io/iop/vmaas"
+iop_vmaas_container_tag: "foreman-3.18"
+
+# Database connection vars - overridden by src/vars/database_iop.yml at play level
+iop_vmaas_database_name: vmaas_db
+iop_vmaas_database_user: vmaas_admin
+iop_vmaas_database_password: CHANGEME
+iop_vmaas_database_host: "/var/run/postgresql"
+iop_vmaas_database_port: "5432"

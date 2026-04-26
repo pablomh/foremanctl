@@ -1,7 +1,24 @@
 ---
-certificates_hostnames:
-  - "{{ ansible_facts['fqdn'] }}"
-  - localhost
+# Rootless service user — populated by the rootless_user role in Play 1.
+# foremanctl_xdg_runtime_dir is set dynamically from the user's actual UID.
+# Unix socket directory shared between the PostgreSQL container and the host.
+# Used only when postgresql_networks != 'host' (bridge networking).
+postgresql_socket_dir: /var/lib/foremanctl/postgresql-socket
+
+foremanctl_user: foremanctl
+foremanctl_group: foremanctl
+foremanctl_home: "/var/lib/{{ foremanctl_user }}"
+foremanctl_quadlet_dir: "{{ foremanctl_home }}/.config/containers/systemd"
+foremanctl_systemd_user_dir: "{{ foremanctl_home }}/.config/systemd/user"
+foremanctl_become_method: sudo
+foremanctl_registry_auth_file: "{{ foremanctl_home }}/registry-auth.json"
+foremanctl_runtime_env:
+  XDG_RUNTIME_DIR: "{{ foremanctl_xdg_runtime_dir }}"
+  REGISTRY_AUTH_FILE: "{{ foremanctl_registry_auth_file }}"
+
+certificates_hostnames: >-
+  {{ [ansible_facts['fqdn'], 'candlepin'] +
+     (['iop-core-gateway'] if enabled_features is defined and 'iop' in enabled_features else []) }}
 
 certificates_ca_password: "CHANGEME"
 candlepin_keystore_password: "CHANGEME"
@@ -10,8 +27,8 @@ candlepin_oauth_secret: "CHANGEME"
 candlepin_ca_key_password: "{{ ca_key_password }}"
 candlepin_ca_key: "{{ ca_key }}"
 candlepin_ca_certificate: "{{ ca_certificate }}"
-candlepin_tomcat_key: "{{ localhost_key }}"
-candlepin_tomcat_certificate: "{{ localhost_certificate }}"
+candlepin_tomcat_key: "{{ candlepin_key }}"
+candlepin_tomcat_certificate: "{{ candlepin_certificate }}"
 candlepin_client_key: "{{ client_key }}"
 candlepin_client_certificate: "{{ client_certificate }}"
 
@@ -34,3 +51,7 @@ hammer_ca_certificate: "{{ server_ca_certificate }}"
 hammer_plugins: "{{ enabled_features | features_to_hammer_plugins }}"
 
 foreman_proxy_plugins: "{{ enabled_features | features_to_foreman_proxy_plugins }}"
+
+iop_core_foreman_url: "{{ foreman_url }}"
+iop_core_foreman_admin_username: "{{ foreman_initial_admin_username }}"
+iop_core_foreman_admin_password: "{{ foreman_initial_admin_password }}"

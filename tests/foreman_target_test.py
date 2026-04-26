@@ -1,4 +1,6 @@
+from conftest import service_is_enabled, service_is_running
+
+
 def test_foreman_target(server):
-    foreman_target = server.service("foreman.target")
-    assert foreman_target.is_running
-    assert foreman_target.is_enabled
+    assert service_is_running(server, "foreman.target")
+    assert service_is_enabled(server, "foreman.target")

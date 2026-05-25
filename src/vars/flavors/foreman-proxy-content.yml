@@ -5,6 +5,7 @@ flavor_features:
   - content/container
   - content/ansible
   - content/python
+  - templates
 
 pulp_mirror: true
 

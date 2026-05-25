@@ -27,6 +27,10 @@ def test_foreman_proxy_features(curl_request, proxy_base_url, enabled_features):
         assert "bmc" in features
     else:
         assert "bmc" not in features
+    if 'templates' in enabled_features:
+        assert "templates" in features
+    else:
+        assert "templates" not in features
 
 
 def test_foreman_proxy_service(server):
@@ -65,3 +69,31 @@ def test_bmc_capabilities(proxy_v2_features):
 def test_bmc_default_provider(proxy_v2_features):
     settings = proxy_v2_features['bmc'].get('settings', {})
     assert settings.get('bmc_default_provider') == 'ipmitool'
+
+
+@pytest.mark.feature('templates')
+def test_templates_template_url(proxy_v2_features):
+    settings = proxy_v2_features['templates'].get('settings', {})
+    template_url = settings.get('template_url')
+    assert template_url == 'http://quadlet.example.com:8000'
+
+
+@pytest.mark.feature('templates')
+def test_templates_http_port_reachable(server):
+    """Verify the templates feature is listening on the configured HTTP port."""
+    foreman_proxy = server.addr('localhost')
+    assert foreman_proxy.port(8000).is_reachable
+
+
+@pytest.mark.feature('templates')
+def test_templates_endpoint_responds(server, server_fqdn):
+    """Verify the templates feature actively serves requests."""
+    cmd = server.run(
+        f"curl --silent --output /dev/null --write-out '%{{http_code}}' "
+        f"http://{server_fqdn}:8000/unattended/provision"
+    )
+    assert cmd.succeeded
+    status_code = int(cmd.stdout)
+    assert status_code != 502, "Templates proxy returned 502 - feature not active"
+    assert status_code != 503, "Templates proxy returned 503 - service unavailable"
+

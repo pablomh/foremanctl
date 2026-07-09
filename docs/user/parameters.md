@@ -115,6 +115,7 @@ There are multiple use cases from the users perspective that dictate what parame
 | `--add-feature templates` | Enable Templates feature on Smart Proxy | `--foreman-proxy-templates` |
 | `--templates-listen-on` | Templates proxy to listen on https, http, or both | `--foreman-proxy-templates-listen-on` |
 | `--templates-url` | URL that hosts will use to contact the proxy for provisioning templates | `--foreman-proxy-templates-url` |
+| `--add-feature registration` | Enable Registration feature on Smart Proxy | `--foreman-proxy-registration` |
 
 ### Undetermined
 
@@ -187,8 +188,6 @@ There are multiple use cases from the users perspective that dictate what parame
 | `--foreman-proxy-realm-keytab` | | | |
 | `--foreman-proxy-realm-principal` | | | |
 | `--foreman-proxy-realm-provider` | | | |
-| `--foreman-proxy-registration` | | | |
-| `--foreman-proxy-registration-url` | | | |
 | `--puppet-server` | | puppet | server |
 | `--puppet-server-ca` | | puppet | server_ca |
 | `--puppet-dns-alt-names` | | puppet | dns_alt_names |

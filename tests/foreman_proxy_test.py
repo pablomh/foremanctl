@@ -31,6 +31,10 @@ def test_foreman_proxy_features(curl_request, proxy_base_url, enabled_features):
         assert "templates" in features
     else:
         assert "templates" not in features
+    if 'registration' in enabled_features:
+        assert "registration" in features
+    else:
+        assert "registration" not in features
 
 
 def test_foreman_proxy_service(server):

@@ -70,3 +70,10 @@ templates:
   description: Templates feature for foreman-proxy
   foreman_proxy:
     plugin_name: templates
+registration:
+  description: Host registration proxy for Foreman
+  internal: true
+  foreman_proxy:
+    plugin_name: registration
+  dependencies:
+    - templates

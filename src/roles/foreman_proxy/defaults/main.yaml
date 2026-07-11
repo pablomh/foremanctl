@@ -5,6 +5,7 @@ foreman_proxy_container_tag: "nightly"
 foreman_proxy_name: "{{ ansible_facts['fqdn'] }}"
 foreman_proxy_https_port: 8443
 foreman_proxy_url: "https://{{ foreman_proxy_name }}:{{ foreman_proxy_https_port }}"
+foreman_proxy_templates_url: "http://{{ foreman_proxy_name }}:8000"
 
 # Settings
 foreman_proxy_trusted_hosts: []

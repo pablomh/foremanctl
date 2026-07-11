@@ -8,6 +8,7 @@ flavor_features:
   - templates
 
 pulp_mirror: true
+pulp_rhsm_url: "https://{{ ansible_facts['fqdn'] }}/rhsm"
 
 checks_to_execute:
   - check_features

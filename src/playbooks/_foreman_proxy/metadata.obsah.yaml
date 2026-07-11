@@ -19,4 +19,4 @@ variables:
       - both
   foreman_proxy_templates_url:
     parameter: --templates-url
-    help: URL that hosts will use to contact the proxy for provisioning templates (e.g. http://<proxy-fqdn>:8000). Required when templates feature is enabled.
+    help: URL that hosts will use to contact the proxy for provisioning templates (e.g. http://<proxy-fqdn>:8000).

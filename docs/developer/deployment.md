@@ -441,6 +441,23 @@ The external authentication configuration is managed through `foremanctl` comman
 
 If `hammer` feature is enabled and `--external-authentication` is set to `ipa_with_api`, `hammer` will be configured to use negotiate-based authentication.
 
+## Container networking
+
+Server deployments create four named Podman bridge networks:
+
+- `foreman-db`: internal, isolated network for the internal PostgreSQL container and its clients
+- `foreman-cache`: internal, isolated network for Valkey and its clients
+- `foreman-app`: shared application network for Foreman, Candlepin, and Pulp
+- `foreman-proxy`: smart-proxy network used when the `foreman-proxy` feature is enabled
+
+Services communicate across these bridges by container DNS name instead of `localhost`. The internal database and cache containers are not exposed on host TCP ports. Foreman and Pulp continue to integrate with host `httpd` through the existing systemd socket activation and Unix-socket backends, so the bridge migration does not reintroduce loopback port publishing for those services.
+
+Candlepin is reachable from Foreman as `https://candlepin:23443/candlepin`, so the deployment issues a dedicated certificate for the `candlepin` DNS name and mounts that certificate into the Candlepin container. Foreman validates that hostname using the existing installer CA trust.
+
+Development deployments intentionally keep `postgresql`, `valkey`, `candlepin`, and `pulp` on `network: host`. In that workflow the Rails process runs directly on the host, so preserving `localhost` endpoints avoids a parallel set of development-only service URL rewrites.
+
+Containers inherit host `/etc/hosts` entries through Podman's `base_hosts_file` setting. This keeps host-only name mappings usable from inside the smart proxy and other containers even when bridge DNS is in use.
+
 ## Deployment architecture
 
 The primary way of deployment is to install `foremanctl` on a system and then let `foremanctl` deploy the various components on the same system.

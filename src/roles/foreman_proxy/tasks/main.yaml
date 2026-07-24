@@ -14,7 +14,8 @@
     image: foreman-proxy.image
     state: quadlet
     sdnotify: true
-    network: host
+    network: "{{ foreman_proxy_network }}"
+    ports: "{{ foreman_proxy_ports if foreman_proxy_ports | length > 0 else omit }}"
     hostname: "{{ ansible_facts['hostname'] }}.local"
     secrets:
       - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'

@@ -18,7 +18,7 @@
     name: valkey
     image: valkey.image
     state: quadlet
-    network: host
+    network: "{{ valkey_network }}"
     sdnotify: true
     command: ["run-valkey", "--supervised", "systemd", "--loglevel", "{{ valkey_log_level }}"]
     volumes:

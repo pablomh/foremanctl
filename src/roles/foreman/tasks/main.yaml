@@ -113,7 +113,7 @@
     image: foreman.image
     state: quadlet
     sdnotify: true
-    network: host
+    network: "{{ foreman_networks }}"
     hostname: "{{ ansible_facts['hostname'] }}.local"
     volume:
       - 'foreman-data-run:/var/run/foreman:rw,z,U'
@@ -165,7 +165,7 @@
     image: foreman.image
     state: quadlet
     sdnotify: true
-    network: host
+    network: "{{ foreman_networks }}"
     hostname: "{{ ansible_facts['hostname'] }}.local"
     volume:
       - 'foreman-data-run:/var/run/foreman:rw,z,U'
@@ -180,7 +180,7 @@
       - 'foreman-dynflow-worker-hosts-queue-yaml,type=mount,target=/etc/foreman/dynflow/worker-hosts-queue.yml'
       - 'foreman-db-ca,type=mount,target={{ foreman_database_ssl_ca_path }}'
     env:
-      DYNFLOW_REDIS_URL: "redis://localhost:6379/6"
+      DYNFLOW_REDIS_URL: "{{ foreman_dynflow_redis_url }}"
       REDIS_PROVIDER: "DYNFLOW_REDIS_URL"
       FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"
       FOREMAN_LOGGING_LEVEL: "{{ foreman_log_level }}"
@@ -223,7 +223,7 @@
     state: quadlet
     image: foreman.image
     sdnotify: false
-    network: host
+    network: "{{ foreman_networks }}"
     hostname: "{{ ansible_facts['hostname'] }}.local"
     command: "foreman-rake {{ item.rake }}"
     volume:
@@ -270,7 +270,7 @@
     state: quadlet
     image: foreman.image
     sdnotify: false
-    network: host
+    network: "{{ foreman_migration_networks }}"
     command: bash -c "bin/rails db:migrate && bin/rails db:seed"
     env:
       FOREMAN_ENABLED_PLUGINS: "{{ foreman_plugins | join(' ') }}"

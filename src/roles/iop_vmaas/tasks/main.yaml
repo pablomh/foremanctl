@@ -52,8 +52,8 @@
       SYNC_CSAF: "no"
       SYNC_RELEASES: "no"
       SYNC_RELEASE_GRAPH: "no"
-      KATELLO_URL: "http://iop-core-gateway:9090"
-      REDHAT_CVEMAP_URL: "http://iop-core-gateway:9090/pub/iop/data/meta/v1/cvemap.xml"
+      KATELLO_URL: "http://{{ iop_gateway_service_name }}:9090"
+      REDHAT_CVEMAP_URL: "http://{{ iop_gateway_service_name }}:9090/pub/iop/data/meta/v1/cvemap.xml"
       POSTGRESQL_SSL_MODE: "disable"
     secrets:
       - "iop-service-vmaas-reposcan-client-ca-cert,target=/katello-server-ca.crt,mode=0440,type=mount"

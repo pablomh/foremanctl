@@ -31,7 +31,7 @@
 # in containers/ansible-podman-collections commit d45819fd6561, but until that
 # reaches a released collection we create isolated networks via the CLI with the
 # explicit lowercase/value form Podman currently documents.
-- name: Create isolated network {{ deploy_network_name }} via compatibility fallback
+- name: Create isolated network via compatibility fallback for {{ deploy_network_name }}
   when: deploy_network_use_isolate_command_fallback
   block:
     - name: Inspect existing isolated network {{ deploy_network_name }}
@@ -57,6 +57,7 @@
           {% for dns_server in deploy_network_dns | default([]) %} --dns {{ dns_server | quote }}{% endfor %}
           --opt isolate=strict
           {{ deploy_network_name | quote }}
+      changed_when: true
       when: deploy_network_existing_inspect.rc != 0
 
 - name: Create network {{ deploy_network_name }}

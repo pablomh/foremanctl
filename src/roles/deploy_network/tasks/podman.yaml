@@ -1,78 +1,73 @@
 ---
-- name: Gather package facts for Podman network debug
-  ansible.builtin.package_facts:
-
-- name: Gather Podman system info for network debug
+- name: Gather Podman system info for network creation
   containers.podman.podman_system_info:
   register: deploy_network_podman_system_info
   failed_when: false
   changed_when: false
 
-- name: Show Podman network debug context
-  ansible.builtin.debug:
-    msg:
-      role_inputs:
-        name: "{{ deploy_network_name }}"
-        driver: "{{ deploy_network_driver }}"
-        internal: "{{ deploy_network_internal }}"
-        ipv6: "{{ deploy_network_ipv6 }}"
-        subnet: "{{ deploy_network_subnet | default('<auto>') }}"
-        gateway: "{{ deploy_network_gateway | default('<auto>') }}"
-        dns: "{{ deploy_network_dns | default([]) }}"
-        isolate: "{{ deploy_network_isolate }}"
-        opt_argument: "{{ deploy_network_opt_argument if deploy_network_isolate else '<omit>' }}"
-      controller_runtime:
-        ansible_version: "{{ ansible_version.full }}"
-      target_runtime:
-        podman_system_info_ok: "{{ deploy_network_podman_system_info is succeeded }}"
-        podman_version: "{{ deploy_network_podman_system_info.podman_system_info.version | default({}) }}"
-        network_backend_info: "{{ deploy_network_podman_system_info.podman_system_info.host.networkBackendInfo | default({}) }}"
-      target_packages:
-        podman: "{{ ansible_facts.packages['podman'] | default([]) }}"
-        podman_plugins: "{{ ansible_facts.packages['podman-plugins'] | default([]) }}"
-        netavark: "{{ ansible_facts.packages['netavark'] | default([]) }}"
-        aardvark_dns: "{{ ansible_facts.packages['aardvark-dns'] | default([]) }}"
-        containernetworking_plugins: "{{ ansible_facts.packages['containernetworking-plugins'] | default([]) }}"
-  vars:
-    deploy_network_opt_argument: "{{ {'isolate': deploy_network_isolate} if deploy_network_isolate else {} }}"
+- name: Set deploy_network creation strategy
+  ansible.builtin.set_fact:
+    deploy_network_use_isolate_command_fallback: >-
+      {{
+        (deploy_network_isolate is defined)
+        and (deploy_network_isolate | bool)
+        and (
+          (
+            deploy_network_podman_system_info.podman_system_info.version.Version
+            | default('0')
+          ).split('.')[0] | int >= 6
+          or
+          (
+            (
+              deploy_network_podman_system_info.podman_system_info.host.networkBackendInfo.version
+              | default('netavark 0')
+            ).split()[-1].split('.')[0] | int
+          ) >= 2
+        )
+      }}
 
-- name: Create network {{ deploy_network_name }}
+# containers.podman 1.20.2 serializes opt.isolate booleans as Python-style
+# True/False, which Podman 6 + netavark 2 reject. Upstream fixed this on main
+# in containers/ansible-podman-collections commit d45819fd6561, but until that
+# reaches a released collection we create isolated networks via the CLI with the
+# explicit lowercase/value form Podman currently documents.
+- name: Create isolated network {{ deploy_network_name }} via compatibility fallback
+  when: deploy_network_use_isolate_command_fallback
   block:
-    - name: Create network {{ deploy_network_name }}
-      containers.podman.podman_network:
-        name: "{{ deploy_network_name }}"
-        driver: "{{ deploy_network_driver }}"
-        internal: "{{ deploy_network_internal }}"
-        ipv6: "{{ deploy_network_ipv6 }}"
-        subnet: "{{ deploy_network_subnet | default(omit) }}"
-        gateway: "{{ deploy_network_gateway | default(omit) }}"
-        dns: "{{ deploy_network_dns | default(omit) }}"
-        opt: "{{ {'isolate': deploy_network_isolate} if deploy_network_isolate else omit }}"
-        state: present
-  rescue:
-    - name: Inspect failed Podman network
+    - name: Inspect existing isolated network {{ deploy_network_name }}
       ansible.builtin.command:
         argv:
           - podman
           - network
           - inspect
           - "{{ deploy_network_name }}"
-      register: deploy_network_failed_inspect
+      register: deploy_network_existing_inspect
       changed_when: false
       failed_when: false
 
-    - name: Show Podman network failure context
-      ansible.builtin.debug:
-        msg:
-          failed_result: "{{ ansible_failed_result }}"
-          podman_network_inspect:
-            rc: "{{ deploy_network_failed_inspect.rc }}"
-            stdout: "{{ deploy_network_failed_inspect.stdout }}"
-            stderr: "{{ deploy_network_failed_inspect.stderr }}"
+    - name: Create network {{ deploy_network_name }}
+      ansible.builtin.command:
+        cmd: >-
+          podman network create
+          --driver {{ deploy_network_driver | quote }}
+          {% if deploy_network_internal %} --internal{% endif %}
+          {% if deploy_network_ipv6 %} --ipv6{% endif %}
+          {% if deploy_network_subnet is defined %} --subnet {{ deploy_network_subnet | quote }}{% endif %}
+          {% if deploy_network_gateway is defined %} --gateway {{ deploy_network_gateway | quote }}{% endif %}
+          {% for dns_server in deploy_network_dns | default([]) %} --dns {{ dns_server | quote }}{% endfor %}
+          --opt isolate=strict
+          {{ deploy_network_name | quote }}
+      when: deploy_network_existing_inspect.rc != 0
 
-    - name: Re-raise Podman network failure
-      ansible.builtin.fail:
-        msg: >-
-          Podman network creation failed for {{ deploy_network_name }}.
-          Review the debug output above for role inputs, target runtime details,
-          package versions, and podman network inspect output.
+- name: Create network {{ deploy_network_name }}
+  containers.podman.podman_network:
+    name: "{{ deploy_network_name }}"
+    driver: "{{ deploy_network_driver }}"
+    internal: "{{ deploy_network_internal }}"
+    ipv6: "{{ deploy_network_ipv6 }}"
+    subnet: "{{ deploy_network_subnet | default(omit) }}"
+    gateway: "{{ deploy_network_gateway | default(omit) }}"
+    dns: "{{ deploy_network_dns | default(omit) }}"
+    opt: "{{ {'isolate': deploy_network_isolate} if deploy_network_isolate else omit }}"
+    state: present
+  when: not deploy_network_use_isolate_command_fallback

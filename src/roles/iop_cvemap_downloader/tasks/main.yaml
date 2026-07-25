@@ -13,8 +13,8 @@
     content: |
       [Unit]
       Description=Manages cvemap.xml for IoP Vulnerability
-      After=network-online.target iop-core-gateway.service
-      Wants=network-online.target iop-core-gateway.service
+      After=network-online.target {{ iop_gateway_service_name }}.service
+      Wants=network-online.target {{ iop_gateway_service_name }}.service
 
       [Service]
       Type=oneshot

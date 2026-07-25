@@ -3,6 +3,12 @@ certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
   - localhost
   - candlepin
+certificates_hostname_aliases: >-
+  {{
+    {'localhost': ['iop-core-gateway']}
+    if (enabled_features | has_feature('iop'))
+    else {}
+  }}
 
 oauth_directory: "{{ obsah_state_path }}/oauth"
 

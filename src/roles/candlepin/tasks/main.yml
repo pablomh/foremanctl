@@ -99,8 +99,9 @@
         TimeoutStartSec=300
     healthcheck: >-
       curl --fail --cacert /etc/candlepin/certs/candlepin-ca.crt
-      --noproxy candlepin --resolve candlepin:23443:127.0.0.1
-      https://candlepin:23443/candlepin/status
+      --noproxy {{ candlepin_healthcheck_hostname }}
+      --resolve {{ candlepin_healthcheck_hostname }}:{{ candlepin_ssl_port }}:127.0.0.1
+      https://{{ candlepin_healthcheck_hostname }}:{{ candlepin_ssl_port }}/candlepin/status
     sdnotify: healthy
 
 - name: Run daemon reload to make Quadlet create the service files

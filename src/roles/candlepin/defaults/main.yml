@@ -1,6 +1,7 @@
 ---
 candlepin_ssl_port: 23443
 candlepin_hostname: "0.0.0.0"
+candlepin_healthcheck_hostname: candlepin
 candlepin_tls_versions:
   - "TLSv1.2"
   - "TLSv1.3"

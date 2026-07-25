@@ -79,6 +79,7 @@
         [Install]
         WantedBy=multi-user.target
         WantedBy=default.target foreman.target
+  notify: Restart gateway
 
 - name: Run daemon reload to make Quadlet create the service files
   ansible.builtin.systemd:

@@ -96,7 +96,7 @@ Advisor and vulnerability frontend assets are extracted from container images an
 
 ### Databases
 
-IOP creates five PostgreSQL databases, all accessible to containers via `host.containers.internal:5432`:
+IOP creates five PostgreSQL databases. In the supported internal database mode, IoP database clients join the `foreman-db` bridge and reach PostgreSQL as `postgresql:5432`:
 
 | Database | User |
 |----------|------|

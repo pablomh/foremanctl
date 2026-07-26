@@ -67,6 +67,36 @@
     state: started
   register: _foreman_proxy_service
 
+- name: Flush handlers to restart services
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Foreman Proxy API to be reachable from Foreman
+  ansible.builtin.command:
+    argv:
+      - podman
+      - exec
+      - foreman
+      - curl
+      - --silent
+      - --show-error
+      - --fail
+      - --connect-timeout
+      - "5"
+      - --max-time
+      - "10"
+      - --cacert
+      - /etc/foreman/katello-default-ca.crt
+      - --cert
+      - /etc/foreman/client_cert.pem
+      - --key
+      - /etc/foreman/client_key.pem
+      - "{{ foreman_proxy_url }}/v2/features"
+  register: _foreman_proxy_features
+  changed_when: false
+  retries: 30
+  delay: 5
+  until: _foreman_proxy_features.rc == 0
+
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
     name: "{{ foreman_proxy_name }}"
@@ -75,6 +105,3 @@
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"
     ca_path: "{{ foreman_proxy_foreman_ca_certificate | default(omit) }}"
-
-- name: Flush handlers to restart services
-  ansible.builtin.meta: flush_handlers

@@ -90,8 +90,9 @@
       - /etc/foreman/client_cert.pem
       - --key
       - /etc/foreman/client_key.pem
-      - "{{ foreman_proxy_url }}/v2/features"
+      - "{{ foreman_proxy_registration_url }}/v2/features"
   register: _foreman_proxy_features
+  when: foreman_proxy_registration_hostname != foreman_proxy_name
   changed_when: false
   retries: 30
   delay: 5
@@ -100,7 +101,7 @@
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
     name: "{{ foreman_proxy_name }}"
-    url: "{{ foreman_proxy_url }}"
+    url: "{{ foreman_proxy_registration_url }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"

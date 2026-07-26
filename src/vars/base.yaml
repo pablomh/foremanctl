@@ -5,9 +5,18 @@ certificates_hostnames:
   - candlepin
 certificates_hostname_aliases: >-
   {{
-    {'localhost': ['iop-core-gateway']}
-    if (enabled_features | has_feature('iop'))
-    else {}
+    ({'localhost': ['iop-core-gateway']} if (enabled_features | has_feature('iop')) else {})
+    | combine(
+        (
+          {ansible_facts['fqdn']: ['foreman-proxy']}
+          if (
+            (enabled_features | has_feature('foreman'))
+            and (enabled_features | has_feature('foreman-proxy'))
+          )
+          else {}
+        ),
+        recursive=True
+      )
   }}
 
 oauth_directory: "{{ obsah_state_path }}/oauth"

@@ -454,6 +454,8 @@ Services communicate across these bridges by container DNS name instead of `loca
 
 Candlepin is reachable from Foreman as `https://candlepin:23443/candlepin`, so the deployment issues a dedicated certificate for the `candlepin` DNS name and mounts that certificate into the Candlepin container. Foreman validates that hostname using the existing installer CA trust.
 
+The integrated `foreman-proxy` deployment follows a similar split between identity and reachability. The proxy still keeps the host FQDN as its user-facing identity and external entry point, but the Foreman container now registers and reaches it internally as `https://foreman-proxy:8443`. The host certificate therefore includes `foreman-proxy` as a SAN alias in server deployments that include both `foreman` and `foreman-proxy`. Proxy-only deployments continue to use the certificate-bundle hostname for both public identity and registration.
+
 Development deployments intentionally keep `postgresql`, `valkey`, `candlepin`, and `pulp` on `network: host`. In that workflow the Rails process runs directly on the host, so preserving `localhost` endpoints avoids a parallel set of development-only service URL rewrites.
 
 Containers inherit host `/etc/hosts` entries through Podman's `base_hosts_file` setting. This keeps host-only name mappings usable from inside the smart proxy and other containers even when bridge DNS is in use.

@@ -59,6 +59,7 @@
         - database_mode == 'internal'
     - role: foreman_proxy
       vars:
+        foreman_proxy_registration_hostname: foreman-proxy
         foreman_proxy_network: foreman-proxy
         foreman_proxy_ports:
           - "0.0.0.0:8443:8443"

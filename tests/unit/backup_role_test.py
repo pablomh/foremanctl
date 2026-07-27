@@ -24,7 +24,7 @@ def test_backup_selects_socket_host_for_internal_database():
     task = _load_task("Select database access host for backup")
 
     assert task["ansible.builtin.set_fact"]["backup_database_host"] == (
-        "{{ (backup_database_mode == 'internal') | ternary(postgresql_socket_dir, database_host) }}"
+        "{{ (backup_database_mode == 'internal') | ternary((postgresql_socket_dir | default('/var/run/postgresql')), database_host) }}"
     )
 
 

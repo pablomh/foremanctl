@@ -8,6 +8,38 @@
 - name: Create certs secrets
   ansible.builtin.include_tasks: certs.yaml
 
+- name: Check server certificate for internal proxy registration hostname
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - x509
+      - -in
+      - "{{ server_certificate }}"
+      - -noout
+      - -checkhost
+      - "{{ foreman_proxy_registration_hostname }}"
+  register: _foreman_proxy_registration_certificate
+  changed_when: false
+  failed_when: false
+  when:
+    - "enabled_features | has_feature('foreman')"
+    - foreman_proxy_registration_url != foreman_proxy_url
+
+- name: Ensure integrated proxy certificate covers internal registration hostname
+  ansible.builtin.assert:
+    that:
+      - _foreman_proxy_registration_certificate.rc == 0
+    fail_msg: >-
+      The server certificate at {{ server_certificate }} is not valid for
+      {{ foreman_proxy_registration_hostname }}. Integrated deployments register the
+      smart proxy with {{ foreman_proxy_registration_url }} while keeping
+      {{ foreman_proxy_name }} as the public proxy name. Provide a certificate whose
+      SANs include {{ foreman_proxy_registration_hostname }}, or use a certificate source
+      that can issue that alias automatically.
+  when:
+    - "enabled_features | has_feature('foreman')"
+    - foreman_proxy_registration_url != foreman_proxy_url
+
 - name: Deploy Foreman Proxy Container
   containers.podman.podman_container:
     name: "foreman-proxy"
@@ -90,9 +122,11 @@
       - /etc/foreman/client_cert.pem
       - --key
       - /etc/foreman/client_key.pem
-      - "{{ foreman_proxy_url }}/v2/features"
+      - "{{ foreman_proxy_registration_url }}/v2/features"
   register: _foreman_proxy_features
-  when: foreman_proxy_registration_hostname != foreman_proxy_name
+  when:
+    - "enabled_features | has_feature('foreman')"
+    - foreman_proxy_registration_url != foreman_proxy_url
   changed_when: false
   retries: 30
   delay: 5
@@ -101,7 +135,7 @@
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
     name: "{{ foreman_proxy_name }}"
-    url: "{{ foreman_proxy_url }}"
+    url: "{{ foreman_proxy_registration_url }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"

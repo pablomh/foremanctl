@@ -115,7 +115,7 @@ jobs:
       - name: Create custom certificates
         if: matrix.certificate_source == 'custom_server'
         run: |
-          ./forge custom-certs
+          ./forge custom-certs --server-alias foreman-proxy
       - name: Setup security mode ${{ matrix.security }}
         if: matrix.security != 'none'
         run: |
@@ -146,6 +146,7 @@ jobs:
       - name: Deploy features
         run: |
           ./foremanctl deploy \
+            ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/ca.crt' || '' }} \
             --add-feature hammer \
             --add-feature foreman-proxy \
             --add-feature azure-rm \

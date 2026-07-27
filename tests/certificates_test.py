@@ -95,6 +95,16 @@ def test_candlepin_certificate_issued_by_internal_ca(server, certificates, custo
         "Candlepin certificate should be issued by the internal CA even with custom server certs"
 
 
+@pytest.mark.feature('foreman')
+@pytest.mark.feature('foreman-proxy')
+def test_integrated_proxy_server_certificate_includes_internal_registration_hostname(server, certificates):
+    cmd = server.run(
+        f"openssl x509 -in {certificates['server_certificate']} "
+        "-noout -checkhost foreman-proxy"
+    )
+    assert cmd.succeeded
+
+
 def test_ca_bundle_exists(server, certificates):
     f = server.file(certificates['ca_bundle'])
     assert f.exists

@@ -42,6 +42,38 @@
             | list
           }}
 
+    - name: Check whether current server certificate already covers required aliases
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - x509
+          - -in
+          - "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}.crt"
+          - -noout
+          - -checkhost
+          - "{{ item }}"
+      loop: "{{ _certificates_extra_sans }}"
+      register: _certificates_server_alias_checks
+      changed_when: false
+      failed_when: false
+      when:
+        - _certificates_extra_sans | length > 0
+
+    - name: Decide whether to reissue server certificate
+      ansible.builtin.set_fact:
+        _certificates_force_server_renew: >-
+          {{
+            (certificates_renew | bool)
+            or (
+              (
+                (_certificates_server_alias_checks.results | default([]))
+                | selectattr('rc', 'ne', 0)
+                | list
+                | length
+              ) > 0
+            )
+          }}
+
     - name: 'Sign server certificate'
       community.crypto.x509_certificate:
         path: "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}.crt"
@@ -50,7 +82,7 @@
         ownca_path: "{{ certificates_ca_directory_certs }}/ca.crt"
         ownca_privatekey_path: "{{ certificates_ca_directory_keys }}/ca.key"
         ownca_not_after: "+{{ certificates_validity_days }}d"
-        force: "{{ certificates_renew | bool }}"
+        force: "{{ _certificates_force_server_renew }}"
 
 - name: 'Create client private key'
   community.crypto.openssl_privatekey:

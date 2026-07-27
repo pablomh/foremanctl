@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from tests.conftest import assert_container_resolves_server_fqdn
 from tests.conftest import FOREMAN_PROXY_PORT
+from tests.conftest import assert_container_resolves_server_fqdn
 
 
 @pytest.fixture(scope="module")

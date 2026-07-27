@@ -413,7 +413,7 @@ jobs:
       - name: Create custom certificates
         if: matrix.certificate_source == 'custom_server'
         run: |
-          ./forge custom-certs
+          ./forge custom-certs --server-alias foreman-proxy
           ./forge custom-certs --hostname proxy.example.com
       - name: Deploy Katello on quadlet
         run: |

@@ -79,4 +79,6 @@ def test_tls(server):
             f"\"echo Q | openssl s_client -connect candlepin:23443 -servername candlepin {flag} "
             "-CAfile /etc/foreman/katello-default-ca.crt 2>&1\""
         )
-        assert "Verify return code: 0 (ok)" not in result.stdout
+        assert result.failed
+        assert "no protocols available" in result.stdout
+        assert "no peer certificate available" in result.stdout

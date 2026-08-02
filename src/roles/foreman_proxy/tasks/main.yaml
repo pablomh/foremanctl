@@ -137,7 +137,7 @@
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
     name: "{{ foreman_proxy_name }}"
-    url: "{{ foreman_proxy_registration_url }}"
+    url: "{{ foreman_proxy_url }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"

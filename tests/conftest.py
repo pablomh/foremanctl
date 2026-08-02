@@ -278,9 +278,13 @@ def wait_for_metadata_generate(foremanapi):
     wait_for_tasks(foremanapi, 'label = Actions::Katello::Repository::MetadataGenerate')
 
 
+def assert_container_resolves_hostname(server, container_name, hostname):
+    dns_result = server.run(f"podman exec {container_name} getent hosts {hostname}")
+    assert dns_result.succeeded, f"DNS-resolvable host {hostname} not found from {container_name} container"
+
+
 def assert_container_resolves_server_fqdn(server, container_name, server_fqdn):
-    dns_result = server.run(f"podman exec {container_name} getent hosts {server_fqdn}")
-    assert dns_result.succeeded, f"DNS-resolvable host {server_fqdn} not found from {container_name} container"
+    assert_container_resolves_hostname(server, container_name, server_fqdn)
 
 
 def pytest_configure(config):

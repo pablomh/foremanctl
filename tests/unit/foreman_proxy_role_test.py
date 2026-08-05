@@ -23,9 +23,9 @@ def test_wait_for_proxy_uses_registration_url_and_integrated_guard():
     assert "foreman_proxy_registration_url != foreman_proxy_url" in when_condition
 
 
-def test_proxy_registration_keeps_public_name_and_public_url():
+def test_proxy_registration_keeps_public_name_and_internal_url():
     task = _load_task("Register Foreman Proxy to Foreman")
     smart_proxy = task["theforeman.foreman.smart_proxy"]
 
     assert smart_proxy["name"] == "{{ foreman_proxy_name }}"
-    assert smart_proxy["url"] == "{{ foreman_proxy_url }}"
+    assert smart_proxy["url"] == "{{ foreman_proxy_registration_url }}"

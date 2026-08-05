@@ -232,6 +232,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          repository: theforeman/foremanctl
           ref: ${{ matrix.upgrade_from }}
           fetch-depth: 0
       - name: Set up Python
@@ -275,7 +276,7 @@ jobs:
           vagrant ssh quadlet -- sudo systemctl stop foreman.target
       - name: Switch foremanctl version
         run: |
-          git fetch origin ${{ github.ref }}
+          git fetch https://github.com/${{ github.repository }}.git ${{ github.ref }}
           git checkout FETCH_HEAD
       - name: Run image pull
         run: |

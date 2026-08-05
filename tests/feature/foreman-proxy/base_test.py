@@ -71,7 +71,7 @@ def test_foreman_reaches_proxy_via_internal_registration_hostname(server):
 
 
 @pytest.mark.feature('foreman')
-def test_foreman_registers_proxy_with_public_name_and_public_url(server, certificates, server_fqdn):
+def test_foreman_registers_proxy_with_public_name_and_internal_url(server, certificates, server_fqdn):
     cmd = server.run(
         "curl --silent --show-error --fail "
         f"--cacert {certificates['server_ca_certificate']} "
@@ -84,7 +84,7 @@ def test_foreman_registers_proxy_with_public_name_and_public_url(server, certifi
     smart_proxy = next((proxy for proxy in smart_proxies if proxy["name"] == server_fqdn), None)
 
     assert smart_proxy is not None, f"Smart proxy {server_fqdn} was not registered"
-    assert smart_proxy["url"] == f"https://{server_fqdn}:8443"
+    assert smart_proxy["url"] == "https://foreman-proxy:8443"
 
 
 def test_foreman_proxy_resolves_server_fqdn(server, server_fqdn):

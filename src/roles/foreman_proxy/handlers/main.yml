@@ -11,7 +11,7 @@
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"
     ca_path: "{{ foreman_proxy_foreman_ca_certificate | default(omit) }}"
     resource: smart_proxies
-    search: 'name="{{ foreman_proxy_name }}"'
+    search: 'name="{{ foreman_proxy_fqdn }}"'
   register: _foreman_proxy_info
   failed_when: false
   changed_when: false
@@ -19,7 +19,7 @@
 - name: Refresh Foreman Proxy
   when: _foreman_proxy_info.resources | default([]) | length > 0
   theforeman.foreman.smart_proxy_refresh:
-    smart_proxy: "{{ foreman_proxy_name }}"
+    smart_proxy: "{{ foreman_proxy_fqdn }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"

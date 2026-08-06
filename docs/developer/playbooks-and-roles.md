@@ -230,7 +230,7 @@ Example:
 ```yaml
 - name: Register smart proxy
   theforeman.foreman.smart_proxy:
-    name: "{{ foreman_proxy_name }}"
+    name: "{{ foreman_proxy_fqdn }}"
     url: "{{ foreman_proxy_url }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"

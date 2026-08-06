@@ -51,6 +51,15 @@ CI workflows must separate the base deployment from feature addition into two di
 
 Do not combine `--add-feature` flags into the initial deploy step. The base deploy establishes the core system; features are layered on afterward with a second deploy invocation. This mirrors how users add features to an existing deployment and ensures that code path is tested.
 
+#### Proxy registration modes
+
+The proxy-deployment workflow exercises two distinct registration models:
+
+- `direct`: the default behavior, where the proxy registers with its own FQDN URL.
+- `load_balancer`: an explicit `--registration-url` override, plus matching DNS and certificate aliases so Foreman stores and uses a load-balancer-style URL instead.
+
+This keeps the product default FQDN-first while still testing the alternate reachability path as an opt-in override.
+
 ## Running tests
 
 A working deployment is required before running tests.

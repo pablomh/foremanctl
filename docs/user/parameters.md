@@ -137,7 +137,7 @@ There are multiple use cases from the users perspective that dictate what parame
 | `--add-feature templates` | Enable Templates feature on Smart Proxy | `--foreman-proxy-templates` |
 | `--templates-url` | URL that hosts will use to contact the proxy for provisioning templates | `--foreman-proxy-templates-url` |
 | `--add-feature registration` | Enable Registration feature | `--foreman-proxy-registration` |
-| `--registration-url` | URL that hosts use to reach the registration endpoint | `--foreman-proxy-registration-url` |
+| `--registration-url` | Override the smart proxy registration endpoint URL that Foreman stores and uses. Defaults to the proxy FQDN URL; set it explicitly for load-balancer or CI-only alias scenarios. | `--foreman-proxy-registration-url` |
 
 ### Unmapped
 

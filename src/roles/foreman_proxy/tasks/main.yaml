@@ -8,7 +8,7 @@
 - name: Create certs secrets
   ansible.builtin.include_tasks: certs.yaml
 
-- name: Check server certificate for internal proxy registration hostname
+- name: Check server certificate for alternate proxy registration hostname
   ansible.builtin.command:
     argv:
       - openssl
@@ -17,28 +17,26 @@
       - "{{ server_certificate }}"
       - -noout
       - -checkhost
-      - "{{ foreman_proxy_registration_hostname }}"
+      - "{{ foreman_proxy_registration_fqdn }}"
   register: _foreman_proxy_registration_certificate
   changed_when: false
   failed_when: false
   when:
-    - "enabled_features | has_feature('foreman')"
-    - foreman_proxy_registration_url != foreman_proxy_url
+    - foreman_proxy_registration_fqdn != foreman_proxy_fqdn
 
-- name: Ensure integrated proxy certificate covers internal registration hostname
+- name: Ensure proxy certificate covers alternate registration hostname
   ansible.builtin.assert:
     that:
       - _foreman_proxy_registration_certificate.rc == 0
     fail_msg: >-
       The server certificate at {{ server_certificate }} is not valid for
-      {{ foreman_proxy_registration_hostname }}. Integrated deployments register the
-      smart proxy with {{ foreman_proxy_registration_url }} while keeping
-      {{ foreman_proxy_name }} as the public proxy name. Provide a certificate whose
-      SANs include {{ foreman_proxy_registration_hostname }}, or use a certificate source
+      {{ foreman_proxy_registration_fqdn }}. This deployment registers the smart
+      proxy with {{ foreman_proxy_registration_url }} while keeping
+      {{ foreman_proxy_fqdn }} as the public proxy FQDN. Provide a certificate whose
+      SANs include {{ foreman_proxy_registration_fqdn }}, or use a certificate source
       that can issue that alias automatically.
   when:
-    - "enabled_features | has_feature('foreman')"
-    - foreman_proxy_registration_url != foreman_proxy_url
+    - foreman_proxy_registration_fqdn != foreman_proxy_fqdn
 
 - name: Deploy Foreman Proxy Container
   containers.podman.podman_container:
@@ -128,7 +126,6 @@
   register: _foreman_proxy_features
   when:
     - "enabled_features | has_feature('foreman')"
-    - foreman_proxy_registration_url != foreman_proxy_url
   changed_when: false
   retries: 30
   delay: 5
@@ -136,7 +133,7 @@
 
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
-    name: "{{ foreman_proxy_name }}"
+    name: "{{ foreman_proxy_fqdn }}"
     url: "{{ foreman_proxy_registration_url }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"

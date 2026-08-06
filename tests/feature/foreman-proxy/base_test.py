@@ -14,6 +14,11 @@ def proxy_v2_features(curl_request, proxy_base_url):
     return json.loads(cmd.stdout)
 
 
+@pytest.fixture(scope="module")
+def expected_proxy_registration_url(obsah_params, server_fqdn):
+    return obsah_params.get('foreman_proxy_registration_url', f'https://{server_fqdn}:{FOREMAN_PROXY_PORT}')
+
+
 def test_foreman_proxy_features(curl_request, proxy_base_url, enabled_features):
     cmd = curl_request("features", base_url=proxy_base_url, return_body=True)
     assert cmd.succeeded
@@ -54,7 +59,7 @@ def test_foreman_proxy_port(server):
 
 
 @pytest.mark.feature('foreman')
-def test_foreman_reaches_proxy_via_internal_registration_hostname(server):
+def test_foreman_reaches_proxy_via_registration_url(server, expected_proxy_registration_url):
     cmd = server.run(
         "podman exec foreman curl "
         "--silent --show-error --fail "
@@ -62,16 +67,16 @@ def test_foreman_reaches_proxy_via_internal_registration_hostname(server):
         "--cacert /etc/foreman/katello-default-ca.crt "
         "--cert /etc/foreman/client_cert.pem "
         "--key /etc/foreman/client_key.pem "
-        "https://foreman-proxy:8443/v2/features"
+        f"{expected_proxy_registration_url}/v2/features"
     )
     assert cmd.succeeded, (
-        "Foreman container could not reach foreman-proxy via internal "
-        f"registration hostname: {cmd.stderr}"
+        "Foreman container could not reach the proxy via the registered "
+        f"registration URL: {cmd.stderr}"
     )
 
 
 @pytest.mark.feature('foreman')
-def test_foreman_registers_proxy_with_public_name_and_internal_url(server, certificates, server_fqdn):
+def test_foreman_registers_proxy_with_public_fqdn_and_registration_url(server, certificates, server_fqdn, expected_proxy_registration_url):
     cmd = server.run(
         "curl --silent --show-error --fail "
         f"--cacert {certificates['server_ca_certificate']} "
@@ -84,7 +89,7 @@ def test_foreman_registers_proxy_with_public_name_and_internal_url(server, certi
     smart_proxy = next((proxy for proxy in smart_proxies if proxy["name"] == server_fqdn), None)
 
     assert smart_proxy is not None, f"Smart proxy {server_fqdn} was not registered"
-    assert smart_proxy["url"] == "https://foreman-proxy:8443"
+    assert smart_proxy["url"] == expected_proxy_registration_url
 
 
 def test_foreman_proxy_resolves_server_fqdn(server, server_fqdn):
@@ -137,9 +142,10 @@ def test_templates_endpoint_responds(curl_request, proxy_base_url, server_fqdn):
 
 
 @pytest.mark.feature('registration')
-def test_registration_url(obsah_params):
-    registration_url = obsah_params.get('foreman_proxy_registration_url')
-    assert registration_url == 'https://loadbalancer.example.com:8443'
+def test_registration_url(server, expected_proxy_registration_url):
+    registration_config = server.file('/etc/foreman-proxy/settings.d/registration.yml')
+    assert registration_config.exists
+    assert registration_config.contains(expected_proxy_registration_url)
 
 
 @pytest.mark.feature('registration')

@@ -29,11 +29,18 @@ def test_custom_certs_playbook_passes_server_aliases_to_certificates_role():
     assert play["vars"]["certificates_server_aliases"] == "{{ server_aliases | default([]) }}"
 
 
-def test_custom_server_workflow_uses_proxy_san_and_reuses_cert_paths():
+def test_custom_server_workflow_uses_proxy_san_and_registration_url_override():
     with open(TEST_WORKFLOW, 'r') as workflow_file:
         workflow = workflow_file.read()
 
+    assert "registration" + "_mode" not in workflow
+    assert "registration_url:" in workflow
+    assert "matrix.registration_url != ''" in workflow
+    assert "explicit registration URL" in workflow
+    assert "default proxy FQDN" in workflow
     assert "./forge custom-certs --server-alias foreman-proxy" in workflow
+    assert "--server-alias loadbalancer.example.com" in workflow
+    assert "--registration-url {0}" in workflow
     assert workflow.count(
         "--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt "
         "--certificate-server-key /root/custom-certificates/private/quadlet.example.com.key "

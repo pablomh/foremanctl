@@ -115,7 +115,7 @@ jobs:
       - name: Create custom certificates
         if: matrix.certificate_source == 'custom_server'
         run: |
-          ./forge custom-certs --server-alias foreman-proxy
+          ./forge custom-certs
       - name: Setup security mode ${{ matrix.security }}
         if: matrix.security != 'none'
         run: |
@@ -418,7 +418,7 @@ jobs:
       - name: Create custom certificates
         if: matrix.certificate_source == 'custom_server'
         run: |
-          ./forge custom-certs --server-alias foreman-proxy
+          ./forge custom-certs
           ./forge custom-certs \
             --hostname proxy.example.com \
             ${{ matrix.registration_url != '' && '--server-alias loadbalancer.example.com' || '' }}

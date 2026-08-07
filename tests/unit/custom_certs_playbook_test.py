@@ -38,7 +38,8 @@ def test_custom_server_workflow_uses_proxy_san_and_registration_url_override():
     assert "matrix.registration_url != ''" in workflow
     assert "explicit registration URL" in workflow
     assert "default proxy FQDN" in workflow
-    assert "./forge custom-certs --server-alias foreman-proxy" in workflow
+    assert "./forge custom-certs" in workflow
+    assert "--server-alias foreman-proxy" not in workflow
     assert "--server-alias loadbalancer.example.com" in workflow
     assert "--registration-url {0}" in workflow
     assert workflow.count(

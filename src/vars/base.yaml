@@ -8,11 +8,11 @@ certificates_hostname_aliases: >-
     ({'localhost': ['iop-core-gateway']} if (enabled_features | has_feature('iop')) else {})
     | combine(
         (
-          {ansible_facts['fqdn']: [foreman_proxy_registration_fqdn]}
+          {ansible_facts['fqdn']: [foreman_proxy_registration_url | urlsplit('hostname')]}
           if (
             (enabled_features | has_feature('foreman'))
             and (enabled_features | has_feature('foreman-proxy'))
-            and (foreman_proxy_registration_fqdn != ansible_facts['fqdn'])
+            and ((foreman_proxy_registration_url | urlsplit('hostname')) != ansible_facts['fqdn'])
           )
           else {}
         ),

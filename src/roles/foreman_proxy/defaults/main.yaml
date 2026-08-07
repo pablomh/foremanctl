@@ -2,11 +2,10 @@
 foreman_proxy_container_image: "quay.io/foreman/foreman-proxy"
 foreman_proxy_container_tag: "nightly"
 
-foreman_proxy_fqdn: "{{ ansible_facts['fqdn'] }}"
+foreman_proxy_name: "{{ ansible_facts['fqdn'] }}"
 foreman_proxy_https_port: 8443
-foreman_proxy_url: "https://{{ foreman_proxy_fqdn }}:{{ foreman_proxy_https_port }}"
+foreman_proxy_url: "https://{{ foreman_proxy_name }}:{{ foreman_proxy_https_port }}"
 foreman_proxy_registration_url: "{{ foreman_proxy_url }}"
-foreman_proxy_registration_fqdn: "{{ foreman_proxy_registration_url | urlsplit('hostname') }}"
 
 foreman_proxy_network: host
 foreman_proxy_ports: []
@@ -24,7 +23,7 @@ foreman_proxy_disabled_features: "{{ foreman_proxy_available_features | differen
 foreman_proxy_foreman_server_url: "https://{{ ansible_facts['fqdn'] }}"
 
 # Templates settings
-foreman_proxy_templates_url: "http://{{ foreman_proxy_fqdn }}:8000"
+foreman_proxy_templates_url: "http://{{ foreman_proxy_name }}:8000"
 
 # BMC settings
 foreman_proxy_bmc_ipmi_implementation: ipmitool

@@ -15,8 +15,14 @@ def proxy_v2_features(curl_request, proxy_base_url):
 
 
 @pytest.fixture(scope="module")
-def expected_proxy_registration_url(obsah_params, server_fqdn):
-    return obsah_params.get('foreman_proxy_registration_url', f'https://{server_fqdn}:{FOREMAN_PROXY_PORT}')
+def expected_proxy_registration_url(obsah_params, enabled_features, server_fqdn):
+    if 'foreman_proxy_registration_url' in obsah_params:
+        return obsah_params['foreman_proxy_registration_url']
+
+    if 'foreman' in enabled_features and 'foreman-proxy' in enabled_features:
+        return f'https://foreman-proxy:{FOREMAN_PROXY_PORT}'
+
+    return f'https://{server_fqdn}:{FOREMAN_PROXY_PORT}'
 
 
 def test_foreman_proxy_features(curl_request, proxy_base_url, enabled_features):

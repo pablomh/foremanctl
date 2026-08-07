@@ -22,9 +22,11 @@ def _load_defaults():
 def test_proxy_defaults_use_public_registration_url():
     defaults = _load_defaults()
 
-    assert defaults["foreman_proxy_url"] == "https://{{ foreman_proxy_fqdn }}:{{ foreman_proxy_https_port }}"
+    assert defaults["foreman_proxy_name"] == "{{ ansible_facts['fqdn'] }}"
+    assert defaults["foreman_proxy_url"] == "https://{{ foreman_proxy_name }}:{{ foreman_proxy_https_port }}"
     assert defaults["foreman_proxy_registration_url"] == "{{ foreman_proxy_url }}"
-    assert defaults["foreman_proxy_registration_fqdn"] == "{{ foreman_proxy_registration_url | urlsplit('hostname') }}"
+    assert "foreman_proxy_fqdn" not in defaults
+    assert "foreman_proxy_registration_fqdn" not in defaults
     assert "foreman_proxy_effective_registration_url" not in defaults
     assert "foreman_proxy_internal_registration_url" not in defaults
 
@@ -42,5 +44,5 @@ def test_proxy_registration_keeps_public_name_and_registration_url():
     task = _load_task("Register Foreman Proxy to Foreman")
     smart_proxy = task["theforeman.foreman.smart_proxy"]
 
-    assert smart_proxy["name"] == "{{ foreman_proxy_fqdn }}"
+    assert smart_proxy["name"] == "{{ foreman_proxy_name }}"
     assert smart_proxy["url"] == "{{ foreman_proxy_registration_url }}"

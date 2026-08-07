@@ -17,12 +17,12 @@
       - "{{ server_certificate }}"
       - -noout
       - -checkhost
-      - "{{ foreman_proxy_registration_fqdn }}"
+      - "{{ foreman_proxy_registration_url | urlsplit('hostname') }}"
   register: _foreman_proxy_registration_certificate
   changed_when: false
   failed_when: false
   when:
-    - foreman_proxy_registration_fqdn != foreman_proxy_fqdn
+    - (foreman_proxy_registration_url | urlsplit('hostname')) != foreman_proxy_name
 
 - name: Ensure proxy certificate covers alternate registration hostname
   ansible.builtin.assert:
@@ -30,13 +30,13 @@
       - _foreman_proxy_registration_certificate.rc == 0
     fail_msg: >-
       The server certificate at {{ server_certificate }} is not valid for
-      {{ foreman_proxy_registration_fqdn }}. This deployment registers the smart
+      {{ foreman_proxy_registration_url | urlsplit('hostname') }}. This deployment registers the smart
       proxy with {{ foreman_proxy_registration_url }} while keeping
-      {{ foreman_proxy_fqdn }} as the public proxy FQDN. Provide a certificate whose
-      SANs include {{ foreman_proxy_registration_fqdn }}, or use a certificate source
+      {{ foreman_proxy_name }} as the public proxy name. Provide a certificate whose
+      SANs include {{ foreman_proxy_registration_url | urlsplit('hostname') }}, or use a certificate source
       that can issue that alias automatically.
   when:
-    - foreman_proxy_registration_fqdn != foreman_proxy_fqdn
+    - (foreman_proxy_registration_url | urlsplit('hostname')) != foreman_proxy_name
 
 - name: Deploy Foreman Proxy Container
   containers.podman.podman_container:
@@ -133,7 +133,7 @@
 
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:
-    name: "{{ foreman_proxy_fqdn }}"
+    name: "{{ foreman_proxy_name }}"
     url: "{{ foreman_proxy_registration_url }}"
     server_url: "{{ foreman_proxy_foreman_server_url }}"
     oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"

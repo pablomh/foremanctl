@@ -19,26 +19,28 @@ def _load_defaults():
         return yaml.safe_load(defaults_file)
 
 
-def test_proxy_defaults_derive_effective_registration_url():
+def test_proxy_defaults_use_public_registration_url():
     defaults = _load_defaults()
 
-    assert defaults["foreman_proxy_internal_registration_url"] == "https://foreman-proxy:{{ foreman_proxy_https_port }}"
-    assert "foreman_proxy_internal_registration_url" in defaults["foreman_proxy_effective_registration_url"]
-    assert "foreman_proxy_registration_url" in defaults["foreman_proxy_effective_registration_url"]
+    assert defaults["foreman_proxy_url"] == "https://{{ foreman_proxy_fqdn }}:{{ foreman_proxy_https_port }}"
+    assert defaults["foreman_proxy_registration_url"] == "{{ foreman_proxy_url }}"
+    assert defaults["foreman_proxy_registration_fqdn"] == "{{ foreman_proxy_registration_url | urlsplit('hostname') }}"
+    assert "foreman_proxy_effective_registration_url" not in defaults
+    assert "foreman_proxy_internal_registration_url" not in defaults
 
 
-def test_wait_for_proxy_uses_effective_registration_url():
+def test_wait_for_proxy_uses_registration_url():
     task = _load_task("Wait for Foreman Proxy API to be reachable from Foreman")
 
-    assert "{{ foreman_proxy_effective_registration_url }}/v2/features" in task["ansible.builtin.command"]["argv"]
+    assert "{{ foreman_proxy_registration_url }}/v2/features" in task["ansible.builtin.command"]["argv"]
 
     when_condition = task["when"] if isinstance(task["when"], list) else [task["when"]]
     assert "enabled_features | has_feature('foreman')" in when_condition
 
 
-def test_proxy_registration_keeps_public_name_and_effective_url():
+def test_proxy_registration_keeps_public_name_and_registration_url():
     task = _load_task("Register Foreman Proxy to Foreman")
     smart_proxy = task["theforeman.foreman.smart_proxy"]
 
     assert smart_proxy["name"] == "{{ foreman_proxy_fqdn }}"
-    assert smart_proxy["url"] == "{{ foreman_proxy_effective_registration_url }}"
+    assert smart_proxy["url"] == "{{ foreman_proxy_registration_url }}"

@@ -6,16 +6,7 @@ foreman_proxy_fqdn: "{{ ansible_facts['fqdn'] }}"
 foreman_proxy_https_port: 8443
 foreman_proxy_url: "https://{{ foreman_proxy_fqdn }}:{{ foreman_proxy_https_port }}"
 foreman_proxy_registration_url: "{{ foreman_proxy_url }}"
-foreman_proxy_internal_registration_url: "https://foreman-proxy:{{ foreman_proxy_https_port }}"
-foreman_proxy_effective_registration_url: >-
-  {{
-    (
-      (enabled_features | has_feature('foreman'))
-      and (foreman_proxy_registration_url == foreman_proxy_url)
-    )
-    | ternary(foreman_proxy_internal_registration_url, foreman_proxy_registration_url)
-  }}
-foreman_proxy_effective_registration_fqdn: "{{ foreman_proxy_effective_registration_url | urlsplit('hostname') }}"
+foreman_proxy_registration_fqdn: "{{ foreman_proxy_registration_url | urlsplit('hostname') }}"
 
 foreman_proxy_network: host
 foreman_proxy_ports: []

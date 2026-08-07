@@ -1,4 +1,5 @@
 import datetime
+import urllib.parse
 
 import dateutil.parser
 import pytest
@@ -99,10 +100,18 @@ def test_candlepin_certificate_issued_by_internal_ca(server, certificates, custo
 
 @pytest.mark.feature('foreman')
 @pytest.mark.feature('foreman-proxy')
-def test_integrated_proxy_server_certificate_includes_internal_registration_hostname(server, certificates):
+def test_proxy_registration_override_hostname_is_covered_by_server_certificate(server, certificates, obsah_params, server_fqdn):
+    registration_url = obsah_params.get('foreman_proxy_registration_url')
+    if not registration_url:
+        pytest.skip("No registration URL override configured")
+
+    registration_hostname = urllib.parse.urlsplit(registration_url).hostname
+    if registration_hostname == server_fqdn:
+        pytest.skip("Registration URL uses the default server FQDN")
+
     cmd = server.run(
         f"openssl x509 -in {certificates['server_certificate']} "
-        "-noout -checkhost foreman-proxy"
+        f"-noout -checkhost {registration_hostname}"
     )
     assert cmd.succeeded
 

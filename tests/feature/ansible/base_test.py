@@ -1,9 +1,6 @@
-import uuid
-
 import pytest
 
 ROLE_NAME = "theforeman.foremanctltest"
-ROLE_TEMPLATE_NAME = "Ansible Roles - Ansible Default"
 
 
 def test_foreman_ansible_plugin_installed(foreman_plugins):
@@ -37,31 +34,6 @@ def ansible_role(server, foremanapi, ansible_proxy_id):
     yield ROLE_NAME
 
 
-@pytest.fixture(scope="module")
-def ansible_role_callback_template(foremanapi):
-    templates = foremanapi.list('job_templates', search=f'name = "{ROLE_TEMPLATE_NAME}"')
-    if not templates:
-        pytest.skip(f"Missing job template {ROLE_TEMPLATE_NAME!r}")
-
-    features = foremanapi.list('remote_execution_features')
-    role_feature = next((feature for feature in features if feature['label'] == 'ansible_run_host'), None)
-    if role_feature is None:
-        pytest.skip("Missing remote execution feature 'ansible_run_host'")
-
-    cloned_template = foremanapi.resource_action(
-        'job_templates',
-        'clone',
-        params={
-            'id': templates[0]['id'],
-            'job_template': {'name': f'{ROLE_TEMPLATE_NAME} {uuid.uuid4()}'},
-        },
-    )
-    foremanapi.update('job_templates', {'id': cloned_template['id'], 'ansible_callback_enabled': True})
-    foremanapi.update('remote_execution_features', {'id': role_feature['id'], 'job_template_id': cloned_template['id']})
-
-    return cloned_template
-
-
 def test_import_ansible_role(ansible_role, foremanapi):
     assert foremanapi.list('ansible_roles', search=f'name={ansible_role}')
 
@@ -86,7 +58,7 @@ def registered_client(
         pass
 
 
-def test_run_ansible_role(ansible_role, ansible_proxy_id, organization, registered_client, foremanapi, server, ansible_role_callback_template):
+def test_run_ansible_role(ansible_role, ansible_proxy_id, organization, registered_client, foremanapi, server):
     org_id = organization['id']
 
     roles = foremanapi.list('ansible_roles', search=f'name={ansible_role}')

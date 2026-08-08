@@ -46,3 +46,4 @@ def test_registration_defaults_enable_remote_execution_bootstrap():
 
     when_condition = enable_task["when"] if isinstance(enable_task["when"], list) else [enable_task["when"]]
     assert "_post_install_remote_execution_registration_setting.setting is defined" in when_condition
+    assert "_post_install_remote_execution_registration_setting.setting is not none" in when_condition

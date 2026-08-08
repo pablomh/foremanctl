@@ -20,3 +20,4 @@
     value: true
   when:
     - _post_install_remote_execution_registration_setting.setting is defined
+    - _post_install_remote_execution_registration_setting.setting is not none

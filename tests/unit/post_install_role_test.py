@@ -8,6 +8,8 @@ ROLE_TASKS = os.path.join(SRC_DIR, "roles", "post_install", "tasks", "main.yaml"
 REGISTRATION_DEFAULTS_TASKS = os.path.join(
     SRC_DIR, "roles", "post_install", "tasks", "registration_defaults.yaml"
 )
+REMOTE_EXECUTION_REGISTRATION_SETTING = "host_registration_remote_execution"
+REMOTE_EXECUTION_SETTING_REGISTER = "_post_install_remote_execution_registration_setting"
 
 
 def _load_yaml(path):
@@ -20,30 +22,35 @@ def _load_task(path, task_name):
     return next(task for task in tasks if task.get("name") == task_name)
 
 
+def _as_list(value):
+    return value if isinstance(value, list) else [value]
+
+
 def test_post_install_includes_remote_execution_registration_defaults():
     task = _load_task(ROLE_TASKS, "Configure registration defaults")
 
     assert task["ansible.builtin.include_tasks"] == "registration_defaults.yaml"
-    when_condition = task["when"] if isinstance(task["when"], list) else [task["when"]]
+    when_condition = _as_list(task["when"])
     assert "enabled_features | has_feature('remote-execution')" in when_condition
 
 
-def test_registration_defaults_enable_remote_execution_bootstrap():
+def test_registration_defaults_enable_remote_execution_bootstrap_when_setting_exists():
     lookup_task = _load_task(
         REGISTRATION_DEFAULTS_TASKS,
         "Look up remote execution registration setting",
     )
-    assert lookup_task["theforeman.foreman.setting_info"]["name"] == "host_registration_remote_execution"
-
     enable_task = _load_task(
         REGISTRATION_DEFAULTS_TASKS,
         "Enable remote execution bootstrap in registration commands",
     )
-    setting = enable_task["theforeman.foreman.setting"]
+    lookup_setting = lookup_task["theforeman.foreman.setting_info"]
+    enable_setting = enable_task["theforeman.foreman.setting"]
 
-    assert setting["name"] == "host_registration_remote_execution"
-    assert setting["value"] is True
+    assert lookup_task["register"] == REMOTE_EXECUTION_SETTING_REGISTER
+    assert lookup_setting["name"] == enable_setting["name"] == REMOTE_EXECUTION_REGISTRATION_SETTING
+    assert enable_setting["value"] is True
 
-    when_condition = enable_task["when"] if isinstance(enable_task["when"], list) else [enable_task["when"]]
-    assert "_post_install_remote_execution_registration_setting.setting is defined" in when_condition
-    assert "_post_install_remote_execution_registration_setting.setting is not none" in when_condition
+    assert _as_list(enable_task["when"]) == [
+        f"{REMOTE_EXECUTION_SETTING_REGISTER}.setting is defined",
+        f"{REMOTE_EXECUTION_SETTING_REGISTER}.setting is not none",
+    ]

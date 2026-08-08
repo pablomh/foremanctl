@@ -53,52 +53,92 @@ def test_proxy_registration_keeps_public_name_and_registration_url():
     assert smart_proxy["url"] == "{{ foreman_proxy_registration_url }}"
 
 
-def test_refresh_runs_as_unconditional_task_right_after_registration():
-    # Regression test: the refresh must be a plain task placed immediately after
-    # registration, not a notified handler. A handler-based refresh depends on a
-    # guard/notify chain to know the proxy is registered, which previously broke
-    # silently (the guard's precondition handler was never notified, so it always
-    # evaluated false and the proxy's pubkey was never cached).
+def test_refresh_foreman_proxy_is_an_unconditional_handler():
+    # Regression test: "Refresh Foreman Proxy" must be a plain, unconditional
+    # handler (matching master), not gated behind a guard. A previous guard fed by
+    # a "Check whether Foreman Proxy is registered" handler that nothing ever
+    # notified always evaluated false, silently skipping the refresh and leaving
+    # the proxy's pubkey/ca_pubkey uncached forever.
+    handlers = _load_handlers()
+    handler_names = [handler.get('name') for handler in handlers]
+
+    assert 'Restart Foreman Proxy' in handler_names
+    assert 'Refresh Foreman Proxy' in handler_names
+    assert 'Check whether Foreman Proxy is registered' not in handler_names
+
+    refresh_handler = next(h for h in handlers if h.get('name') == 'Refresh Foreman Proxy')
+    assert 'when' not in refresh_handler
+    assert refresh_handler['theforeman.foreman.smart_proxy_refresh']['smart_proxy'] == "{{ foreman_proxy_name }}"
+
+
+def test_feature_task_files_notify_restart_and_refresh_together():
+    # Matching master: every task that can change the proxy's on-disk config
+    # notifies both handlers together, so a refresh always follows a restart.
+    role_dir = os.path.join(SRC_DIR, 'roles', 'foreman_proxy', 'tasks')
+    notifying_files = (
+        'feature.yaml',
+        os.path.join('feature', 'ansible.yaml'),
+        os.path.join('feature', 'remote_execution_ssh.yaml'),
+    )
+    found_notify = False
+    for relative_path in notifying_files:
+        path = os.path.join(role_dir, relative_path)
+        with open(path, 'r') as handle:
+            content = yaml.safe_load(handle) or []
+        for task in content:
+            notify = task.get('notify')
+            if notify is None:
+                continue
+            notify_list = notify if isinstance(notify, list) else [notify]
+            assert notify_list == ['Restart Foreman Proxy', 'Refresh Foreman Proxy'], (
+                f"{path} task {task.get('name')!r} notify list {notify_list!r} does not "
+                "match master's paired Restart+Refresh notification"
+            )
+            found_notify = True
+
+    assert found_notify, "expected at least one notifying task across the feature task files"
+
+
+def test_refresh_cannot_fire_before_registration():
+    # The only place "Refresh Foreman Proxy" can run is via a handler flush, and
+    # the only flush in this role sits right after "Register Foreman Proxy to
+    # Foreman" (matching master's relative ordering), so the proxy is guaranteed
+    # to already exist in Foreman by the time it runs.
     tasks = _load_tasks()
     names = [task.get('name') for task in tasks]
 
     assert 'Register Foreman Proxy to Foreman' in names
-    assert 'Refresh Foreman Proxy' in names
+    assert 'Refresh Foreman Proxy' not in names, (
+        "Refresh Foreman Proxy should be a handler, not a plain task"
+    )
+
+    flush_indexes = [i for i, task in enumerate(tasks) if 'ansible.builtin.meta' in task]
+    assert len(flush_indexes) == 1, "expected exactly one handler flush in the role"
+
     register_index = names.index('Register Foreman Proxy to Foreman')
-    refresh_index = names.index('Refresh Foreman Proxy')
-    assert refresh_index == register_index + 1
-
-    refresh_task = tasks[refresh_index]
-    assert 'when' not in refresh_task
-    assert refresh_task['theforeman.foreman.smart_proxy_refresh']['smart_proxy'] == "{{ foreman_proxy_name }}"
+    assert flush_indexes[0] == register_index + 1
 
 
-def test_refresh_foreman_proxy_is_no_longer_a_handler():
-    # The old handler-based refresh relied on a "Check whether Foreman Proxy is
-    # registered" handler that nothing ever notified, so its guard was always false.
-    handlers = _load_handlers()
-    handler_names = [handler.get('name') for handler in handlers]
+def test_early_restart_before_readiness_check_is_a_plain_task_not_a_handler_flush():
+    # This branch restarts the proxy container before the Foreman-reachability
+    # readiness check (needed for bridge networking, unlike master's host
+    # networking) via a plain imperative task rather than a notify/flush, so
+    # that doing so can never also flush (and thus prematurely fire) the paired
+    # "Refresh Foreman Proxy" handler notified from the same feature tasks.
+    tasks = _load_tasks()
+    names = [task.get('name') for task in tasks]
 
-    assert 'Refresh Foreman Proxy' not in handler_names
-    assert 'Check whether Foreman Proxy is registered' not in handler_names
+    assert 'Wait for Foreman Proxy API to be reachable from Foreman' in names
+    readiness_index = names.index('Wait for Foreman Proxy API to be reachable from Foreman')
 
+    early_restart = tasks[readiness_index - 1]
+    assert early_restart.get('name') == 'Restart Foreman Proxy ahead of registration'
+    assert 'notify' not in early_restart
+    assert early_restart['ansible.builtin.systemd']['name'] == 'foreman-proxy'
 
-def test_no_stray_notify_of_removed_refresh_handler():
-    # A "notify: Refresh Foreman Proxy" pointing at a handler that no longer exists
-    # would make Ansible fail the whole play with "handler not found".
-    role_dir = os.path.join(SRC_DIR, 'roles', 'foreman_proxy', 'tasks')
-    for dirpath, _dirnames, filenames in os.walk(role_dir):
-        for filename in filenames:
-            if not filename.endswith(('.yaml', '.yml')):
-                continue
-            path = os.path.join(dirpath, filename)
-            with open(path, 'r') as handle:
-                content = yaml.safe_load(handle) or []
-            for task in content:
-                notify = task.get('notify')
-                if notify is None:
-                    continue
-                notify_list = notify if isinstance(notify, list) else [notify]
-                assert 'Refresh Foreman Proxy' not in notify_list, (
-                    f"{path} still notifies the removed 'Refresh Foreman Proxy' handler"
-                )
+    # No handler flush must occur before registration.
+    register_index = names.index('Register Foreman Proxy to Foreman')
+    for task in tasks[:register_index]:
+        assert 'ansible.builtin.meta' not in task, (
+            f"{task.get('name')!r} flushes handlers before registration"
+        )

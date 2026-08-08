@@ -99,8 +99,24 @@
     state: started
   register: _foreman_proxy_service
 
-- name: Flush handlers to restart services
-  ansible.builtin.meta: flush_handlers
+- name: Restart Foreman Proxy ahead of registration
+  ansible.builtin.systemd:
+    name: foreman-proxy
+    state: "{{ (_foreman_proxy_service is changed) | ternary('started', 'restarted') }}"
+  # Deliberately NOT done via `notify: Restart Foreman Proxy` + `meta: flush_handlers`
+  # here: this role's feature tasks notify "Restart Foreman Proxy" and
+  # "Refresh Foreman Proxy" together (matching master), and flush_handlers has no
+  # way to flush one without the other. "Refresh Foreman Proxy" calls
+  # smart_proxy_refresh, which requires the proxy to already be registered with
+  # Foreman - it must not run before "Register Foreman Proxy to Foreman" below.
+  # We still need the container running with up-to-date config *before* the
+  # readiness check and registration, because - unlike master's host-networking
+  # setup - this deployment uses a bridge network, so Foreman can only reach the
+  # proxy (and validate it during registration) once the container has actually
+  # picked up its current secrets/config. Doing this restart as a plain task
+  # sidesteps the handler pair entirely, at the cost of a harmless extra restart
+  # when "Restart Foreman Proxy" also fires at the normal end-of-role handler
+  # flush below.
 
 - name: Wait for Foreman Proxy API to be reachable from Foreman
   ansible.builtin.command:
@@ -140,10 +156,5 @@
     oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"
     ca_path: "{{ foreman_proxy_foreman_ca_certificate | default(omit) }}"
 
-- name: Refresh Foreman Proxy
-  theforeman.foreman.smart_proxy_refresh:
-    smart_proxy: "{{ foreman_proxy_name }}"
-    server_url: "{{ foreman_proxy_foreman_server_url }}"
-    oauth1_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
-    oauth1_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"
-    ca_path: "{{ foreman_proxy_foreman_ca_certificate | default(omit) }}"
+- name: Flush handlers to restart services
+  ansible.builtin.meta: flush_handlers

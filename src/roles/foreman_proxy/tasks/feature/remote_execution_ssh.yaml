@@ -10,7 +10,6 @@
     path: "/root/foreman-proxy-ssh"
   notify:
     - Restart Foreman Proxy
-    - Refresh Foreman Proxy
 
 - name: Create SSH Pub podman secret
   containers.podman.podman_secret:
@@ -19,7 +18,6 @@
     path: "/root/foreman-proxy-ssh.pub"
   notify:
     - Restart Foreman Proxy
-    - Refresh Foreman Proxy
 
 - name: Mount SSH secrets
   ansible.builtin.copy:
@@ -33,4 +31,3 @@
     group: root
   notify:
     - Restart Foreman Proxy
-    - Refresh Foreman Proxy

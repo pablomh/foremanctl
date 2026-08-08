@@ -1,0 +1,22 @@
+---
+- name: Look up remote execution registration setting
+  theforeman.foreman.setting_info:
+    server_url: "{{ post_install_foreman_server_url }}"
+    oauth1_consumer_key: "{{ post_install_foreman_oauth_consumer_key }}"
+    oauth1_consumer_secret: "{{ post_install_foreman_oauth_consumer_secret }}"
+    ca_path: "{{ post_install_foreman_ca_path | default(omit) }}"
+    name: host_registration_remote_execution
+  register: _post_install_remote_execution_registration_setting
+  changed_when: false
+  failed_when: false
+
+- name: Enable remote execution bootstrap in registration commands
+  theforeman.foreman.setting:
+    server_url: "{{ post_install_foreman_server_url }}"
+    oauth1_consumer_key: "{{ post_install_foreman_oauth_consumer_key }}"
+    oauth1_consumer_secret: "{{ post_install_foreman_oauth_consumer_secret }}"
+    ca_path: "{{ post_install_foreman_ca_path | default(omit) }}"
+    name: host_registration_remote_execution
+    value: true
+  when:
+    - _post_install_remote_execution_registration_setting.setting is defined

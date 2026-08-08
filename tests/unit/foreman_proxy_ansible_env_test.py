@@ -16,5 +16,5 @@ def test_ansible_env_keeps_foreman_callback_enabled():
     rendered = template.render({"foreman_url": "https://quadlet.example.com"})
 
     assert 'export ANSIBLE_CALLBACKS_ENABLED="theforeman.foreman.foreman"' in rendered
-    assert 'export FOREMAN_CALLBACK_DISABLE="0"' in rendered
+    assert 'FOREMAN_CALLBACK_DISABLE' not in rendered
     assert 'export FOREMAN_URL="https://quadlet.example.com"' in rendered

@@ -2,6 +2,11 @@
 - name: Check for unrecognized Smart Proxy features
   ansible.builtin.include_tasks: smart_proxy_features_check.yaml
 
+- name: Configure registration defaults
+  ansible.builtin.include_tasks: registration_defaults.yaml
+  when:
+    - "enabled_features | has_feature('remote-execution')"
+
 - name: Post install message
   ansible.builtin.include_tasks: message.yaml
 

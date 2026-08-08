@@ -1,10 +1,23 @@
 import datetime
 import json
+import time
 
 import pytest
 
 from tests.conftest import FOREMAN_PROXY_PORT
 from tests.conftest import assert_container_resolves_server_fqdn
+
+# The Foreman <-> Foreman Proxy connection now crosses a Podman bridge network
+# instead of the host network. Anything that stops/starts the whole
+# `foreman.target` (e.g. the `backup_test.py` module, which runs earlier in
+# the suite) can leave a brief window where the bridge network's DNS
+# (aardvark-dns/netavark) hasn't fully reconverged yet for the restarted
+# containers. `foreman_proxy/tasks/main.yaml`'s "Wait for Foreman Proxy API
+# to be reachable from Foreman" task already tolerates exactly this with
+# retries/delay; mirror that tolerance here instead of asserting on a single
+# attempt.
+PROXY_REACHABILITY_RETRIES = 12
+PROXY_REACHABILITY_DELAY = 5
 
 
 @pytest.fixture(scope="module")
@@ -63,7 +76,7 @@ def test_foreman_proxy_port(server):
 
 @pytest.mark.feature('foreman')
 def test_foreman_reaches_proxy_via_registration_url(server, expected_proxy_registration_url):
-    cmd = server.run(
+    command = (
         "podman exec foreman curl "
         "--silent --show-error --fail "
         "--connect-timeout 5 --max-time 10 "
@@ -72,6 +85,14 @@ def test_foreman_reaches_proxy_via_registration_url(server, expected_proxy_regis
         "--key /etc/foreman/client_key.pem "
         f"{expected_proxy_registration_url}/v2/features"
     )
+
+    cmd = server.run(command)
+    for _ in range(PROXY_REACHABILITY_RETRIES):
+        if cmd.succeeded:
+            break
+        time.sleep(PROXY_REACHABILITY_DELAY)
+        cmd = server.run(command)
+
     assert cmd.succeeded, (
         "Foreman container could not reach the proxy via the registered "
         f"registration URL: {cmd.stderr}"

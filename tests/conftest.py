@@ -217,12 +217,21 @@ def remote_execution_authorized_proxy_key(server, client, foremanapi, capsys):
 
     try:
         smart_proxies = foremanapi.list('smart_proxies', params={'per_page': 100})
+        # remote_execution_pubkey/remote_execution_ca_pubkey are the smart_proxies.pubkey /
+        # ca_pubkey DB columns (foreman_remote_execution's SmartProxyExtensions#pubkey with
+        # refresh: false) -- i.e. exactly what Host#remote_execution_ssh_keys reads when
+        # deciding which key(s) to embed into a generated registration script. If this is
+        # nil/blank for the proxy that actually executes SSH REX jobs, NO key gets embedded
+        # for it (this is distinct from "the wrong key gets embedded").
         smart_proxies_summary = "\n".join(
-            "id={id} name={name!r} url={url!r} features={features}".format(
+            "id={id} name={name!r} url={url!r} features={features} "
+            "remote_execution_pubkey={pubkey!r} remote_execution_ca_pubkey={ca_pubkey!r}".format(
                 id=proxy.get('id'),
                 name=proxy.get('name'),
                 url=proxy.get('url'),
                 features=[f.get('name') for f in proxy.get('features', [])],
+                pubkey=proxy.get('remote_execution_pubkey'),
+                ca_pubkey=proxy.get('remote_execution_ca_pubkey'),
             )
             for proxy in smart_proxies
         ) or '<no smart proxies returned>'

@@ -119,33 +119,7 @@
   # flush below.
 
 - name: Wait for Foreman Proxy API to be reachable from Foreman
-  ansible.builtin.command:
-    argv:
-      - podman
-      - exec
-      - foreman
-      - curl
-      - --silent
-      - --show-error
-      - --fail
-      - --connect-timeout
-      - "5"
-      - --max-time
-      - "10"
-      - --cacert
-      - /etc/foreman/katello-default-ca.crt
-      - --cert
-      - /etc/foreman/client_cert.pem
-      - --key
-      - /etc/foreman/client_key.pem
-      - "{{ foreman_proxy_registration_url }}/v2/features"
-  register: _foreman_proxy_features
-  when:
-    - "enabled_features | has_feature('foreman')"
-  changed_when: false
-  retries: 30
-  delay: 5
-  until: _foreman_proxy_features.rc == 0
+  ansible.builtin.include_tasks: wait_for_reachable.yaml
 
 - name: Register Foreman Proxy to Foreman
   theforeman.foreman.smart_proxy:

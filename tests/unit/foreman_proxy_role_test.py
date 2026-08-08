@@ -7,10 +7,22 @@ SRC_DIR = os.path.abspath(os.path.join(TEST_DIR, '..', '..', 'src'))
 ROLE_TASKS = os.path.join(SRC_DIR, 'roles', 'foreman_proxy', 'tasks', 'main.yaml')
 ROLE_DEFAULTS = os.path.join(SRC_DIR, 'roles', 'foreman_proxy', 'defaults', 'main.yaml')
 ROLE_HANDLERS = os.path.join(SRC_DIR, 'roles', 'foreman_proxy', 'handlers', 'main.yml')
+WAIT_FOR_REACHABLE_TASKS = os.path.join(SRC_DIR, 'roles', 'foreman_proxy', 'tasks', 'wait_for_reachable.yaml')
+BACKUP_ROLE_TASKS = os.path.join(SRC_DIR, 'roles', 'backup', 'tasks', 'main.yaml')
 
 
 def _load_tasks():
     with open(ROLE_TASKS, 'r') as task_file:
+        return yaml.safe_load(task_file)
+
+
+def _load_wait_for_reachable_tasks():
+    with open(WAIT_FOR_REACHABLE_TASKS, 'r') as task_file:
+        return yaml.safe_load(task_file)
+
+
+def _load_backup_tasks():
+    with open(BACKUP_ROLE_TASKS, 'r') as task_file:
         return yaml.safe_load(task_file)
 
 
@@ -36,13 +48,67 @@ def test_proxy_defaults_use_public_registration_url():
     assert defaults["foreman_proxy_registration_url"] == "{{ foreman_proxy_url }}"
 
 
-def test_wait_for_proxy_uses_registration_url():
+def test_deploy_time_readiness_check_delegates_to_shared_wait_task():
+    # The actual command/retry logic lives in the shared wait_for_reachable.yaml
+    # task file (also used by the backup role, see
+    # test_backup_reuses_shared_wait_for_reachable_task below) so both callers
+    # stay in lockstep instead of drifting apart over time.
     task = _load_task("Wait for Foreman Proxy API to be reachable from Foreman")
 
-    assert "{{ foreman_proxy_registration_url }}/v2/features" in task["ansible.builtin.command"]["argv"]
+    assert task["ansible.builtin.include_tasks"] == "wait_for_reachable.yaml"
+
+
+def test_wait_for_proxy_uses_registration_url():
+    task = _load_wait_for_reachable_tasks()[0]
+
+    assert task["name"] == "Wait for Foreman Proxy API to be reachable from Foreman"
+    assert "{{ foreman_proxy_registration_url | default('https://' ~ ansible_facts['fqdn'] ~ ':8443') }}/v2/features" \
+        in task["ansible.builtin.command"]["argv"]
 
     when_condition = task["when"] if isinstance(task["when"], list) else [task["when"]]
     assert "enabled_features | has_feature('foreman')" in when_condition
+    assert "enabled_features | has_feature('foreman-proxy')" in when_condition
+
+    assert task["retries"] == 30
+    assert task["delay"] == 5
+    assert task["until"] == "_foreman_proxy_features.rc == 0"
+
+
+def test_backup_reuses_shared_wait_for_reachable_task():
+    # Regression test for the real production gap behind the stream10 CI
+    # failure: `foremanctl backup` restarts the whole foreman.target
+    # (including foreman-proxy) under this PR's bridge-network refactor, so it
+    # needs the same Netavark/aardvark-dns reconvergence tolerance the deploy
+    # path already has. Reusing the shared task file (rather than duplicating
+    # the curl command/retry parameters) keeps both call sites from drifting.
+    tasks = _load_backup_tasks()
+
+    def iter_tasks(task_list):
+        for task in task_list:
+            yield task
+            if "block" in task:
+                yield from iter_tasks(task["block"])
+
+    backup_tasks = list(iter_tasks(tasks))
+    names = [task.get('name') for task in backup_tasks]
+
+    assert 'Wait for Foreman Proxy API to be reachable from Foreman' in names
+    wait_task = next(
+        task for task in backup_tasks
+        if task.get('name') == 'Wait for Foreman Proxy API to be reachable from Foreman'
+    )
+    included_path = wait_task["ansible.builtin.include_tasks"]
+    resolved_path = os.path.normpath(
+        os.path.join(SRC_DIR, 'roles', 'backup', 'tasks', included_path)
+    )
+    assert resolved_path == WAIT_FOR_REACHABLE_TASKS
+
+    start_index = names.index('Start Foreman services')
+    wait_index = names.index('Wait for Foreman Proxy API to be reachable from Foreman')
+    assert wait_index == start_index + 1, (
+        "the proxy-reachability wait must run right after foreman.target is "
+        "restarted, before the backup is reported complete"
+    )
 
 
 def test_proxy_registration_keeps_public_name_and_registration_url():

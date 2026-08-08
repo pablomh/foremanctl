@@ -21,6 +21,32 @@ PARAMETERS_FILE = os.path.join(OBSAH_STATE, 'parameters.yaml')
 FLAVOR_TESTS_DIR = py.path.local(__file__).dirpath() / 'flavor'
 FOREMAN_PROXY_PORT = 8443
 
+# --- BEGIN TEMPORARY DIAGNOSTIC INSTRUMENTATION -----------------------------------------
+# Investigating a possible SSH key identity mismatch: is the smart proxy whose pubkey
+# Foreman embeds into a generated host registration/bootstrap script (when
+# host_registration_remote_execution is enabled) actually the SAME smart proxy that later
+# executes remote-execution SSH jobs against that host? This is purely additive
+# logging/diagnostics; it does not change any fixture's setup/teardown behavior or any
+# test's pass/fail outcome. Safe to delete this block (and its call sites, search for
+# "DIAGNOSTIC INSTRUMENTATION") once the investigation concludes.
+DIAGNOSTIC_ARTIFACT_PATH = py.path.local(__file__).dirpath() / '..' / 'diagnostics' / 'ssh_key_identity_investigation.log'
+
+
+def _record_diagnostic(capsys, label, content):
+    """Print (bypassing pytest's output capture, so it shows up in CI logs for both
+    passing and failing tests) and append to a local artifact file, clearly labelled so
+    it is trivially greppable."""
+    block = f"=== DIAGNOSTIC[{label}] ===\n{content}\n=== END DIAGNOSTIC[{label}] ===\n"
+    with capsys.disabled():
+        print(f"\n{block}")
+    try:
+        DIAGNOSTIC_ARTIFACT_PATH.dirpath().ensure(dir=True)
+        with open(str(DIAGNOSTIC_ARTIFACT_PATH), 'a', encoding='utf-8') as fh:
+            fh.write(block + "\n")
+    except OSError:
+        pass
+# --- END TEMPORARY DIAGNOSTIC INSTRUMENTATION -------------------------------------------
+
 
 class UserParameters:
     def __init__(self, config):
@@ -161,7 +187,50 @@ def client(client_hostname):
 
 
 @pytest.fixture
-def remote_execution_authorized_proxy_key(server, client):
+def remote_execution_authorized_proxy_key(server, client, foremanapi, capsys):
+    # --- BEGIN TEMPORARY DIAGNOSTIC INSTRUMENTATION (see top of file) ---
+    # Capture evidence BEFORE this fixture injects the foreman-proxy key manually below,
+    # so we can see what state the client and Foreman were actually in beforehand.
+    client_authorized_keys_before = client.run(
+        "cat /root/.ssh/authorized_keys 2>/dev/null || echo '<authorized_keys missing or empty>'"
+    ).stdout
+    _record_diagnostic(capsys, "CLIENT_AUTHORIZED_KEYS_BEFORE_FIXTURE", client_authorized_keys_before)
+
+    foreman_proxy_container_pubkey_diag = server.run(
+        "podman exec foreman-proxy cat /usr/share/foreman-proxy/.ssh/id_rsa_foreman_proxy.pub 2>&1"
+    ).stdout
+    _record_diagnostic(capsys, "FOREMAN_PROXY_CONTAINER_PUBKEY", foreman_proxy_container_pubkey_diag)
+
+    # Does the main `foreman` container/host have any SSH keypair of its own that could be
+    # (mis)used for registration/remote-execution purposes, distinct from foreman-proxy's key?
+    foreman_container_ssh_keys = server.run(
+        "podman exec foreman sh -c "
+        "\"find /usr/share/foreman /root/.ssh -iname 'id_rsa*' 2>/dev/null "
+        "-exec sh -c 'echo ---{}---; cat {}' \\;\" 2>&1"
+    ).stdout
+    _record_diagnostic(capsys, "FOREMAN_CONTAINER_SSH_KEYS", foreman_container_ssh_keys or '<none found>')
+
+    server_host_ssh_keys = server.run(
+        "find /usr/share/foreman /root/.ssh -iname 'id_rsa*' 2>/dev/null"
+    ).stdout
+    _record_diagnostic(capsys, "SERVER_HOST_SSH_KEYS", server_host_ssh_keys or '<none found outside containers>')
+
+    try:
+        smart_proxies = foremanapi.list('smart_proxies', params={'per_page': 100})
+        smart_proxies_summary = "\n".join(
+            "id={id} name={name!r} url={url!r} features={features}".format(
+                id=proxy.get('id'),
+                name=proxy.get('name'),
+                url=proxy.get('url'),
+                features=[f.get('name') for f in proxy.get('features', [])],
+            )
+            for proxy in smart_proxies
+        ) or '<no smart proxies returned>'
+    except Exception as exc:  # noqa: BLE001 - diagnostics must never break the fixture
+        smart_proxies_summary = f"<failed to fetch smart_proxies: {exc!r}>"
+    _record_diagnostic(capsys, "SMART_PROXIES_LIST", smart_proxies_summary)
+    # --- END TEMPORARY DIAGNOSTIC INSTRUMENTATION ---
+
     proxy_public_key = server.check_output(
         "podman exec foreman-proxy cat /usr/share/foreman-proxy/.ssh/id_rsa_foreman_proxy.pub"
     ).strip()

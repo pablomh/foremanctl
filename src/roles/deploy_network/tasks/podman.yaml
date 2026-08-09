@@ -17,11 +17,7 @@
 # CLI with the explicit lowercase value form Podman currently documents.
 - name: Inspect existing network {{ deploy_network_name }}
   ansible.builtin.command:
-    argv:
-      - podman
-      - network
-      - inspect
-      - "{{ deploy_network_name }}"
+    cmd: "podman network inspect {{ deploy_network_name | quote }}"
   register: deploy_network_existing_inspect
   changed_when: false
   failed_when: false

@@ -1,8 +1,11 @@
 ---
-# Shared by foreman_proxy/tasks/main.yaml (initial deploy) and the backup role
-# (post-backup restart of foreman.target). Both restart the foreman-proxy
-# container on a Podman bridge network, where Netavark/aardvark-dns needs a
-# moment to reconverge before Foreman can resolve/reach the proxy again.
+# Shared by foreman_proxy/tasks/main.yaml (both the initial deploy-time proxy
+# restart ahead of registration, and the end-of-role handler flush that can
+# restart the proxy again on every deploy run) and the backup role
+# (post-backup restart of foreman.target). All of these restart the
+# foreman-proxy container on a Podman bridge network, where Netavark/
+# aardvark-dns needs a moment to reconverge before Foreman can resolve/reach
+# the proxy again.
 # Self-contained (including the `when`) so callers don't need to duplicate
 # the feature gating: only meaningful when both Foreman and its proxy are
 # part of the deployment being acted on.

@@ -132,3 +132,17 @@
 
 - name: Flush handlers to restart services
   ansible.builtin.meta: flush_handlers
+  # This flush restarts the foreman-proxy container again whenever any
+  # earlier task (certs/configs/features) notified "Restart Foreman Proxy" -
+  # which happens on effectively every deploy run, not just the first one
+  # (see the comment above "Restart Foreman Proxy ahead of registration").
+  # On the bridge-network setup, that means aardvark-dns needs another
+  # moment to reconverge before Foreman can reach the proxy again, so the
+  # readiness check below must be repeated here too: this is the actual
+  # restart point behind the stream10 CI flake in
+  # tests/feature/foreman-proxy/base_test.py::test_foreman_reaches_proxy_via_registration_url,
+  # which otherwise runs immediately after this role returns with no wait
+  # in between.
+
+- name: Wait for Foreman Proxy API to be reachable from Foreman
+  ansible.builtin.include_tasks: wait_for_reachable.yaml

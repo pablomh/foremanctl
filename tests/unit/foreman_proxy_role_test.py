@@ -208,3 +208,30 @@ def test_early_restart_before_readiness_check_is_a_plain_task_not_a_handler_flus
         assert 'ansible.builtin.meta' not in task, (
             f"{task.get('name')!r} flushes handlers before registration"
         )
+
+
+def test_end_of_role_handler_flush_reuses_shared_wait_for_reachable_task():
+    # Regression test for the real production gap behind the stream10 CI
+    # flake in tests/feature/foreman-proxy/base_test.py::
+    # test_foreman_reaches_proxy_via_registration_url: the role's final
+    # `flush_handlers` restarts foreman-proxy again (any certs/configs/
+    # feature task notifying "Restart Foreman Proxy" earlier in the role -
+    # which happens on effectively every deploy run) after the deploy-time
+    # readiness check earlier in this file has already run, so it needs its
+    # own readiness check immediately afterward before control returns to
+    # the caller.
+    tasks = _load_tasks()
+    names = [task.get('name') for task in tasks]
+
+    flush_indexes = [i for i, task in enumerate(tasks) if 'ansible.builtin.meta' in task]
+    assert len(flush_indexes) == 1, "expected exactly one handler flush in the role"
+    flush_index = flush_indexes[0]
+
+    assert names.count('Wait for Foreman Proxy API to be reachable from Foreman') == 2, (
+        "expected the shared readiness check both before registration and "
+        "after the end-of-role handler flush"
+    )
+
+    post_flush_wait = tasks[flush_index + 1]
+    assert post_flush_wait.get('name') == 'Wait for Foreman Proxy API to be reachable from Foreman'
+    assert post_flush_wait['ansible.builtin.include_tasks'] == 'wait_for_reachable.yaml'

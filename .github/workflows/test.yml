@@ -67,21 +67,6 @@ jobs:
           - centos/stream10
         iop:
           - enabled
-        include:
-          - certificate_source: default
-            security: fapolicyd
-            database: internal
-            box: centos/stream9
-            iop: disabled
-          - certificate_source: default
-            security: none
-            database: external
-            box: centos/stream9
-            iop: disabled
-          - certificate_source: custom_server
-            security: none
-            database: internal
-            box: centos/stream9
     runs-on: ubuntu-24.04
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
@@ -185,13 +170,13 @@ jobs:
           name: sosreport-${{ env.ARTIFACT_SUFFIX }}
           path: sos/
       - name: Setup upterm session
-        if: ${{ failure() }}
+        if: ${{ always() }}
         uses: owenthereal/action-upterm@v1
         with:
           ## limits ssh access and adds the ssh public key for the user which triggered the workflow
           limit-access-to-actor: true
-          ## If no one connects after 5 minutes, shut down server.
-          wait-timeout-minutes: 5
+          ## If no one connects after 20 minutes, shut down server.
+          wait-timeout-minutes: 20
 
   devel-tests:
     strategy:

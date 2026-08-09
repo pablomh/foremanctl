@@ -99,15 +99,23 @@ def _capture_network_state_at_failure(item, server):
          "journalctl -u foreman-proxy --since '-10 minutes' --no-pager"),
         ("aardvark-dns log lines (last 10m, host-wide)",
          "journalctl --since '-10 minutes' --no-pager | grep -i aardvark || echo '<no aardvark-dns log lines found>'"),
-        # Two real occurrences (see git history around this hook) ruled out the initial
+        # Multiple real occurrences (see git history around this hook) ruled out the initial
         # stale-DNAT-rule hypothesis: a single correct rule, no recent restart, proxy healthy
-        # throughout. The remaining open hypotheses are conntrack pressure and CPU/IO
-        # scheduling contention on the (nested-virtualization) CI runner. These captures target
-        # exactly that, since neither was available in the earlier occurrences' evidence.
+        # throughout. A follow-up occurrence also ruled out conntrack-table exhaustion (usage
+        # was ~0.03% of the limit, zero drops/errors on every CPU) and found PSI (below)
+        # unavailable on this kernel, leaving CPU/IO scheduling contention on the
+        # (nested-virtualization) CI runner unconfirmed *and* unrefuted. Since a brief host
+        # vCPU scheduling stall on the receiving (proxy) side can delay/drop an inbound SYN
+        # without ever incrementing a conntrack or interface counter, these additional captures
+        # target exactly that "delay without drop" signature: CPU steal time (works without
+        # PSI) and TCP SYN-backlog/listen-overflow counters on both the host (hairpin NAT path)
+        # and inside the foreman-proxy container's own netns (actual SYN destination).
         ("CPU pressure (PSI, may not exist on all kernels)",
          "cat /proc/pressure/cpu 2>&1 || echo '<PSI not available on this kernel>'"),
         ("IO pressure (PSI, may not exist on all kernels)",
          "cat /proc/pressure/io 2>&1 || echo '<PSI not available on this kernel>'"),
+        ("CPU steal time (vmstat, 2 samples 1s apart)",
+         "vmstat 1 2 2>&1 || echo '<vmstat not available>'"),
         ("conntrack table usage vs limit",
          "echo \"count=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>&1)\" "
          "\"max=$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>&1)\""),
@@ -115,6 +123,15 @@ def _capture_network_state_at_failure(item, server):
          "cat /proc/net/stat/nf_conntrack 2>&1 || echo '<not available>'"),
         ("network interface error/drop counters",
          "ip -s link show"),
+        ("host TCP SYN-backlog/listen-overflow counters (TcpExt)",
+         "grep -A1 '^TcpExt:' /proc/net/netstat 2>&1 || echo '<not available>'"),
+        ("foreman-proxy container: socket summary (ss -s)",
+         "podman exec foreman-proxy ss -s 2>&1 || echo '<not available>'"),
+        ("foreman-proxy container: listen socket queue/backlog (port 8443)",
+         "podman exec foreman-proxy ss -ltn 2>&1 || echo '<not available>'"),
+        ("foreman-proxy container: TCP SYN-backlog/listen-overflow counters (TcpExt)",
+         "podman exec foreman-proxy sh -c \"grep -A1 '^TcpExt:' /proc/net/netstat\" 2>&1 "
+         "|| echo '<not available>'"),
         ("load average / uptime",
          "uptime"),
     ])

@@ -75,12 +75,11 @@ def test_wait_for_proxy_uses_registration_url():
 
 
 def test_backup_reuses_shared_wait_for_reachable_task():
-    # Regression test for the real production gap behind the stream10 CI
-    # failure: `foremanctl backup` restarts the whole foreman.target
-    # (including foreman-proxy) under this PR's bridge-network refactor, so it
-    # needs the same Netavark/aardvark-dns reconvergence tolerance the deploy
-    # path already has. Reusing the shared task file (rather than duplicating
-    # the curl command/retry parameters) keeps both call sites from drifting.
+    # `foremanctl backup` restarts the whole foreman.target (including
+    # foreman-proxy) under the bridge-network refactor, so it needs the same
+    # Netavark/aardvark-dns reconvergence tolerance the deploy path already
+    # has. Reusing the shared task file (rather than duplicating the curl
+    # command/retry parameters) keeps both call sites from drifting.
     tasks = _load_backup_tasks()
 
     def iter_tasks(task_list):
@@ -211,15 +210,12 @@ def test_early_restart_before_readiness_check_is_a_plain_task_not_a_handler_flus
 
 
 def test_end_of_role_handler_flush_reuses_shared_wait_for_reachable_task():
-    # Regression test for the real production gap behind the stream10 CI
-    # flake in tests/feature/foreman-proxy/base_test.py::
-    # test_foreman_reaches_proxy_via_registration_url: the role's final
-    # `flush_handlers` restarts foreman-proxy again (any certs/configs/
-    # feature task notifying "Restart Foreman Proxy" earlier in the role -
-    # which happens on effectively every deploy run) after the deploy-time
-    # readiness check earlier in this file has already run, so it needs its
-    # own readiness check immediately afterward before control returns to
-    # the caller.
+    # The role's final `flush_handlers` restarts foreman-proxy again (any
+    # certs/configs/feature task notifying "Restart Foreman Proxy" earlier in
+    # the role - which happens on effectively every deploy run) after the
+    # deploy-time readiness check earlier in this file has already run, so it
+    # needs its own readiness check immediately afterward before control
+    # returns to the caller.
     tasks = _load_tasks()
     names = [task.get('name') for task in tasks]
 

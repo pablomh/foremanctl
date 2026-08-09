@@ -159,13 +159,6 @@ jobs:
       - name: Run tests
         run: |
           ./forge test
-      - name: Archive test diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: diagnostics-${{ env.ARTIFACT_SUFFIX }}
-          path: diagnostics/
-          if-no-files-found: ignore
       - name: Run smoker
         run: |
           ./forge smoker
@@ -297,13 +290,6 @@ jobs:
       - name: Run tests
         run: |
           ./forge test
-      - name: Archive test diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: diagnostics-upgrade
-          path: diagnostics/
-          if-no-files-found: ignore
       - name: Generate sos reports
         if: ${{ always() }}
         run: ./forge sos
@@ -372,13 +358,6 @@ jobs:
       - name: Run tests
         run: |
           ./forge test
-      - name: Archive test diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: diagnostics-migration
-          path: diagnostics/
-          if-no-files-found: ignore
       - name: Run smoker
         run: |
           ./forge smoker
@@ -485,13 +464,6 @@ jobs:
       - name: Run tests
         run: |
           ./forge test --pytest-args="--server-hostname=proxy"
-      - name: Archive test diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: diagnostics-proxy-content-${{ matrix.certificate_source }}-${{ matrix.registration_url != '' && 'registration-url-override' || 'default-proxy-fqdn' }}
-          path: diagnostics/
-          if-no-files-found: ignore
       - name: Generate sos reports
         if: ${{ always() }}
         run: ./forge sos

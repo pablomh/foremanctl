@@ -53,12 +53,21 @@ def _record_diagnostic(capsys, label, content):
 # Investigating an intermittent, CI-only flake on the centos/stream10 + iop:enabled matrix
 # lane: `test_foreman_reaches_proxy_via_registration_url` occasionally times out reaching
 # the `foreman-proxy` container's published port (8443) via its public FQDN, and Ansible
-# REX tests occasionally time out around the same time. Leading (unconfirmed) hypothesis is
-# a netavark 2.0 stale-DNAT-rule bug (containers/podman#27516) triggered by container
-# recreation, but a synthetic minimal repro failed to reproduce it. This hook captures the
-# real nftables/network/container state at the exact moment ANY test fails (not just the
-# known-flaky ones, since we don't know in advance which test will next expose it), so a
-# genuine CI recurrence can be analyzed with real evidence instead of a synthetic guess.
+# REX tests occasionally time out around the same time. A stale-DNAT-rule hypothesis
+# (containers/podman#27516) and conntrack-table exhaustion were both ruled out with real
+# captures (single correct DNAT rule, ~0.03% conntrack usage, zero drops). The current
+# leading, evidence-grounded theory is netavark#709: netavark 2.0 (which landed in
+# CentOS Stream 10's rolling repos weeks before RHEL 10.2 froze on the still-current 1.17.x,
+# and before 2.0's own fix in 2.1.0) flipped the bridge driver's isolation default from
+# opt-in to opt-out, so `foreman-app`/`foreman-proxy`/`iop-core-network` (never
+# intentionally isolated) were being isolated from each other, silently dropping the
+# hairpin-NAT path between foreman's two bridge interfaces on some connection attempts.
+# See the `deploy_network_is_netavark2_plus` compatibility fix in
+# src/roles/deploy_network/tasks/podman.yaml for the actual fix; this hook stays in place
+# to catch any residual/related flakiness. This hook captures the real nftables/network/
+# container state at the exact moment ANY test fails (not just the known-flaky ones, since
+# we don't know in advance which test will next expose it), so a genuine CI recurrence can
+# be analyzed with real evidence instead of a synthetic guess.
 # This is purely additive: it only runs extra read-only diagnostic commands after a test has
 # already failed, and it is wrapped in broad exception handling so a bug in the
 # instrumentation itself can never mask/alter the real failure or fail an otherwise-passing

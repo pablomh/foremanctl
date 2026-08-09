@@ -46,16 +46,33 @@ already completed — live access is permanently impossible).
 
 Use `scripts/watch_upterm_window.sh <owner/repo> <run_id>` — it polls each
 still-`in_progress` job in the run for a step named "Setup upterm session"
-transitioning to `in_progress` (the real live-window signal), then extracts
-the `ssh ...@uptermd.upterm.dev` command straight from that job's live log.
-It prints `UPTERM_WINDOW_OPEN: job=<id>` and `SSH_COMMAND: ssh ...` the moment
-this happens — run it in the background and watch for that output.
+transitioning to `in_progress` (the real live-window signal — this part
+works). It prints `UPTERM_WINDOW_OPEN: job=<id>` the moment this happens.
 
-```bash
-.cursor/skills/ci-upterm-live-debug/scripts/watch_upterm_window.sh pablomh/foremanctl <run_id>
-```
+**Known limitation (confirmed empirically, not theoretical): the script's
+attempt to auto-extract the SSH command via
+`gh api repos/<owner/repo>/actions/jobs/<id>/logs` does NOT work for a
+genuinely still-`in_progress` job.** GitHub's REST API only serves a job's
+log archive once the job has fully completed — there is no public REST
+endpoint for tailing a currently-running step's live stdout. Expect a
+`404 BlobNotFound` here, repeatedly, for as long as the job (and your live
+window) is actually open — i.e. exactly when you need it most. Don't burn
+time retrying this call; it will not start working while the window is live.
 
-Then connect with the printed command, e.g.:
+**Actual ways to get the SSH command while the job is genuinely live:**
+1. **Open the run in the GitHub Actions web UI**
+   (`https://github.com/<owner>/<repo>/actions/runs/<run_id>`) and watch the
+   "Setup upterm session" step's live log there — the UI uses its own
+   live-streaming channel, not the REST API, so it works. Copy the
+   `ssh ...@uptermd.upterm.dev` line from there. This is a manual/human step;
+   there is no reliable automated substitute from a plain API-only client.
+2. If fully-automated live access is worth it, change the workflow so the
+   connection info gets published somewhere the REST API *can* reach while
+   the job is still running (e.g. a step around it posts a PR comment via
+   `gh api repos/<owner>/<repo>/issues/<pr>/comments`). Not implemented here
+   — only worth the added workflow complexity if you need this repeatedly.
+
+Once you have the command, connect normally, e.g.:
 
 ```bash
 ssh T6XX3688lgl4zpmBzsGQ@uptermd.upterm.dev

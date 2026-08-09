@@ -99,6 +99,24 @@ def _capture_network_state_at_failure(item, server):
          "journalctl -u foreman-proxy --since '-10 minutes' --no-pager"),
         ("aardvark-dns log lines (last 10m, host-wide)",
          "journalctl --since '-10 minutes' --no-pager | grep -i aardvark || echo '<no aardvark-dns log lines found>'"),
+        # Two real occurrences (see git history around this hook) ruled out the initial
+        # stale-DNAT-rule hypothesis: a single correct rule, no recent restart, proxy healthy
+        # throughout. The remaining open hypotheses are conntrack pressure and CPU/IO
+        # scheduling contention on the (nested-virtualization) CI runner. These captures target
+        # exactly that, since neither was available in the earlier occurrences' evidence.
+        ("CPU pressure (PSI, may not exist on all kernels)",
+         "cat /proc/pressure/cpu 2>&1 || echo '<PSI not available on this kernel>'"),
+        ("IO pressure (PSI, may not exist on all kernels)",
+         "cat /proc/pressure/io 2>&1 || echo '<PSI not available on this kernel>'"),
+        ("conntrack table usage vs limit",
+         "echo \"count=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>&1)\" "
+         "\"max=$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>&1)\""),
+        ("conntrack drop/error counters (per-CPU)",
+         "cat /proc/net/stat/nf_conntrack 2>&1 || echo '<not available>'"),
+        ("network interface error/drop counters",
+         "ip -s link show"),
+        ("load average / uptime",
+         "uptime"),
     ])
 
     for label, command in commands:

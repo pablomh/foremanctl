@@ -1,3 +1,4 @@
+import datetime
 import os
 import subprocess
 import uuid
@@ -44,6 +45,96 @@ def _record_diagnostic(capsys, label, content):
         with open(str(DIAGNOSTIC_ARTIFACT_PATH), 'a', encoding='utf-8') as fh:
             fh.write(block + "\n")
     except OSError:
+        pass
+# --- END TEMPORARY DIAGNOSTIC INSTRUMENTATION -------------------------------------------
+
+
+# --- BEGIN TEMPORARY DIAGNOSTIC INSTRUMENTATION -----------------------------------------
+# Investigating an intermittent, CI-only flake on the centos/stream10 + iop:enabled matrix
+# lane: `test_foreman_reaches_proxy_via_registration_url` occasionally times out reaching
+# the `foreman-proxy` container's published port (8443) via its public FQDN, and Ansible
+# REX tests occasionally time out around the same time. Leading (unconfirmed) hypothesis is
+# a netavark 2.0 stale-DNAT-rule bug (containers/podman#27516) triggered by container
+# recreation, but a synthetic minimal repro failed to reproduce it. This hook captures the
+# real nftables/network/container state at the exact moment ANY test fails (not just the
+# known-flaky ones, since we don't know in advance which test will next expose it), so a
+# genuine CI recurrence can be analyzed with real evidence instead of a synthetic guess.
+# This is purely additive: it only runs extra read-only diagnostic commands after a test has
+# already failed, and it is wrapped in broad exception handling so a bug in the
+# instrumentation itself can never mask/alter the real failure or fail an otherwise-passing
+# test. Safe to delete this block (and its hook, search for "DIAGNOSTIC INSTRUMENTATION")
+# once the investigation concludes.
+NETWORK_DIAGNOSTIC_ARTIFACT_PATH = py.path.local(__file__).dirpath() / '..' / 'diagnostics' / 'network_state_at_failure.log'
+NETWORK_DIAGNOSTIC_NETWORKS = ('foreman-app', 'foreman-proxy')
+
+
+def _run_diagnostic_command(server, label, command):
+    """Run a single diagnostic command, tolerating any failure so one bad command can never
+    prevent the rest of the capture from running."""
+    try:
+        result = server.run(command)
+        return f"$ {command}\n(rc={result.rc})\n{result.stdout}{result.stderr}"
+    except Exception as exc:  # noqa: BLE001 - diagnostics must never break the test run
+        return f"$ {command}\n<command failed to execute: {exc!r}>"
+
+
+def _capture_network_state_at_failure(item, server):
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    sections = [f"nodeid={item.nodeid} timestamp={timestamp}"]
+
+    commands = [
+        ("nftables ruleset (with handles)", "nft -a list ruleset"),
+        ("iptables-save (legacy-shim visibility)", "iptables-save -c"),
+        ("podman ps -a (recreate/restart history)",
+         "podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.CreatedAt}}'"),
+        ("foreman container network settings",
+         "podman inspect foreman --format '{{json .NetworkSettings.Networks}}' 2>&1"),
+        ("foreman-proxy container network settings",
+         "podman inspect foreman-proxy --format '{{json .NetworkSettings.Networks}}' 2>&1"),
+    ]
+    for network in NETWORK_DIAGNOSTIC_NETWORKS:
+        commands.append((f"podman network inspect {network}", f"podman network inspect {network} 2>&1"))
+    commands.extend([
+        ("foreman-proxy container logs (last 10m)",
+         "journalctl -u foreman-proxy --since '-10 minutes' --no-pager"),
+        ("aardvark-dns log lines (last 10m, host-wide)",
+         "journalctl --since '-10 minutes' --no-pager | grep -i aardvark || echo '<no aardvark-dns log lines found>'"),
+    ])
+
+    for label, command in commands:
+        sections.append(f"--- {label} ---\n{_run_diagnostic_command(server, label, command)}")
+
+    try:
+        fqdn = server.run("hostname -f").stdout.strip()
+        if fqdn:
+            curl_command = (
+                "podman exec foreman curl --silent --show-error --connect-timeout 5 --max-time 10 "
+                f"-o /dev/null -w '%{{http_code}} %{{time_total}}\\n' https://{fqdn}:8443/v2/features"
+            )
+            sections.append(f"--- live curl repro (foreman -> foreman-proxy:8443) ---\n"
+                             f"{_run_diagnostic_command(server, 'live curl repro', curl_command)}")
+    except Exception as exc:  # noqa: BLE001 - skip this specific capture rather than risk flakiness
+        sections.append(f"--- live curl repro (foreman -> foreman-proxy:8443) ---\n<skipped: {exc!r}>")
+
+    block = "\n\n".join(sections)
+    NETWORK_DIAGNOSTIC_ARTIFACT_PATH.dirpath().ensure(dir=True)
+    with open(str(NETWORK_DIAGNOSTIC_ARTIFACT_PATH), 'a', encoding='utf-8') as fh:
+        fh.write(f"===== NETWORK STATE AT FAILURE: {item.nodeid} ({timestamp}) =====\n{block}\n"
+                  f"===== END NETWORK STATE AT FAILURE: {item.nodeid} =====\n\n")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    try:
+        report = outcome.get_result()
+        if report.when != 'call' or not report.failed:
+            return
+        server = item.funcargs.get('server')
+        if server is None:
+            return
+        _capture_network_state_at_failure(item, server)
+    except Exception:  # noqa: BLE001 - a diagnostic-capture bug must never affect test results
         pass
 # --- END TEMPORARY DIAGNOSTIC INSTRUMENTATION -------------------------------------------
 

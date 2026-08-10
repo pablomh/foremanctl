@@ -6,8 +6,3 @@ variables:
   hostname:
     help: Additional hostname to generate certificates for.
     parameter: --hostname
-  server_aliases:
-    help: Additional DNS name to include as a Subject Alternative Name. Can be specified multiple times.
-    action: append_unique
-    type: FQDN
-    parameter: --server-alias

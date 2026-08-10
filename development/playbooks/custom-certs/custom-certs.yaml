@@ -9,6 +9,5 @@
     certificates_ca_subject: 'Custom Test CA'
     certificates_hostnames:
       - "{{ hostname | default(ansible_facts['fqdn']) }}"
-    certificates_server_aliases: "{{ server_aliases | default([]) }}"
   roles:
     - role: certificates

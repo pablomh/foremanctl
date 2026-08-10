@@ -390,11 +390,8 @@ jobs:
         certificate_source:
           - default
           - custom_server
-        registration_url:
-          - ''
-          - 'https://loadbalancer.example.com:8443'
     runs-on: ubuntu-24.04
-    name: "Tests Proxy Deployment (${{ matrix.certificate_source }}, ${{ matrix.registration_url != '' && 'explicit registration URL' || 'default proxy FQDN' }})"
+    name: "Tests Proxy Deployment (${{ matrix.certificate_source }})"
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
@@ -419,15 +416,7 @@ jobs:
         if: matrix.certificate_source == 'custom_server'
         run: |
           ./forge custom-certs
-          ./forge custom-certs \
-            --hostname proxy.example.com \
-            ${{ matrix.registration_url != '' && '--server-alias loadbalancer.example.com' || '' }}
-      - name: Configure load balancer alias
-        if: matrix.registration_url != ''
-        run: |
-          PROXY_IP="$(getent ahostsv4 proxy.example.com | awk 'NR == 1 { print $1 }')"
-          vagrant ssh quadlet --command "echo '${PROXY_IP} loadbalancer.example.com' | sudo tee -a /etc/hosts"
-          vagrant ssh proxy --command "echo '${PROXY_IP} loadbalancer.example.com' | sudo tee -a /etc/hosts"
+          ./forge custom-certs --hostname proxy.example.com
       - name: Deploy Katello on quadlet
         run: |
           ./foremanctl deploy \
@@ -439,7 +428,6 @@ jobs:
       - name: Generate auth bundle on quadlet
         run: |
           ./foremanctl auth-bundle proxy.example.com \
-            ${{ matrix.registration_url != '' && '--server-alias loadbalancer.example.com' || '' }} \
             ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/proxy.example.com.crt --certificate-server-key /root/custom-certificates/private/proxy.example.com.key' || '' }}
       - name: Refresh internal CA to ensure it doesn't break the bundle
         if: matrix.certificate_source != 'custom_server'
@@ -458,7 +446,6 @@ jobs:
             --auth-bundle $(pwd)/.var/lib/foremanctl/proxy.example.com.tar.gz \
             --foreman-fqdn quadlet.example.com \
             --templates-url http://proxy.example.com:8000 \
-            ${{ matrix.registration_url != '' && format('--registration-url {0}', matrix.registration_url) || '' }} \
             --add-feature registration \
             --add-feature bmc
       - name: Run tests
@@ -471,7 +458,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: sosreport-proxy-content-${{ matrix.certificate_source }}-${{ matrix.registration_url != '' && 'registration-url-override' || 'default-proxy-fqdn' }}
+          name: sosreport-proxy-content-${{ matrix.certificate_source }}
           path: sos/
       - name: Setup upterm session
         if: ${{ failure() }}

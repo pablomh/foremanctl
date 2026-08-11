@@ -6,11 +6,6 @@ variables:
   hostname:
     parameter: hostname
     help: Hostname to generate an auth bundle for that will be the common name.
-  server_aliases:
-    help: Additional DNS name to include as a Subject Alternative Name. Can be specified multiple times.
-    action: append_unique
-    type: FQDN
-    parameter: --server-alias
   certificates_custom_server_certificate:
     help: Path to a custom server certificate for the proxy.
     type: AbsolutePath

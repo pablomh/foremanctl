@@ -8,21 +8,19 @@ CUSTOM_CERTS_METADATA = os.path.join(REPO_DIR, 'development', 'playbooks', 'cust
 CUSTOM_CERTS_PLAYBOOK = os.path.join(REPO_DIR, 'development', 'playbooks', 'custom-certs', 'custom-certs.yaml')
 
 
-def test_custom_certs_metadata_exposes_server_aliases():
+def test_custom_certs_metadata_exposes_hostname():
     with open(CUSTOM_CERTS_METADATA, 'r') as metadata_file:
         metadata = yaml.safe_load(metadata_file)
 
-    server_aliases = metadata["variables"]["server_aliases"]
+    hostname = metadata["variables"]["hostname"]
 
-    assert server_aliases["parameter"] == "--server-alias"
-    assert server_aliases["action"] == "append_unique"
-    assert server_aliases["type"] == "FQDN"
+    assert hostname["parameter"] == "--hostname"
 
 
-def test_custom_certs_playbook_passes_server_aliases_to_certificates_role():
+def test_custom_certs_playbook_uses_default_fqdn_when_hostname_not_set():
     with open(CUSTOM_CERTS_PLAYBOOK, 'r') as playbook_file:
         playbook = yaml.safe_load(playbook_file)
 
     play = playbook[0]
 
-    assert play["vars"]["certificates_server_aliases"] == "{{ server_aliases | default([]) }}"
+    assert play["vars"]["certificates_hostnames"] == ["{{ hostname | default(ansible_facts['fqdn']) }}"]

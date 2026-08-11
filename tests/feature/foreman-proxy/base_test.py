@@ -79,7 +79,11 @@ def test_foreman_reaches_proxy_via_registration_url(server, expected_proxy_regis
 
 
 @pytest.mark.feature('foreman')
-def test_foreman_registers_proxy_with_public_fqdn_and_registration_url(server, certificates, server_fqdn, expected_proxy_registration_url):
+def test_foreman_registers_proxy_with_own_fqdn(server, certificates, server_fqdn):
+    # Matching master: Foreman always registers/manages the smart proxy under
+    # its own real FQDN URL (foreman_proxy_url), regardless of whatever
+    # optional --registration-url override the proxy advertises to hosts for
+    # registration traffic (see test_registration_url for that).
     cmd = server.run(
         "curl --silent --show-error --fail "
         f"--cacert {certificates['server_ca_certificate']} "
@@ -92,7 +96,7 @@ def test_foreman_registers_proxy_with_public_fqdn_and_registration_url(server, c
     smart_proxy = next((proxy for proxy in smart_proxies if proxy["name"] == server_fqdn), None)
 
     assert smart_proxy is not None, f"Smart proxy {server_fqdn} was not registered"
-    assert smart_proxy["url"] == expected_proxy_registration_url
+    assert smart_proxy["url"] == f"https://{server_fqdn}:{FOREMAN_PROXY_PORT}"
 
 
 def test_foreman_proxy_resolves_server_fqdn(server, server_fqdn):

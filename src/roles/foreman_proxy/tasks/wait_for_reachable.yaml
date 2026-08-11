@@ -11,28 +11,17 @@
 # part of the deployment being acted on.
 - name: Wait for Foreman Proxy API to be reachable from Foreman
   ansible.builtin.command:
-    argv:
-      - podman
-      - exec
-      - foreman
-      - curl
-      - --silent
-      - --show-error
-      - --fail
-      - --connect-timeout
-      - "5"
-      - --max-time
-      - "10"
-      - --cacert
-      - /etc/foreman/katello-default-ca.crt
-      - --cert
-      - /etc/foreman/client_cert.pem
-      - --key
-      - /etc/foreman/client_key.pem
-      # foreman_proxy_registration_url is an optional, user-supplied override
-      # with no default, so fall back to the proxy's own real URL (matching
-      # foreman_proxy_url's own default) when it isn't set.
-      - "{{ foreman_proxy_registration_url | default('https://' ~ ansible_facts['fqdn'] ~ ':8443') }}/v2/features"
+    # Spelled out with ansible_facts['fqdn'] rather than foreman_proxy_url:
+    # this task is also included from the backup role's play, which doesn't
+    # load the foreman_proxy role's defaults.
+    cmd: >-
+      podman exec foreman curl
+      --silent --show-error --fail
+      --connect-timeout 5 --max-time 10
+      --cacert /etc/foreman/katello-default-ca.crt
+      --cert /etc/foreman/client_cert.pem
+      --key /etc/foreman/client_key.pem
+      https://{{ ansible_facts['fqdn'] }}:8443/v2/features
   register: _foreman_proxy_features
   when:
     - "enabled_features | has_feature('foreman')"

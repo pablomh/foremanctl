@@ -61,12 +61,17 @@ def test_deploy_time_readiness_check_delegates_to_shared_wait_task():
     assert task["ansible.builtin.include_tasks"] == "wait_for_reachable.yaml"
 
 
-def test_wait_for_proxy_uses_registration_url():
+def test_wait_for_proxy_probes_own_fqdn():
     task = _load_wait_for_reachable_tasks()[0]
 
     assert task["name"] == "Wait for Foreman Proxy API to be reachable from Foreman"
-    assert "{{ foreman_proxy_registration_url | default('https://' ~ ansible_facts['fqdn'] ~ ':8443') }}/v2/features" \
-        in task["ansible.builtin.command"]["argv"]
+    # Spelled out with ansible_facts['fqdn'] (matching foreman_proxy_name's own
+    # default) rather than foreman_proxy_url, since this task is also included
+    # from the backup role's play, which doesn't load the foreman_proxy role's
+    # defaults. foreman_proxy_registration_url plays no part here: this probe
+    # only needs to know the proxy's own real endpoint, not whatever alternate
+    # URL it may tell hosts to register through.
+    assert "https://{{ ansible_facts['fqdn'] }}:8443/v2/features" in task["ansible.builtin.command"]["cmd"]
 
     when_condition = task["when"] if isinstance(task["when"], list) else [task["when"]]
     assert "enabled_features | has_feature('foreman')" in when_condition

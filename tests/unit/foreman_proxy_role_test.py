@@ -40,12 +40,15 @@ def _load_defaults():
         return yaml.safe_load(defaults_file)
 
 
-def test_proxy_defaults_use_public_registration_url():
+def test_proxy_defaults_define_public_identity_and_url():
     defaults = _load_defaults()
 
     assert defaults["foreman_proxy_name"] == "{{ ansible_facts['fqdn'] }}"
     assert defaults["foreman_proxy_url"] == "https://{{ foreman_proxy_name }}:{{ foreman_proxy_https_port }}"
-    assert defaults["foreman_proxy_registration_url"] == "{{ foreman_proxy_url }}"
+    # foreman_proxy_registration_url has no default here (matching master): it
+    # is a purely optional, user-supplied override of what the proxy tells
+    # hosts to use for registration, independent of the proxy's own identity.
+    assert "foreman_proxy_registration_url" not in defaults
 
 
 def test_deploy_time_readiness_check_delegates_to_shared_wait_task():
@@ -110,12 +113,15 @@ def test_backup_reuses_shared_wait_for_reachable_task():
     )
 
 
-def test_proxy_registration_keeps_public_name_and_registration_url():
+def test_proxy_registration_uses_public_name_and_url():
+    # Matching master: Foreman always manages/registers the smart proxy under
+    # its own real address (foreman_proxy_url), independent of whatever
+    # optional --registration-url override the proxy advertises to hosts.
     task = _load_task("Register Foreman Proxy to Foreman")
     smart_proxy = task["theforeman.foreman.smart_proxy"]
 
     assert smart_proxy["name"] == "{{ foreman_proxy_name }}"
-    assert smart_proxy["url"] == "{{ foreman_proxy_registration_url }}"
+    assert smart_proxy["url"] == "{{ foreman_proxy_url }}"
 
 
 def test_refresh_foreman_proxy_is_an_unconditional_handler():

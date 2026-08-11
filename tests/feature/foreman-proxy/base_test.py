@@ -145,10 +145,9 @@ def test_templates_endpoint_responds(curl_request, proxy_base_url, server_fqdn):
 
 
 @pytest.mark.feature('registration')
-def test_registration_url(server, expected_proxy_registration_url):
-    registration_config = server.file('/etc/foreman-proxy/settings.d/registration.yml')
-    assert registration_config.exists
-    assert registration_config.contains(expected_proxy_registration_url)
+def test_registration_url(proxy_v2_features, expected_proxy_registration_url):
+    settings = proxy_v2_features['registration'].get('settings', {})
+    assert settings.get('registration_url') == expected_proxy_registration_url
 
 
 @pytest.mark.feature('registration')

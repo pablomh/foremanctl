@@ -231,7 +231,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          repository: theforeman/foremanctl
           ref: ${{ matrix.upgrade_from }}
           fetch-depth: 0
       - name: Set up Python
@@ -275,7 +274,7 @@ jobs:
           vagrant ssh quadlet -- sudo systemctl stop foreman.target
       - name: Switch foremanctl version
         run: |
-          git fetch https://github.com/${{ github.repository }}.git ${{ github.ref }}
+          git fetch origin ${{ github.ref }}
           git checkout FETCH_HEAD
       - name: Run image pull
         run: |
@@ -390,7 +389,7 @@ jobs:
           - default
           - custom_server
     runs-on: ubuntu-24.04
-    name: "Tests Proxy Deployment (${{ matrix.certificate_source }})"
+    name: "Tests Proxy Deployment"
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python

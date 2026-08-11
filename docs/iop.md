@@ -82,7 +82,7 @@ graph TB
 | gateway | `iop-core-gateway` | 8443 (internal), 127.0.0.1:24443 (host loopback) | nginx proxy, smart proxy relay to Foreman |
 | inventory | `iop-core-host-inventory`, `iop-core-host-inventory-api` | 8081 (internal) | Host inventory with MQ consumer and REST API |
 | advisor | `iop-service-advisor-backend-api`, `iop-service-advisor-backend-service` | 8000 (internal) | Advisor recommendations |
-| remediation | `iop-service-remediations-api` | 3000 (host network) | Remediation playbook generation |
+| remediation | `iop-service-remediations-api` | 3000 (internal) | Remediation playbook generation |
 | vmaas | `iop-service-vmaas-reposcan`, `iop-service-vmaas-webapp-go` | - | Vulnerability metadata and advisory sync |
 | vulnerability | 8 containers (manager, taskomatic, grouper, listener, evaluators, vmaas-sync) | 8443 (internal) | Vulnerability assessment pipeline |
 

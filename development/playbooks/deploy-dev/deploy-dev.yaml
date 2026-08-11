@@ -55,7 +55,7 @@
       vars:
         candlepin_networks: host
         candlepin_database_host: localhost
-        candlepin_healthcheck_hostname: localhost
+        candlepin_healthcheck_host: localhost
         candlepin_tomcat_key: "{{ localhost_key }}"
         candlepin_tomcat_certificate: "{{ localhost_certificate }}"
     - role: httpd

@@ -65,21 +65,20 @@ def test_wait_for_proxy_probes_own_fqdn():
     task = _load_wait_for_reachable_tasks()[0]
 
     assert task["name"] == "Wait for Foreman Proxy API to be reachable from Foreman"
+    assert task["ansible.builtin.include_role"]["name"] == "wait_for_smart_proxy"
+
+    task_vars = task["vars"]
     # Spelled out with ansible_facts['fqdn'] (matching foreman_proxy_name's own
     # default) rather than foreman_proxy_url, since this task is also included
     # from the backup role's play, which doesn't load the foreman_proxy role's
     # defaults. foreman_proxy_registration_url plays no part here: this probe
     # only needs to know the proxy's own real endpoint, not whatever alternate
     # URL it may tell hosts to register through.
-    assert "https://{{ ansible_facts['fqdn'] }}:8443/v2/features" in task["ansible.builtin.command"]["cmd"]
+    assert task_vars["wait_for_smart_proxy_url"] == "https://{{ ansible_facts['fqdn'] }}:8443"
 
     when_condition = task["when"] if isinstance(task["when"], list) else [task["when"]]
     assert "enabled_features | has_feature('foreman')" in when_condition
     assert "enabled_features | has_feature('foreman-proxy')" in when_condition
-
-    assert task["retries"] == 30
-    assert task["delay"] == 5
-    assert task["until"] == "_foreman_proxy_features.rc == 0"
 
 
 def test_backup_reuses_shared_wait_for_reachable_task():

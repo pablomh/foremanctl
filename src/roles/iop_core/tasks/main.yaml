@@ -28,31 +28,10 @@
     name: iop_gateway
 
 - name: Wait for IOP Gateway smart proxy API to be reachable from Foreman
-  ansible.builtin.command:
-    argv:
-      - podman
-      - exec
-      - foreman
-      - curl
-      - --silent
-      - --show-error
-      - --fail
-      - --connect-timeout
-      - "5"
-      - --max-time
-      - "10"
-      - --cacert
-      - /etc/foreman/katello-default-ca.crt
-      - --cert
-      - /etc/foreman/client_cert.pem
-      - --key
-      - /etc/foreman/client_key.pem
-      - "{{ iop_core_gateway_registration_url }}/v2/features"
-  register: iop_core_gateway_features
-  changed_when: false
-  retries: 30
-  delay: 5
-  until: iop_core_gateway_features.rc == 0
+  ansible.builtin.include_role:
+    name: wait_for_smart_proxy
+  vars:
+    wait_for_smart_proxy_url: "{{ iop_core_gateway_registration_url }}"
 
 - name: Register IOP Gateway as smart proxy
   theforeman.foreman.smart_proxy:

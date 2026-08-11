@@ -18,8 +18,8 @@ class TestParameterMapping:
         old_config = {
             'foreman': {
                 'db_host': 'localhost',
+                'db_port': 5432,
                 'db_manage': True,
-                'db_port': 5432
             }
         }
 

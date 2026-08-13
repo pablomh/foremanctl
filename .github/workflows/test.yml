@@ -446,6 +446,16 @@ jobs:
             --templates-url http://proxy.example.com:8000 \
             --registration-url https://loadbalancer.example.com:8443 \
             --add-feature bmc
+      # TEMPORARY DIAGNOSTIC - DO NOT MERGE
+      # Investigates whether foreman-proxy (network: host) can reach postgresql
+      # (network: foreman-db, isolated bridge, no published port) in the
+      # foreman-proxy-content flavor. See PR discussion for theforeman/foremanctl#611.
+      - name: DIAGNOSTIC - proxy to postgresql network reachability
+        run: |
+          set -x
+          ENCODED=$(base64 -w0 .github/scripts/proxy-net-diag.sh)
+          vagrant ssh proxy -c "echo $ENCODED | base64 -d | sudo bash" || true
+          exit 0
       - name: Run tests
         run: |
           ./forge test --pytest-args="--server-hostname=proxy"
@@ -458,8 +468,10 @@ jobs:
         with:
           name: sosreport-proxy-content-${{ matrix.certificate_source }}
           path: sos/
+      # TEMPORARY DIAGNOSTIC - DO NOT MERGE - changed from failure() to always()
+      # so we get a live upterm session regardless of test outcome.
       - name: Setup upterm session
-        if: ${{ failure() }}
+        if: ${{ always() }}
         uses: owenthereal/action-upterm@v1
         with:
           limit-access-to-actor: true

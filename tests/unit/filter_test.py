@@ -1,5 +1,7 @@
 from foremanctl import FEATURE_MAP
 from foremanctl import conflicting_features
+from foremanctl import foreman_plugins
+from foremanctl import resolved_features
 
 
 def _asymmetric_conflicts():
@@ -54,3 +56,25 @@ def test_conflict_with_unknown_feature_detected(monkeypatch):
     monkeypatch.setitem(FEATURE_MAP, 'test-a', {'conflicts': ['nonexistent']})
     errors = _asymmetric_conflicts()
     assert any('unknown feature nonexistent' in e for e in errors)
+
+
+def test_resolved_features_is_sorted(monkeypatch):
+    monkeypatch.setitem(FEATURE_MAP, 'test-a', {'dependencies': ['test-c', 'test-b']})
+    monkeypatch.setitem(FEATURE_MAP, 'test-b', {})
+    monkeypatch.setitem(FEATURE_MAP, 'test-c', {})
+    result = resolved_features(['test-a'])
+    assert result == sorted(result)
+
+
+def test_resolved_features_deduplicates_requested_and_dependency(monkeypatch):
+    monkeypatch.setitem(FEATURE_MAP, 'test-a', {'dependencies': ['test-b']})
+    monkeypatch.setitem(FEATURE_MAP, 'test-b', {})
+    result = resolved_features(['test-b', 'test-a'])
+    assert result.count('test-b') == 1
+
+
+def test_foreman_plugins_does_not_duplicate_plugin_for_requested_dependency(monkeypatch):
+    monkeypatch.setitem(FEATURE_MAP, 'test-a', {'dependencies': ['test-b'], 'foreman': {'plugin_name': 'plugin_a'}})
+    monkeypatch.setitem(FEATURE_MAP, 'test-b', {'foreman': {'plugin_name': 'plugin_b'}})
+    result = foreman_plugins(['test-b', 'test-a'])
+    assert result.count('plugin_b') == 1

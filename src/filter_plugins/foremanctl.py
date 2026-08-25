@@ -59,9 +59,15 @@ def get_dependencies(features):
     return dependencies
 
 
+def resolved_features(value):
+    """Requested features plus their full dependency closure, deterministic and deduplicated."""
+    requested = list(filter_features(value))
+    combined = set(requested) | get_dependencies(requested)
+    return sorted(combined)
+
+
 def foreman_plugins(value):
-    dependencies = list(get_dependencies(filter_features(value)))
-    plugins = [FEATURE_MAP.get(feature, {}).get('foreman', {}).get('plugin_name') for feature in filter_features(value + dependencies)]
+    plugins = [FEATURE_MAP.get(feature, {}).get('foreman', {}).get('plugin_name') for feature in resolved_features(value)]
     return compact_list(plugins)
 
 
@@ -112,14 +118,12 @@ def conflicting_features(features):
 
 
 def hammer_plugins(value):
-    dependencies = list(get_dependencies(filter_features(value)))
-    plugins = [FEATURE_MAP.get(feature, {}).get('hammer') for feature in filter_features(value + dependencies)]
+    plugins = [FEATURE_MAP.get(feature, {}).get('hammer') for feature in resolved_features(value)]
     return compact_list(plugins)
 
 
 def foreman_proxy_plugins(value):
-    dependencies = list(get_dependencies(filter_features(value)))
-    plugins = [FEATURE_MAP.get(feature, {}).get('foreman_proxy', {}).get('plugin_name') for feature in filter_features(value + dependencies)]
+    plugins = [FEATURE_MAP.get(feature, {}).get('foreman_proxy', {}).get('plugin_name') for feature in resolved_features(value)]
     return compact_list(plugins)
 
 

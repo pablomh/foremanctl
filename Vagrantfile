@@ -1,5 +1,18 @@
 DOMAIN = ENV.fetch('VAGRANT_DOMAIN', 'example.com'.freeze)
 
+## DEBUG: CentOS's own official Vagrant image build (Anaconda kickstart)
+## configures a 2G /swapfile; the plain Vagrant Cloud box doesn't have
+## one, which starves these VMs under the full IOP feature set. All VMs
+## that can be started alongside "quadlet" need this too, since Vagrant
+## caches boxes by name globally - one VM resolving the plain box first
+## poisons the shared cache for the rest. Revert before merging.
+def centos_stream_swap_box_url(box)
+  return nil unless box =~ %r{^centos/stream(\d+)$}
+
+  stream = Regexp.last_match(1)
+  "https://cloud.centos.org/centos/#{stream}-stream/x86_64/images/CentOS-Stream-Vagrant-#{stream}-latest.x86_64.vagrant-libvirt.box"
+end
+
 Vagrant.configure("2") do |config|
   config.vm.synced_folder ".", "/vagrant"
 
@@ -18,9 +31,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "quadlet" do |override|
     override.vm.box = ENV.fetch("FOREMANCTL_BASE_BOX", "centos/stream9")
-    if override.vm.box == "centos/stream10"
-      override.vm.box_url = "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-Vagrant-10-latest.x86_64.vagrant-libvirt.box"
-    end
+    override.vm.box_url = centos_stream_swap_box_url(override.vm.box)
     override.vm.hostname = "quadlet.#{DOMAIN}"
 
     override.vm.provider "libvirt" do |libvirt, provider|
@@ -32,6 +43,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "client" do |override|
     override.vm.box = "centos/stream9"
+    override.vm.box_url = centos_stream_swap_box_url(override.vm.box)
     override.vm.hostname = "client.#{DOMAIN}"
 
     override.vm.provider "libvirt" do |libvirt, provider|
@@ -43,6 +55,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "database" do |override|
     override.vm.box = "centos/stream9"
+    override.vm.box_url = centos_stream_swap_box_url(override.vm.box)
     override.vm.hostname = "database.#{DOMAIN}"
 
     override.vm.provider "libvirt" do |libvirt, provider|
@@ -54,6 +67,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "proxy" do |override|
     override.vm.box = "centos/stream9"
+    override.vm.box_url = centos_stream_swap_box_url(override.vm.box)
     override.vm.hostname = "proxy.#{DOMAIN}"
 
     override.vm.provider "libvirt" do |libvirt, provider|

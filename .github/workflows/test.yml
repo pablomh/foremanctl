@@ -105,6 +105,46 @@ jobs:
       - name: Start VMs
         run: |
           ./forge vms start --vms "quadlet client ${{ matrix.database == 'external' && 'database' || '' }}"
+      - name: DEBUG - install memory monitor
+        ## DEBUG: samples memory every 0.5s for the whole job, for later
+        ## correlation against OOM/service-startup timing; revert before merging.
+        run: |
+          cat <<'EOF' | vagrant ssh quadlet -- 'sudo tee /usr/local/bin/memory_monitor.sh > /dev/null'
+          #!/bin/bash
+          ## Pure-bash sampling: no forked `date`/`free`, just builtins and
+          ## direct reads of /proc and cgroup v2 accounting files, to keep
+          ## the monitor's own overhead near zero on a memory-tight VM.
+          while true; do
+            {
+              printf 'TS:%s\n' "$EPOCHREALTIME"
+              while IFS=': ' read -r key value _; do
+                case "$key" in
+                  MemTotal|MemFree|MemAvailable|Cached|SwapTotal|SwapFree)
+                    printf '%s=%s\n' "$key" "$value"
+                    ;;
+                esac
+              done < /proc/meminfo
+              for dir in /sys/fs/cgroup/system.slice/*.service; do
+                [ -r "$dir/memory.current" ] || continue
+                svc=${dir##*/}
+                cur=$(< "$dir/memory.current")
+                oomk=0
+                if [ -r "$dir/memory.events" ]; then
+                  while read -r k v; do
+                    [ "$k" = "oom_kill" ] && oomk=$v
+                  done < "$dir/memory.events"
+                fi
+                printf 'cgroup %s current=%s oom_kill=%s\n' "$svc" "$cur" "$oomk"
+              done
+              echo ---
+            } >> /tmp/memory_monitor.log
+            sleep 0.5
+          done
+          EOF
+          vagrant ssh quadlet -- 'sudo chmod +x /usr/local/bin/memory_monitor.sh'
+      - name: DEBUG - start memory monitor
+        run: |
+          vagrant ssh quadlet -- 'sudo systemd-run --unit=memory-monitor --no-block bash -c "/usr/local/bin/memory_monitor.sh > /tmp/memory_monitor.log 2>&1"'
       - name: Configure remote-database
         if: matrix.database == 'external'
         run: |
@@ -167,6 +207,18 @@ jobs:
         with:
           name: smoker-${{ env.ARTIFACT_SUFFIX }}
           path: "/home/runner/smoker/report/"
+      - name: DEBUG - fetch memory monitor log
+        ## DEBUG: temporary; revert before merging.
+        if: ${{ always() }}
+        run: |
+          vagrant ssh quadlet -- 'sudo systemctl stop memory-monitor' || true
+          vagrant ssh quadlet -- 'sudo cat /tmp/memory_monitor.log' > memory_monitor.log || true
+      - name: DEBUG - upload memory monitor log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-monitor-${{ env.ARTIFACT_SUFFIX }}
+          path: memory_monitor.log
       - name: Generate sos reports
         if: ${{ always() }}
         run: ./forge sos
@@ -176,14 +228,23 @@ jobs:
         with:
           name: sosreport-${{ env.ARTIFACT_SUFFIX }}
           path: sos/
+      - name: Dump debug info
+        ## DEBUG: runs regardless of outcome, to compare passing vs failing runs; revert before merging.
+        if: ${{ always() }}
+        run: |
+          vagrant ssh quadlet -- free -h
+          vagrant ssh quadlet -- sudo systemctl --failed --no-pager
+          vagrant ssh quadlet -- sudo journalctl -xe --no-pager -n 1000
+          vagrant ssh quadlet -- sudo podman logs --tail 500 foreman
       - name: Setup upterm session
-        if: ${{ failure() }}
+        ## DEBUG: runs regardless of outcome, to compare passing vs failing runs; revert before merging.
+        if: ${{ always() }}
         uses: owenthereal/action-upterm@v1
         with:
           ## limits ssh access and adds the ssh public key for the user which triggered the workflow
           limit-access-to-actor: true
-          ## If no one connects after 5 minutes, shut down server.
-          wait-timeout-minutes: 5
+          ## DEBUG: temporarily extended for manual investigation; revert before merging.
+          wait-timeout-minutes: 30
 
   devel-tests:
     strategy:

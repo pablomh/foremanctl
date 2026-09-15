@@ -117,6 +117,7 @@
     hostname: "{{ ansible_facts['hostname'] }}.local"
     volume:
       - 'foreman-data-run:/var/run/foreman:rw,z,U'
+      - '/etc/crypto-policies:/etc/crypto-policies:ro'
     secrets: "{{ foreman_secrets }}"
     env: "{{ foreman_env }}"
     quadlet_options:
@@ -151,6 +152,7 @@
     hostname: "{{ ansible_facts['hostname'] }}.local"
     volume:
       - 'foreman-data-run:/var/run/foreman:rw,z,U'
+      - '/etc/crypto-policies:/etc/crypto-policies:ro'
     secrets: "{{ foreman_dynflow_secrets }}"
     env: "{{ foreman_dynflow_env }}"
     command: "/usr/libexec/foreman/sidekiq-selinux -e production -r ./extras/dynflow-sidekiq.rb -C /etc/foreman/dynflow/%i.yml"
@@ -196,6 +198,7 @@
     command: "foreman-rake {{ item.rake }}"
     volume:
       - 'foreman-data-run:/var/run/foreman:rw,z,U'
+      - '/etc/crypto-policies:/etc/crypto-policies:ro'
     secrets: "{{ foreman_secrets }}"
     env: "{{ foreman_env }}"
     quadlet_options:

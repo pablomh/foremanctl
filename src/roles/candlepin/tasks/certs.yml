@@ -59,9 +59,7 @@
   containers.podman.podman_secret:
     state: present
     name: "candlepin-{{ sid }}-leaf-cert"
-    path: >-
-      {{ candlepin_tomcat_certificate if item == 'RSA'
-         else (certificates_ca_directory_certs + '/candlepin-' + slug + '.crt') }}
+    path: "{{ certificates_ca_directory_certs }}/candlepin-{{ slug }}.crt"
     labels:
       app: candlepin
   notify:
@@ -75,9 +73,7 @@
   containers.podman.podman_secret:
     state: present
     name: "candlepin-{{ sid }}-leaf-key"
-    path: >-
-      {{ candlepin_tomcat_key if item == 'RSA'
-         else (certificates_ca_directory_keys + '/candlepin-' + slug + '.key') }}
+    path: "{{ certificates_ca_directory_keys }}/candlepin-{{ slug }}.key"
     labels:
       app: candlepin
   notify:

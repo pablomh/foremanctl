@@ -1,7 +1,7 @@
 ---
-# Generate per-algorithm server certs for non-RSA entries in certificates_algorithm_sets.
+# Generate per-algorithm server certs for all entries in certificates_algorithm_sets.
 # Each cert is signed by the corresponding per-algorithm CA ({slug}-ca.crt) and stored
-# as {hostname}-{slug}.crt for downstream roles (e.g. httpd dual-cert) to consume.
+# as {hostname}-{slug}.crt for downstream roles (e.g. httpd dual-cert, candlepin) to consume.
 #
 # Loop var: certificates_hostname (set by caller in main.yml)
 
@@ -10,7 +10,7 @@
     path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}-{{ slug }}.key"
     type: "{{ algorithm }}"
     mode: '0600'
-  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop: "{{ certificates_algorithm_sets }}"
   loop_control:
     loop_var: algorithm
   vars:
@@ -26,7 +26,7 @@
       - digitalSignature
     extended_key_usage:
       - serverAuth
-  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop: "{{ certificates_algorithm_sets }}"
   loop_control:
     loop_var: algorithm
   vars:
@@ -45,7 +45,7 @@
     ownca_privatekey_path: "{{ certificates_ca_directory_keys }}/{{ slug }}-ca.key"
     ownca_not_after: "+{{ certificates_validity_days }}d"
     force: "{{ certificates_renew | bool }}"
-  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop: "{{ certificates_algorithm_sets }}"
   loop_control:
     loop_var: algorithm
   vars:

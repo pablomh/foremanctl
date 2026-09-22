@@ -69,7 +69,7 @@
         loop_var: certificates_hostname
 
     - name: Issue per-algorithm server certificates
-      ansible.builtin.include_tasks: issue-algo.yml
+      ansible.builtin.include_tasks: issue-algorithm.yml
       when:
         - certificates_hostnames is defined
         - certificates_algorithm_sets | reject('equalto', 'RSA') | list | length > 0

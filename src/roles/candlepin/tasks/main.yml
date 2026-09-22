@@ -79,8 +79,6 @@
     hostname: "{{ ansible_facts['hostname'] }}.local"
     secrets: >-
       {{ [
-        'candlepin-rsa-ca-cert,target=/etc/candlepin/certs/candlepin-rsa-ca.crt,' + candlepin_secret_mount_opts,
-        'candlepin-rsa-ca-key,target=/etc/candlepin/certs/candlepin-rsa-ca.key,' + candlepin_secret_mount_opts,
         'candlepin-ca-bundle-cert,target=/etc/candlepin/certs/candlepin-ca.crt,' + candlepin_secret_mount_opts,
         'candlepin-candlepin-conf,target=/etc/candlepin/candlepin.conf,' + candlepin_secret_mount_opts,
         'candlepin-tomcat-server-xml,target=/etc/tomcat/server.xml,' + candlepin_secret_mount_opts,
@@ -88,7 +86,7 @@
         'candlepin-tomcat-logging-properties,target=/etc/tomcat/logging.properties,' + candlepin_secret_mount_opts,
         'candlepin-logback-xml,target=/var/lib/tomcat/webapps/candlepin/WEB-INF/classes/logback.xml,' + candlepin_secret_mount_opts,
         'candlepin-db-ca,target=' + candlepin_database_ssl_ca_path + ',' + candlepin_secret_mount_opts,
-      ] + _candlepin_extra_ca_secrets }}
+      ] + _candlepin_ca_secrets }}
     quadlet_options:
       - |
         [Install]

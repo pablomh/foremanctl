@@ -4,26 +4,6 @@
     path: "{{ candlepin_ca_key }}"
   register: _candlepin_ca_key_info
 
-- name: Create the podman secret for RSA CA certificate
-  containers.podman.podman_secret:
-    state: present
-    name: candlepin-rsa-ca-cert
-    path: "{{ certificates_ca_directory_certs }}/rsa-ca.crt"
-    labels:
-      app: candlepin
-  notify:
-    - Restart candlepin
-
-- name: Create the podman secret for RSA CA key
-  containers.podman.podman_secret:
-    state: present
-    name: candlepin-rsa-ca-key
-    path: "{{ certificates_ca_directory_keys }}/rsa-ca.key"
-    labels:
-      app: candlepin
-  notify:
-    - Restart candlepin
-
 - name: Create the podman secret for the CA bundle
   containers.podman.podman_secret:
     state: present
@@ -34,9 +14,9 @@
   notify:
     - Restart candlepin
 
-- name: Initialize extra Candlepin CA secret mounts list
+- name: Initialize Candlepin CA secret mounts list
   ansible.builtin.set_fact:
-    _candlepin_extra_ca_secrets: []
+    _candlepin_ca_secrets: []
 
 - name: Create podman secret for per-algorithm CA certificate
   containers.podman.podman_secret:
@@ -47,7 +27,7 @@
       app: candlepin
   notify:
     - Restart candlepin
-  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop: "{{ certificates_algorithm_sets }}"
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"
     sid: "{{ _candlepin_algorithms[item].scheme_id }}"
@@ -61,17 +41,17 @@
       app: candlepin
   notify:
     - Restart candlepin
-  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop: "{{ certificates_algorithm_sets }}"
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"
     sid: "{{ _candlepin_algorithms[item].scheme_id }}"
 
-- name: Build extra Candlepin CA secret mounts
+- name: Build Candlepin CA secret mounts
   ansible.builtin.set_fact:
-    _candlepin_extra_ca_secrets: "{{ _candlepin_extra_ca_secrets
+    _candlepin_ca_secrets: "{{ _candlepin_ca_secrets
       + ['candlepin-' + sid + '-ca-cert,target=/etc/candlepin/certs/candlepin-' + slug + '-ca.crt,' + candlepin_secret_mount_opts,
          'candlepin-' + sid + '-ca-key,target=/etc/candlepin/certs/candlepin-' + slug + '-ca.key,' + candlepin_secret_mount_opts] }}"
-  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop: "{{ certificates_algorithm_sets }}"
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"
     sid: "{{ _candlepin_algorithms[item].scheme_id }}"

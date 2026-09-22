@@ -74,14 +74,30 @@ jobs:
             box: centos/stream9
             iop: disabled
           - certificate_source: default
+            security: fapolicyd
+            database: internal
+            box: centos/stream10
+            iop: disabled
+          - certificate_source: default
+            security: fips
+            database: internal
+            box: centos/stream9
+            iop: disabled
+          - certificate_source: default
+            security: fips
+            database: internal
+            box: centos/stream10
+            iop: disabled
+          - certificate_source: default
             security: none
             database: external
-            box: centos/stream9
+            box: centos/stream10
             iop: disabled
           - certificate_source: custom_server
             security: none
             database: internal
-            box: centos/stream9
+            box: centos/stream10
+            iop: disabled
     runs-on: ubuntu-24.04
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
@@ -98,6 +114,12 @@ jobs:
         uses: voxpupuli/setup-vagrant@v0
         with:
           configure_dns: true
+      - name: Patch Vagrant not to use ed25519 keys
+        # Vagrant tries to use ed25519 over rsa, but ed25519 is not allowed when we run in FIPS mode
+        # As we enable FIPS *after* the initial VM start, Vagrant has already decided to use ed25519
+        if: matrix.security == 'fips'
+        run:
+          sudo sed -i '/PREFER_KEY_TYPES/ s/"ssh-ed25519".freeze => :ed25519, //' /usr/lib/x86_64-linux-gnu/rubygems-integration/*/gems/vagrant-*/lib/vagrant/util/keypair.rb
       - name: Install Ansible
         run: pip install --upgrade ansible-core
       - name: Setup environment
@@ -310,6 +332,8 @@ jobs:
     strategy:
       fail-fast: false
     runs-on: ubuntu-24.04
+    env:
+      FOREMANCTL_BASE_BOX: centos/stream9
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
@@ -388,8 +412,16 @@ jobs:
         certificate_source:
           - default
           - custom_server
+        certificate_algorithm:
+          - RSA
+        # Exercise a Candlepin (Katello) deployment with a non-RSA CA to confirm
+        # entitlement-certificate signing works. The default box is stream10,
+        # which ships a python-cryptography new enough to generate ML-DSA keys.
+        include:
+          - certificate_source: default
+            certificate_algorithm: ML-DSA-87
     runs-on: ubuntu-24.04
-    name: "Tests Proxy Deployment"
+    name: "Tests Proxy Deployment (certificates: ${{ matrix.certificate_source }}, algorithm: ${{ matrix.certificate_algorithm }})"
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
@@ -419,6 +451,7 @@ jobs:
         run: |
           ./foremanctl deploy \
             --certificate-source=${{ matrix.certificate_source }} \
+            --certificate-algorithm=${{ matrix.certificate_algorithm }} \
             ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/ca.crt' || '' }} \
             --initial-admin-password=changeme \
             --tuning development \
@@ -455,7 +488,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: sosreport-proxy-content-${{ matrix.certificate_source }}
+          name: sosreport-proxy-content-${{ matrix.certificate_source }}-${{ matrix.certificate_algorithm }}
           path: sos/
       - name: Setup upterm session
         if: ${{ failure() }}

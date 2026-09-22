@@ -15,13 +15,16 @@ variables:
   external_authentication_pam_service:
     help: Name of the PAM service to use for IPA authentication
   foreman_log_level:
-    help: Log level for Foreman. Defaults to the global log level.
+    help: Defaults to the global log level, can be set independently. Once set, it overrides --log-level and is unaffected by later changes.
     choices:
       - debug
       - info
       - warn
       - error
       - fatal
+  cloud_connector_http_proxy:
+    parameter: --cloud-connector-http-proxy
+    help: HTTP proxy URL for the cloud connector rhcd service.
 
 include:
   - _flavor_features

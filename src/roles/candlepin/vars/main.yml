@@ -66,18 +66,3 @@ _candlepin_scheme_key_size: >-
        _candlepin_ca_key_info.public_data.curve | default('')
      ] | default('')
      if _candlepin_ca_key_algorithm == 'ECC' else '' }}
-
-# Extra podman secret mount entries (one cert + one key per extra algorithm).
-# Empty when certificates_algorithm_sets is [].
-_candlepin_extra_tls_secrets: >-
-  {%- set ns = namespace(result=[]) -%}
-  {%- for algo in certificates_algorithm_sets -%}
-    {%- set slug = _candlepin_algorithms[algo].file_suffix -%}
-    {%- set base = 'candlepin-tomcat-' + slug -%}
-    {%- set mnt = ',target=/etc/candlepin/certs/tomcat-' + slug -%}
-    {%- set opt = ',' + candlepin_secret_mount_opts -%}
-    {%- set ns.result = ns.result
-        + [base + '-cert' + mnt + '.crt' + opt,
-           base + '-key'  + mnt + '.key' + opt] -%}
-  {%- endfor -%}
-  {{ ns.result }}

@@ -116,3 +116,16 @@
   loop: "{{ certificates_algorithm_sets }}"
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"
+
+- name: Initialize extra Tomcat TLS secret mounts list
+  ansible.builtin.set_fact:
+    _candlepin_extra_tls_secrets: []
+
+- name: Build extra Tomcat TLS secret mounts
+  ansible.builtin.set_fact:
+    _candlepin_extra_tls_secrets: "{{ _candlepin_extra_tls_secrets
+      + ['candlepin-tomcat-' + slug + '-cert,target=/etc/candlepin/certs/tomcat-' + slug + '.crt,' + candlepin_secret_mount_opts,
+         'candlepin-tomcat-' + slug + '-key,target=/etc/candlepin/certs/tomcat-' + slug + '.key,' + candlepin_secret_mount_opts] }}"
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    slug: "{{ _candlepin_algorithms[item].file_suffix }}"

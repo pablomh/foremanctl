@@ -31,16 +31,6 @@ candlepin.crypto.scheme.{{ sid }}.key_size={{ _candlepin_algorithms[algorithm].s
 
 {% endfor %}
 {% endif %}
-{% if _candlepin_ca_key_algorithm != 'RSA' %}
-
-# The CA key is not RSA, so redefine Candlepin's built-in "legacy" crypto scheme
-# to match; without this Candlepin assumes SHA256withRSA and fails to start.
-candlepin.crypto.scheme.legacy.key_algorithm={{ _candlepin_scheme_key_algorithm }}
-candlepin.crypto.scheme.legacy.signature_algorithm={{ _candlepin_scheme_signature_algorithm }}
-{% if _candlepin_scheme_key_size %}
-candlepin.crypto.scheme.legacy.key_size={{ _candlepin_scheme_key_size }}
-{% endif %}
-{% endif %}
 
 candlepin.async.jobs.ExpiredPoolsCleanupJob.schedule=0 0 0 * * ?
 

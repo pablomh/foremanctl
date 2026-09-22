@@ -71,6 +71,34 @@
   notify:
     - Restart httpd
 
+- name: Deploy per-algorithm server certificates and keys
+  ansible.builtin.copy:
+    src: "{{ src }}"
+    dest: "{{ httpd_ssl_dir }}/{{ dest }}"
+    remote_src: true
+    mode: "0640"
+  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  vars:
+    slug: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    src: "{{ certificates_output_directory_certs }}/{{ ansible_facts['fqdn'] }}-{{ slug }}.crt"
+    dest: "certs/katello-apache-{{ slug }}.crt"
+  notify:
+    - Restart httpd
+
+- name: Deploy per-algorithm server private keys
+  ansible.builtin.copy:
+    src: "{{ src }}"
+    dest: "{{ httpd_ssl_dir }}/{{ dest }}"
+    remote_src: true
+    mode: "0640"
+  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  vars:
+    slug: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    src: "{{ certificates_output_directory_keys }}/{{ ansible_facts['fqdn'] }}-{{ slug }}.key"
+    dest: "private/katello-apache-{{ slug }}.key"
+  notify:
+    - Restart httpd
+
 - name: Copy CA certificate to pub directory for client trust
   ansible.builtin.copy:
     src: "{{ httpd_server_ca_certificate }}"

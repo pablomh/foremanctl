@@ -34,6 +34,26 @@
     path: "{{ certificates_ca_directory_keys }}/ca.pwd"
     state: absent
 
+- name: 'Inspect the existing CA key algorithm'
+  community.crypto.openssl_privatekey_info:
+    path: "{{ certificates_ca_directory_keys }}/ca.key"
+  register: _certificates_existing_ca_key_info
+  when:
+    - _certificates_existing_ca_key.stat.exists
+    - not certificates_ca_renew
+
+- name: 'Fail when the requested algorithm differs from the existing CA key'
+  ansible.builtin.fail:
+    msg: >-
+      The existing CA key uses {{ _certificates_existing_ca_key_info.type }}, but
+      --certificate-algorithm requested {{ certificates_algorithm_type }}. Changing
+      the CA algorithm reissues the CA and invalidates every certificate it signed.
+      Pass --certificate-ca-renew to reissue the CA and all certificates.
+  when:
+    - _certificates_existing_ca_key.stat.exists
+    - not certificates_ca_renew
+    - _certificates_existing_ca_key_info.type != certificates_algorithm_type
+
 - name: 'Generate CA'
   when:
     - (not _certificates_ca_cert.stat.exists or certificates_ca_renew)
@@ -41,8 +61,10 @@
     - name: 'Create CA private key'
       community.crypto.openssl_privatekey:
         path: "{{ certificates_ca_directory_keys }}/ca.key"
-        type: "{{ certificates_algorithm_type }}"
-        size: "{{ certificates_algorithm_size }}"
+        type: "{{ _certificates_key_parameters.type }}"
+        size: "{{ _certificates_key_parameters.size | default(omit) }}"
+        curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
+        format: "{{ _certificates_key_parameters.format | default(omit) }}"
         owner: root
         group: root
         mode: '0600'
@@ -82,10 +104,76 @@
       when:
         - certificates_source == 'default'
 
-    - name: 'Create CA bundle'
+    - name: 'Create CA bundle (single-algorithm fallback)'
       ansible.builtin.copy:
         src: "{{ certificates_ca_directory_certs }}/ca.crt"
         dest: "{{ certificates_ca_directory_certs }}/ca-bundle.crt"
         remote_src: true
         force: "{{ certificates_ca_renew | bool }}"
         mode: '0444'
+      when: certificates_algorithm_sets | length == 0
+
+- name: 'Copy RSA CA to per-algorithm name'
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ item | replace('/ca.', '/rsa-ca.') }}"
+    remote_src: true
+    force: "{{ certificates_ca_renew | bool }}"
+    mode: "{{ '0444' if '.crt' in item else '0600' }}"
+  loop:
+    - "{{ certificates_ca_directory_certs }}/ca.crt"
+    - "{{ certificates_ca_directory_keys }}/ca.key"
+
+- name: 'Generate per-algorithm CA private key'
+  community.crypto.openssl_privatekey:
+    path: "{{ certificates_ca_directory_keys }}/{{ slug }}-ca.key"
+    type: "{{ algorithm }}"
+    mode: '0600'
+  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop_control:
+    loop_var: algorithm
+  vars:
+    slug: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Generate per-algorithm CA certificate signing request'
+  community.crypto.openssl_csr:
+    path: "{{ certificates_ca_directory_requests }}/{{ slug }}-ca.csr"
+    privatekey_path: "{{ certificates_ca_directory_keys }}/{{ slug }}-ca.key"
+    common_name: "Foreman Self-signed {{ algorithm }} CA"
+    use_common_name_for_san: false
+    basic_constraints:
+      - 'CA:TRUE'
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+      - cRLSign
+      - digitalSignature
+    key_usage_critical: true
+    create_subject_key_identifier: true
+  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop_control:
+    loop_var: algorithm
+  vars:
+    slug: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Generate per-algorithm CA certificate'
+  community.crypto.x509_certificate:
+    path: "{{ certificates_ca_directory_certs }}/{{ slug }}-ca.crt"
+    csr_path: "{{ certificates_ca_directory_requests }}/{{ slug }}-ca.csr"
+    privatekey_path: "{{ certificates_ca_directory_keys }}/{{ slug }}-ca.key"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ certificates_ca_validity_days }}d"
+    force: "{{ certificates_ca_renew | bool }}"
+  loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
+  loop_control:
+    loop_var: algorithm
+  vars:
+    slug: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Assemble CA bundle from all algorithm CAs'
+  ansible.builtin.assemble:
+    src: "{{ certificates_ca_directory_certs }}"
+    dest: "{{ certificates_ca_directory_certs }}/ca-bundle.crt"
+    regexp: '^(rsa|ecc|mldsa-65|mldsa-87)-ca\.crt$'
+    mode: '0444'
+  when: certificates_algorithm_sets | length > 0

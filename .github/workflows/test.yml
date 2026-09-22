@@ -408,34 +408,45 @@ jobs:
       matrix:
         certificate_source:
           - default
+          - custom_server
         security:
           - none
         box:
           - centos/stream9
           - centos/stream10
+        certificate_algorithm:
+          - RSA
+        # Exercise a Candlepin (Katello) deployment with a non-RSA CA to confirm
+        # entitlement-certificate signing works. The default box is stream10,
+        # which ships a python-cryptography new enough to generate ML-DSA keys.
         include:
-          - certificate_source: custom_server
+          - certificate_source: default
+            security: fapolicyd
+            box: centos/stream9
+            certificate_algorithm: RSA
+          - certificate_source: default
+            security: fapolicyd
+            box: centos/stream10
+            certificate_algorithm: RSA
+          - certificate_source: default
+            security: fips
+            box: centos/stream9
+            certificate_algorithm: RSA
+          - certificate_source: default
+            security: fips
+            box: centos/stream10
+            certificate_algorithm: RSA
+          - certificate_source: default
             security: none
             box: centos/stream10
-          - certificate_source: default
-            security: fapolicyd
-            box: centos/stream9
-          - certificate_source: default
-            security: fapolicyd
-            box: centos/stream10
-          - certificate_source: default
-            security: fips
-            box: centos/stream9
-          - certificate_source: default
-            security: fips
-            box: centos/stream10
+            certificate_algorithm: ML-DSA-87
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
     runs-on: ubuntu-24.04
-    name: "Tests Proxy Deployment"
+    name: "Tests Proxy Deployment (certificates: ${{ matrix.certificate_source }}, algorithm: ${{ matrix.certificate_algorithm }}, security: ${{ matrix.security }}, box: ${{ matrix.box }})"
     steps:
       - name: generate artifact suffix
-        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.box }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
+        run: echo "ARTIFACT_SUFFIX=$(echo '${{ matrix.certificate_source }}-${{ matrix.security }}-${{ matrix.box }}-${{ matrix.certificate_algorithm }}' | tr -cd '[:alnum:]-')" >> "${GITHUB_ENV}"
       - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -472,6 +483,7 @@ jobs:
         run: |
           ./foremanctl deploy \
             --certificate-source=${{ matrix.certificate_source }} \
+            --certificate-algorithm=${{ matrix.certificate_algorithm }} \
             ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/ca.crt' || '' }} \
             --initial-admin-password=changeme \
             --tuning development \

@@ -1,0 +1,48 @@
+---
+# All per-algorithm properties are co-located here so adding a new algorithm
+# requires updating only this one dict.
+#
+# cert_type        - Tomcat SSLHostConfig <Certificate type=> value
+# scheme_signature - JCA (BouncyCastle) signature algorithm name used
+#                    by Candlepin to sign entitlement/identity certs
+# scheme_key       - JCA KeyPairGenerator algorithm for issued keys
+# scheme_key_size  - key size in bits (RSA/ECC only; omit for ML-DSA)
+# file_suffix      - suffix in file/secret names (e.g. mldsa-65-ca.crt)
+# scheme_id        - candlepin.crypto.scheme.{id}.* config key
+_candlepin_algorithms:
+  RSA:
+    cert_type: RSA
+    scheme_signature: SHA256withRSA
+    scheme_key: RSA
+    scheme_key_size: "{{ certificates_algorithm_rsa_size }}"
+    file_suffix: rsa
+    scheme_id: rsa
+  ECC:
+    cert_type: EC
+    scheme_signature: SHA256withECDSA
+    scheme_key: EC
+    scheme_key_size: >-
+      {{ _candlepin_ec_curve_key_sizes[certificates_algorithm_ecc_curve] | default('') }}
+    file_suffix: ecc
+    scheme_id: ecc
+  ML-DSA-65:
+    cert_type: MLDSA
+    scheme_signature: ML-DSA-65
+    scheme_key: ML-DSA-65
+    file_suffix: mldsa-65
+    scheme_id: mldsa65
+  ML-DSA-87:
+    cert_type: MLDSA
+    scheme_signature: ML-DSA-87
+    scheme_key: ML-DSA-87
+    file_suffix: mldsa-87
+    scheme_id: mldsa87
+
+# EC keys are sized in Candlepin by bit length; map the curves we offer to the
+# matching NIST key size so Candlepin issues keys on the same curve as the CA.
+_candlepin_ec_curve_key_sizes:
+  secp256r1: 256
+  secp384r1: 384
+  secp521r1: 521
+
+_candlepin_tls_protocols: "{{ candlepin_tls_versions | join(',') }}"

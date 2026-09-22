@@ -54,7 +54,7 @@
     mode: '0600'
   loop: "{{ certificates_algorithm_sets }}"
   vars:
-    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    slug: "{{ _candlepin_algorithms[item].file_suffix }}"
     kdir: "{{ certificates_output_directory_keys }}"
 
 - name: Generate extra Tomcat CSR
@@ -69,7 +69,7 @@
       - serverAuth
   loop: "{{ certificates_algorithm_sets }}"
   vars:
-    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    slug: "{{ _candlepin_algorithms[item].file_suffix }}"
     rdir: "{{ certificates_output_directory_requests }}"
     kdir: "{{ certificates_output_directory_keys }}"
     _key_usage: >-
@@ -87,7 +87,7 @@
     force: "{{ certificates_renew | bool }}"
   loop: "{{ certificates_algorithm_sets }}"
   vars:
-    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    slug: "{{ _candlepin_algorithms[item].file_suffix }}"
     cdir: "{{ certificates_output_directory_certs }}"
     rdir: "{{ certificates_output_directory_requests }}"
 
@@ -102,7 +102,7 @@
     - Restart candlepin
   loop: "{{ certificates_algorithm_sets }}"
   vars:
-    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    slug: "{{ _candlepin_algorithms[item].file_suffix }}"
 
 - name: Create podman secret for extra Tomcat key
   containers.podman.podman_secret:
@@ -115,4 +115,4 @@
     - Restart candlepin
   loop: "{{ certificates_algorithm_sets }}"
   vars:
-    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    slug: "{{ _candlepin_algorithms[item].file_suffix }}"

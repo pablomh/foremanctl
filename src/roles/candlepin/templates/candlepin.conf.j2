@@ -13,6 +13,26 @@ module.config.adapter_module=org.candlepin.katello.KatelloModule
 
 candlepin.ca_key=/etc/candlepin/certs/candlepin-ca.key
 candlepin.ca_cert=/etc/candlepin/certs/candlepin-ca.crt
+{% if certificates_algorithm_sets | length > 0 %}
+
+candlepin.crypto.schemes={{ (certificates_algorithm_sets | map('extract', _candlepin_algorithms) | map(attribute='scheme_id') | list + ['rsa']) | join(',') }}
+candlepin.crypto.default_scheme=legacy
+
+{% for algo in certificates_algorithm_sets %}
+{% set slug = _candlepin_algorithms[algo].file_suffix %}
+{% set sid = _candlepin_algorithms[algo].scheme_id %}
+candlepin.crypto.scheme.{{ sid }}.cert=/etc/candlepin/certs/candlepin-{{ slug }}-ca.crt
+candlepin.crypto.scheme.{{ sid }}.key=/etc/candlepin/certs/candlepin-{{ slug }}-ca.key
+candlepin.crypto.scheme.{{ sid }}.signature_algorithm={{ _candlepin_algorithms[algo].scheme_signature }}
+candlepin.crypto.scheme.{{ sid }}.key_algorithm={{ _candlepin_algorithms[algo].scheme_key }}
+
+{% endfor %}
+candlepin.crypto.scheme.rsa.cert=/etc/candlepin/certs/candlepin-ca.crt
+candlepin.crypto.scheme.rsa.key=/etc/candlepin/certs/candlepin-ca.key
+candlepin.crypto.scheme.rsa.signature_algorithm=SHA256withRSA
+candlepin.crypto.scheme.rsa.key_algorithm=RSA
+candlepin.crypto.scheme.rsa.key_size=4096
+{% endif %}
 {% if _candlepin_ca_key_algorithm != 'RSA' %}
 
 # The CA key is not RSA, so redefine Candlepin's built-in "legacy" crypto scheme

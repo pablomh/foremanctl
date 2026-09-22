@@ -26,21 +26,25 @@ _candlepin_algorithms:
     scheme_signature: SHA256withRSA
     scheme_key: RSA
     file_suffix: rsa
+    scheme_id: rsa
   ECC:
     cert_type: EC
     scheme_signature: SHA256withECDSA
     scheme_key: EC
     file_suffix: ecc
+    scheme_id: ecc
   ML-DSA-65:
     cert_type: MLDSA
     scheme_signature: ML-DSA-65
     scheme_key: ML-DSA-65
     file_suffix: mldsa-65
+    scheme_id: mldsa65
   ML-DSA-87:
     cert_type: MLDSA
     scheme_signature: ML-DSA-87
     scheme_key: ML-DSA-87
     file_suffix: mldsa-87
+    scheme_id: mldsa87
 
 _candlepin_ca_key_algorithm: "{{ _candlepin_ca_key_info.type }}"
 

@@ -86,8 +86,6 @@
         'candlepin-tomcat-logging-properties,target=/etc/tomcat/logging.properties,' + candlepin_secret_mount_opts,
         'candlepin-logback-xml,target=/var/lib/tomcat/webapps/candlepin/WEB-INF/classes/logback.xml,' + candlepin_secret_mount_opts,
         'candlepin-db-ca,target=' + candlepin_database_ssl_ca_path + ',' + candlepin_secret_mount_opts,
-        'candlepin-tomcat-cert,target=/etc/candlepin/certs/candlepin.crt,' + candlepin_secret_mount_opts,
-        'candlepin-tomcat-key,target=/etc/candlepin/certs/candlepin.key,' + candlepin_secret_mount_opts,
       ] + _candlepin_ca_secrets + _candlepin_leaf_secrets }}
     quadlet_options:
       - |

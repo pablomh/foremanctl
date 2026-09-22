@@ -26,10 +26,7 @@
                        protocols="{{ _candlepin_tls_protocols }}"
                        caCertificateFile="/etc/candlepin/certs/candlepin-ca.crt"
                        ciphers="{{ candlepin_ciphers | join(':') }}">
-            <Certificate type="RSA"
-                         certificateFile="/etc/candlepin/certs/candlepin.crt"
-                         certificateKeyFile="/etc/candlepin/certs/candlepin.key" />
-{% for algorithm in certificates_algorithm_sets | reject('equalto', 'RSA') | list %}
+{% for algorithm in certificates_algorithm_sets %}
             <Certificate type="{{ _candlepin_algorithms[algorithm].cert_type }}"
                          certificateFile="/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[algorithm].file_suffix }}.crt"
                          certificateKeyFile="/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[algorithm].file_suffix }}.key" />

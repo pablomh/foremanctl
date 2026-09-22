@@ -130,36 +130,27 @@
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"
 
-- name: Generate extra Candlepin CA key
-  ansible.builtin.command:
-    argv:
-      - openssl
-      - genpkey
-      - -algorithm
-      - "{{ item }}"
-      - -out
-      - "{{ certificates_ca_directory_keys }}/candlepin-{{ slug }}-ca.key"
-    creates: "{{ certificates_ca_directory_keys }}/candlepin-{{ slug }}-ca.key"
+- name: Generate extra Candlepin CA private key
+  community.crypto.openssl_privatekey:
+    path: "{{ certificates_ca_directory_keys }}/candlepin-{{ slug }}-ca.key"
+    type: "{{ item }}"
+    mode: '0600'
   loop: "{{ certificates_algorithm_sets }}"
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"
 
 - name: Generate extra Candlepin CA certificate
-  ansible.builtin.command:
-    argv:
-      - openssl
-      - req
-      - -x509
-      - -new
-      - -key
-      - "{{ certificates_ca_directory_keys }}/candlepin-{{ slug }}-ca.key"
-      - -subj
-      - "/CN=Satellite {{ item }} CA"
-      - -days
-      - "{{ certificates_ca_validity_days }}"
-      - -out
-      - "{{ certificates_ca_directory_certs }}/candlepin-{{ slug }}-ca.crt"
-    creates: "{{ certificates_ca_directory_certs }}/candlepin-{{ slug }}-ca.crt"
+  community.crypto.x509_certificate:
+    path: "{{ certificates_ca_directory_certs }}/candlepin-{{ slug }}-ca.crt"
+    privatekey_path: "{{ certificates_ca_directory_keys }}/candlepin-{{ slug }}-ca.key"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ certificates_ca_validity_days }}d"
+    subject:
+      commonName: "Satellite {{ item }} CA"
+    basic_constraints:
+      - CA:TRUE
+    basic_constraints_critical: true
+    force: "{{ certificates_ca_renew | bool }}"
   loop: "{{ certificates_algorithm_sets }}"
   vars:
     slug: "{{ _candlepin_algorithms[item].file_suffix }}"

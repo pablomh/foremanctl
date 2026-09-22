@@ -31,8 +31,10 @@
     loop_var: algorithm
   vars:
     slug: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
-    _extra_sans: "{{ certificates_server_aliases if certificates_hostname != 'localhost' else [] }}"
-    _san_list: "{{ ([certificates_hostname] + _extra_sans) | map('regex_replace', '^', 'DNS:') | list }}"
+    _alias_sans: "{{ certificates_server_aliases if certificates_hostname != 'localhost' else [] }}"
+    _named_sans: "{{ certificates_hostname_extra_sans[certificates_hostname] | default([]) }}"
+    _extra_sans: "{{ (_alias_sans + _named_sans) | unique }}"
+    _san_list: "{{ ([certificates_hostname] + _extra_sans) | unique | map('regex_replace', '^', 'DNS:') | list }}"
 
 - name: 'Sign per-algorithm server certificate'
   community.crypto.x509_certificate:

@@ -43,3 +43,76 @@
       app: tomcat
   notify:
     - Restart candlepin
+
+- name: Generate extra Tomcat private key
+  community.crypto.openssl_privatekey:
+    path: "{{ kdir }}/localhost-{{ slug }}.key"
+    type: "{{ item }}"
+    size: "{{ certificates_algorithm_rsa_size if item == 'RSA' else omit }}"
+    curve: "{{ certificates_algorithm_ecc_curve if item == 'ECC' else omit }}"
+    format: "{{ 'pkcs8' if item == 'ECC' else omit }}"
+    mode: '0600'
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    kdir: "{{ certificates_output_directory_keys }}"
+
+- name: Generate extra Tomcat CSR
+  community.crypto.openssl_csr:
+    path: "{{ rdir }}/localhost-{{ slug }}.csr"
+    privatekey_path: "{{ kdir }}/localhost-{{ slug }}.key"
+    common_name: localhost
+    subject_alt_name:
+      - "DNS:localhost"
+    key_usage: "{{ _key_usage }}"
+    extended_key_usage:
+      - serverAuth
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    rdir: "{{ certificates_output_directory_requests }}"
+    kdir: "{{ certificates_output_directory_keys }}"
+    _key_usage: >-
+      {{ ['digitalSignature'] +
+         (['keyEncipherment'] if item == 'RSA' else []) }}
+
+- name: Sign extra Tomcat certificate
+  community.crypto.x509_certificate:
+    path: "{{ cdir }}/localhost-{{ slug }}.crt"
+    csr_path: "{{ rdir }}/localhost-{{ slug }}.csr"
+    provider: ownca
+    ownca_path: "{{ certificates_ca_directory_certs }}/ca.crt"
+    ownca_privatekey_path: "{{ certificates_ca_directory_keys }}/ca.key"
+    ownca_not_after: "+{{ certificates_validity_days }}d"
+    force: "{{ certificates_renew | bool }}"
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+    cdir: "{{ certificates_output_directory_certs }}"
+    rdir: "{{ certificates_output_directory_requests }}"
+
+- name: Create podman secret for extra Tomcat certificate
+  containers.podman.podman_secret:
+    state: present
+    name: "candlepin-tomcat-{{ slug }}-cert"
+    path: "{{ certificates_output_directory_certs }}/localhost-{{ slug }}.crt"
+    labels:
+      app: tomcat
+  notify:
+    - Restart candlepin
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    slug: "{{ _candlepin_algorithm_slugs[item] }}"
+
+- name: Create podman secret for extra Tomcat key
+  containers.podman.podman_secret:
+    state: present
+    name: "candlepin-tomcat-{{ slug }}-key"
+    path: "{{ certificates_output_directory_keys }}/localhost-{{ slug }}.key"
+    labels:
+      app: tomcat
+  notify:
+    - Restart candlepin
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    slug: "{{ _candlepin_algorithm_slugs[item] }}"

@@ -11,6 +11,21 @@
 # and migrated CAs are handled the same way as generated ones.
 
 # openssl_privatekey_info reports the CA key type as RSA, ECC, ML-DSA-65 or ML-DSA-87.
+
+# Algorithm slug used in file and secret names (URL/filename-safe lowercase).
+_candlepin_algorithm_slugs:
+  RSA: rsa
+  ECC: ecc
+  ML-DSA-65: mldsa-65
+  ML-DSA-87: mldsa-87
+
+# Tomcat SSLHostConfig Certificate type= attribute value for each algorithm.
+_candlepin_cert_types:
+  RSA: RSA
+  ECC: EC
+  ML-DSA-65: MLDSA
+  ML-DSA-87: MLDSA
+
 _candlepin_ca_key_algorithm: "{{ _candlepin_ca_key_info.type }}"
 
 # JCA (BouncyCastle) signature algorithm name Candlepin must use to sign with a
@@ -39,8 +54,26 @@ _candlepin_ec_curve_key_sizes:
 _candlepin_scheme_signature_algorithm: "{{ _candlepin_scheme_signature_algorithms[_candlepin_ca_key_algorithm] }}"
 _candlepin_scheme_key_algorithm: "{{ _candlepin_scheme_key_algorithms[_candlepin_ca_key_algorithm] }}"
 _candlepin_tls_protocols: >-
-  {{ 'TLSv1.3' if _candlepin_ca_key_algorithm.startswith('ML-DSA')
+  {{ 'TLSv1.3' if (
+       _candlepin_ca_key_algorithm.startswith('ML-DSA') and
+       certificates_algorithm_sets | length == 0
+     )
      else candlepin_tls_versions | join(',') }}
 _candlepin_scheme_key_size: >-
   {{ _candlepin_ec_curve_key_sizes[_candlepin_ca_key_info.public_data.curve | default('')] | default('')
      if _candlepin_ca_key_algorithm == 'ECC' else '' }}
+
+# Extra podman secret mount entries (one cert + one key per extra algorithm).
+# Empty when certificates_algorithm_sets is [].
+_candlepin_extra_tls_secrets: >-
+  {%- set ns = namespace(result=[]) -%}
+  {%- for algo in certificates_algorithm_sets -%}
+    {%- set slug = _candlepin_algorithm_slugs[algo] -%}
+    {%- set base = 'candlepin-tomcat-' + slug -%}
+    {%- set mnt = ',target=/etc/candlepin/certs/tomcat-' + slug -%}
+    {%- set opt = ',' + candlepin_secret_mount_opts -%}
+    {%- set ns.result = ns.result
+        + [base + '-cert' + mnt + '.crt' + opt,
+           base + '-key' + mnt + '.key' + opt] -%}
+  {%- endfor -%}
+  {{ ns.result }}

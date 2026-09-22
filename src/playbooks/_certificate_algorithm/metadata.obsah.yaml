@@ -8,6 +8,13 @@ variables:
       - ECC
       - ML-DSA-65
       - ML-DSA-87
+  certificates_algorithm_sets:
+    help: >-
+      Additional TLS certificate algorithms to deploy alongside
+      the primary certificate. Enables dual-cert mode so both
+      RSA/ECC and ML-DSA clients are served.
+    parameter: --certificate-algorithm-sets
+    action: append_unique
   certificates_algorithm_rsa_size:
     help: Key size of the generated certificates. Only applies to RSA.
     parameter: --certificate-algorithm-rsa-size

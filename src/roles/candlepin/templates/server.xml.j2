@@ -26,8 +26,14 @@
                        protocols="{{ _candlepin_tls_protocols }}"
                        caCertificateFile="/etc/candlepin/certs/candlepin-ca.crt"
                        ciphers="{{ candlepin_ciphers | join(':') }}">
-            <Certificate certificateFile="/etc/candlepin/certs/tomcat.crt"
+            <Certificate{% if certificates_algorithm_sets | length > 0 %} type="{{ _candlepin_cert_types[certificates_algorithm_type] }}"{% endif %}
+                         certificateFile="/etc/candlepin/certs/tomcat.crt"
                          certificateKeyFile="/etc/candlepin/certs/tomcat.key" />
+{% for algo in certificates_algorithm_sets %}
+            <Certificate type="{{ _candlepin_cert_types[algo] }}"
+                         certificateFile="/etc/candlepin/certs/tomcat-{{ _candlepin_algorithm_slugs[algo] }}.crt"
+                         certificateKeyFile="/etc/candlepin/certs/tomcat-{{ _candlepin_algorithm_slugs[algo] }}.key" />
+{% endfor %}
         </SSLHostConfig>
     </Connector>
 

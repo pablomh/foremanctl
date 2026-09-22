@@ -25,12 +25,15 @@ _candlepin_algorithms:
     cert_type: RSA
     scheme_signature: SHA256withRSA
     scheme_key: RSA
+    scheme_key_size: "{{ certificates_algorithm_rsa_size }}"
     file_suffix: rsa
     scheme_id: rsa
   ECC:
     cert_type: EC
     scheme_signature: SHA256withECDSA
     scheme_key: EC
+    scheme_key_size: >-
+      {{ _candlepin_ec_curve_key_sizes[certificates_algorithm_ecc_curve] | default('') }}
     file_suffix: ecc
     scheme_id: ecc
   ML-DSA-65:

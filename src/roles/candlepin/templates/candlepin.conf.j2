@@ -18,13 +18,16 @@ candlepin.ca_cert=/etc/candlepin/certs/candlepin-rsa-ca.crt
 candlepin.crypto.schemes={{ certificates_algorithm_sets | map('extract', _candlepin_algorithms) | map(attribute='scheme_id') | list | join(',') }}
 candlepin.crypto.default_scheme=legacy
 
-{% for algo in certificates_algorithm_sets %}
-{% set slug = _candlepin_algorithms[algo].file_suffix %}
-{% set sid = _candlepin_algorithms[algo].scheme_id %}
+{% for algorithm in certificates_algorithm_sets %}
+{% set slug = _candlepin_algorithms[algorithm].file_suffix %}
+{% set sid = _candlepin_algorithms[algorithm].scheme_id %}
 candlepin.crypto.scheme.{{ sid }}.cert=/etc/candlepin/certs/candlepin-{{ slug }}-ca.crt
 candlepin.crypto.scheme.{{ sid }}.key=/etc/candlepin/certs/candlepin-{{ slug }}-ca.key
-candlepin.crypto.scheme.{{ sid }}.signature_algorithm={{ _candlepin_algorithms[algo].scheme_signature }}
-candlepin.crypto.scheme.{{ sid }}.key_algorithm={{ _candlepin_algorithms[algo].scheme_key }}
+candlepin.crypto.scheme.{{ sid }}.signature_algorithm={{ _candlepin_algorithms[algorithm].scheme_signature }}
+candlepin.crypto.scheme.{{ sid }}.key_algorithm={{ _candlepin_algorithms[algorithm].scheme_key }}
+{% if _candlepin_algorithms[algorithm].scheme_key_size is defined and _candlepin_algorithms[algorithm].scheme_key_size %}
+candlepin.crypto.scheme.{{ sid }}.key_size={{ _candlepin_algorithms[algorithm].scheme_key_size }}
+{% endif %}
 
 {% endfor %}
 {% endif %}

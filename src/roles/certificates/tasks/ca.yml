@@ -127,13 +127,13 @@
 - name: 'Generate per-algorithm CA private key'
   community.crypto.openssl_privatekey:
     path: "{{ certificates_ca_directory_keys }}/{{ slug }}-ca.key"
-    type: "{{ algo }}"
+    type: "{{ algorithm }}"
     mode: '0600'
   loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
   loop_control:
-    loop_var: algo
+    loop_var: algorithm
   vars:
-    slug: "{{ algo | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    slug: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
 - name: 'Generate per-algorithm CA certificate'
   community.crypto.x509_certificate:
@@ -142,7 +142,7 @@
     provider: selfsigned
     selfsigned_not_after: "+{{ certificates_ca_validity_days }}d"
     subject:
-      commonName: "Foreman Self-signed {{ algo }} CA"
+      commonName: "Foreman Self-signed {{ algorithm }} CA"
     basic_constraints:
       - CA:TRUE
     basic_constraints_critical: true
@@ -154,9 +154,9 @@
     force: "{{ certificates_ca_renew | bool }}"
   loop: "{{ certificates_algorithm_sets | reject('equalto', 'RSA') | list }}"
   loop_control:
-    loop_var: algo
+    loop_var: algorithm
   vars:
-    slug: "{{ algo | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    slug: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
 - name: 'Assemble CA bundle from all algorithm CAs'
   ansible.builtin.assemble:

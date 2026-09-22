@@ -10,7 +10,7 @@
 # in certs.yml) rather than from the requested certificate algorithm, so custom
 # and migrated CAs are handled the same way as generated ones.
 
-# openssl_privatekey_info reports the CA key type as RSA, ECC or ML-DSA-87.
+# openssl_privatekey_info reports the CA key type as RSA, ECC, ML-DSA-65 or ML-DSA-87.
 _candlepin_ca_key_algorithm: "{{ _candlepin_ca_key_info.type }}"
 
 # JCA (BouncyCastle) signature algorithm name Candlepin must use to sign with a
@@ -18,6 +18,7 @@ _candlepin_ca_key_algorithm: "{{ _candlepin_ca_key_info.type }}"
 _candlepin_scheme_signature_algorithms:
   RSA: SHA256withRSA
   ECC: SHA256withECDSA
+  ML-DSA-65: ML-DSA-65
   ML-DSA-87: ML-DSA-87
 
 # JCA KeyPairGenerator algorithm name for the keys Candlepin issues under each
@@ -25,6 +26,7 @@ _candlepin_scheme_signature_algorithms:
 _candlepin_scheme_key_algorithms:
   RSA: RSA
   ECC: EC
+  ML-DSA-65: ML-DSA-65
   ML-DSA-87: ML-DSA-87
 
 # EC keys are sized in Candlepin by bit length; map the curves we offer to the
@@ -36,6 +38,9 @@ _candlepin_ec_curve_key_sizes:
 
 _candlepin_scheme_signature_algorithm: "{{ _candlepin_scheme_signature_algorithms[_candlepin_ca_key_algorithm] }}"
 _candlepin_scheme_key_algorithm: "{{ _candlepin_scheme_key_algorithms[_candlepin_ca_key_algorithm] }}"
+_candlepin_tls_protocols: >-
+  {{ 'TLSv1.3' if _candlepin_ca_key_algorithm.startswith('ML-DSA')
+     else candlepin_tls_versions | join(',') }}
 _candlepin_scheme_key_size: >-
   {{ _candlepin_ec_curve_key_sizes[_candlepin_ca_key_info.public_data.curve | default('')] | default('')
      if _candlepin_ca_key_algorithm == 'ECC' else '' }}

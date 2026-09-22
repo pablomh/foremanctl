@@ -2,18 +2,17 @@
 - name: 'Require Enterprise Linux 10 or later for ML-DSA certificates'
   ansible.builtin.assert:
     that:
-      - not certificates_algorithm_type.startswith('ML-DSA')
-        or (
-          ansible_facts['os_family'] == 'RedHat'
-          and ansible_facts['distribution_major_version'] | int >= 10
-        )
+      - ansible_facts['os_family'] == 'RedHat'
+        and ansible_facts['distribution_major_version'] | int >= 10
     fail_msg: >-
-      The {{ certificates_algorithm_type }} certificate algorithm requires
-      Enterprise Linux 10 or later, which ships post-quantum algorithms in its
-      default crypto policy. This host is {{ ansible_facts['distribution'] }}
-      {{ ansible_facts['distribution_major_version'] }}. Choose RSA or ECC, or
-      deploy on RHEL 10 or later.
+      ML-DSA certificate algorithms require Enterprise Linux 10 or later, which
+      ships post-quantum algorithms in its default crypto policy. This host is
+      {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_major_version'] }}.
+      Remove ML-DSA entries from certificates_algorithm_sets or deploy on RHEL 10+.
     quiet: true
+  when: >-
+    certificates_algorithm_type.startswith('ML-DSA') or
+    certificates_algorithm_sets | select('match', '^ML-DSA') | list | length > 0
 
 - name: 'Install crypto dependencies'
   ansible.builtin.package:
@@ -65,6 +64,15 @@
       ansible.builtin.include_tasks: host.yml
       when:
         - certificates_hostnames is defined
+      with_items: "{{ certificates_hostnames }}"
+      loop_control:
+        loop_var: certificates_hostname
+
+    - name: Issue per-algorithm server certificates
+      ansible.builtin.include_tasks: issue-algo.yml
+      when:
+        - certificates_hostnames is defined
+        - certificates_algorithm_sets | reject('equalto', 'RSA') | list | length > 0
       with_items: "{{ certificates_hostnames }}"
       loop_control:
         loop_var: certificates_hostname

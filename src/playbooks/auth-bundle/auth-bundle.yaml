@@ -25,7 +25,6 @@
         auth_bundle_hostname: "{{ hostname }}"
         auth_bundle_ca_bundle: "{{ ca_bundle }}"
         auth_bundle_ca_certificate: "{{ ca_certificate }}"
-        auth_bundle_server_ca_certificate: "{{ server_ca_certificate }}"
         auth_bundle_server_certificate: "{{ certificates_ca_directory }}/hosts/{{ hostname }}/certs/{{ hostname }}.crt"
         auth_bundle_server_key: "{{ certificates_ca_directory }}/hosts/{{ hostname }}/private/{{ hostname }}.key"
         auth_bundle_client_certificate: "{{ certificates_ca_directory }}/hosts/{{ hostname }}/certs/{{ hostname }}-client.crt"

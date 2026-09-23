@@ -1,9 +1,11 @@
 ---
 certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
-  - localhost
   - candlepin
   - iop-core-gateway
+# candlepin's client cert has no consumer (it authenticates outbound calls to
+# Foreman, which candlepin never makes), so it's excluded here.
+certificates_client_hostnames: "{{ certificates_hostnames | reject('equalto', 'candlepin') | list }}"
 certificates_hostname_extra_sans:
   candlepin:
     - localhost

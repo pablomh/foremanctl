@@ -2,7 +2,7 @@
 - name: Create the podman secret for Foreman Proxy CA certificate
   containers.podman.podman_secret:
     name: foreman-proxy-ssl-ca
-    path: "{{ ca_certificate }}"
+    path: "{{ ca_bundle }}"
     state: present
   notify:
     - Restart Foreman Proxy

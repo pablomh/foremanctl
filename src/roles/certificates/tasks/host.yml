@@ -8,3 +8,9 @@
 
 - name: Issue certificates
   ansible.builtin.include_tasks: issue.yml
+
+- name: Issue per-algorithm certificates
+  ansible.builtin.include_tasks: issue-algorithm.yml
+  loop: "{{ certificates_algorithm_sets }}"
+  loop_control:
+    loop_var: algorithm

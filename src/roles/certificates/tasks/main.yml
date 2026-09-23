@@ -2,18 +2,26 @@
 - name: 'Require Enterprise Linux 10 or later for ML-DSA certificates'
   ansible.builtin.assert:
     that:
-      - not certificates_algorithm_type.startswith('ML-DSA')
-        or (
-          ansible_facts['os_family'] == 'RedHat'
-          and ansible_facts['distribution_major_version'] | int >= 10
-        )
+      - ansible_facts['os_family'] == 'RedHat'
+        and ansible_facts['distribution_major_version'] | int >= 10
     fail_msg: >-
-      The {{ certificates_algorithm_type }} certificate algorithm requires
-      Enterprise Linux 10 or later, which ships post-quantum algorithms in its
-      default crypto policy. This host is {{ ansible_facts['distribution'] }}
-      {{ ansible_facts['distribution_major_version'] }}. Choose RSA or ECC, or
-      deploy on RHEL 10 or later.
+      ML-DSA certificate algorithms require Enterprise Linux 10 or later, which
+      ships post-quantum algorithms in its default crypto policy. This host is
+      {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_major_version'] }}.
+      Remove ML-DSA entries from certificates_algorithm_sets or deploy on RHEL 10+.
     quiet: true
+  when: certificates_algorithm_sets | select('match', '^ML-DSA') | list | length > 0
+
+- name: 'Require certificates_algorithm_type to be included in certificates_algorithm_sets'
+  ansible.builtin.assert:
+    that: certificates_algorithm_type in certificates_algorithm_sets
+    fail_msg: >-
+      certificates_algorithm_type ({{ certificates_algorithm_type }}) must be included
+      in certificates_algorithm_sets ({{ certificates_algorithm_sets | join(', ') }}) so
+      its CA is generated. Add it to certificates_algorithm_sets or change
+      certificates_algorithm_type to one of its entries.
+    quiet: true
+  when: certificates_algorithm_sets | length > 0
 
 - name: 'Install crypto dependencies'
   ansible.builtin.package:

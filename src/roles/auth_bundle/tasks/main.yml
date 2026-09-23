@@ -78,6 +78,30 @@
         remote_src: true
         mode: '0440'
 
+    - name: Copy per-algorithm server certificate
+      ansible.builtin.copy:
+        src: "{{ auth_bundle_server_certificate | dirname }}/{{ auth_bundle_hostname }}-{{ _type }}.crt"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_hostname }}-{{ _type }}.crt"
+        remote_src: true
+        mode: '0444'
+      loop: "{{ certificates_algorithm_sets }}"
+      loop_control:
+        loop_var: algorithm
+      vars:
+        _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+    - name: Copy per-algorithm server key
+      ansible.builtin.copy:
+        src: "{{ auth_bundle_server_key | dirname }}/{{ auth_bundle_hostname }}-{{ _type }}.key"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/private/{{ auth_bundle_hostname }}-{{ _type }}.key"
+        remote_src: true
+        mode: '0440'
+      loop: "{{ certificates_algorithm_sets }}"
+      loop_control:
+        loop_var: algorithm
+      vars:
+        _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
     - name: Copy OAuth consumer key
       ansible.builtin.copy:
         src: "{{ auth_bundle_oauth_consumer_key_file }}"

@@ -11,16 +11,37 @@ candlepin.auth.oauth.consumer.katello.secret={{ candlepin_oauth_secret }}
 
 module.config.adapter_module=org.candlepin.katello.KatelloModule
 
+{% if certificates_algorithm_sets | length > 0 %}
+candlepin.ca_key=/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[certificates_algorithm_type].file_suffix }}-ca.key
+candlepin.ca_cert=/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[certificates_algorithm_type].file_suffix }}-ca.crt
+
+candlepin.crypto.schemes={{ certificates_algorithm_sets | map('extract', _candlepin_algorithms) | map(attribute='scheme_id') | list | join(',') }}
+candlepin.crypto.default_scheme=legacy
+
+{% for algorithm in certificates_algorithm_sets %}
+{% set _type = _candlepin_algorithms[algorithm].file_suffix %}
+{% set sid = _candlepin_algorithms[algorithm].scheme_id %}
+candlepin.crypto.scheme.{{ sid }}.cert=/etc/candlepin/certs/candlepin-{{ _type }}-ca.crt
+candlepin.crypto.scheme.{{ sid }}.key=/etc/candlepin/certs/candlepin-{{ _type }}-ca.key
+candlepin.crypto.scheme.{{ sid }}.signature_algorithm={{ _candlepin_algorithms[algorithm].scheme_signature }}
+candlepin.crypto.scheme.{{ sid }}.key_algorithm={{ _candlepin_algorithms[algorithm].scheme_key }}
+{% if _candlepin_algorithms[algorithm].scheme_key_size is defined and _candlepin_algorithms[algorithm].scheme_key_size %}
+candlepin.crypto.scheme.{{ sid }}.key_size={{ _candlepin_algorithms[algorithm].scheme_key_size }}
+{% endif %}
+
+{% endfor %}
+{% else %}
 candlepin.ca_key=/etc/candlepin/certs/candlepin-ca.key
 candlepin.ca_cert=/etc/candlepin/certs/candlepin-ca.crt
-{% if _candlepin_ca_key_algorithm != 'RSA' %}
+{% if _candlepin_single_algorithm_ca_key_info.type != 'RSA' %}
 
 # The CA key is not RSA, so redefine Candlepin's built-in "legacy" crypto scheme
 # to match; without this Candlepin assumes SHA256withRSA and fails to start.
-candlepin.crypto.scheme.legacy.key_algorithm={{ _candlepin_scheme_key_algorithm }}
-candlepin.crypto.scheme.legacy.signature_algorithm={{ _candlepin_scheme_signature_algorithm }}
-{% if _candlepin_scheme_key_size %}
-candlepin.crypto.scheme.legacy.key_size={{ _candlepin_scheme_key_size }}
+candlepin.crypto.scheme.legacy.key_algorithm={{ _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].scheme_key }}
+candlepin.crypto.scheme.legacy.signature_algorithm={{ _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].scheme_signature }}
+{% if _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].scheme_key_size is defined and _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].scheme_key_size %}
+candlepin.crypto.scheme.legacy.key_size={{ _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].scheme_key_size }}
+{% endif %}
 {% endif %}
 {% endif %}
 

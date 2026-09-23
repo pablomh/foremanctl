@@ -1,31 +1,42 @@
 ---
-# Candlepin signs the entitlement and identity certificates it issues with the
-# deployment CA key. It describes the key and signature algorithms it may use
-# through a named crypto "scheme"; the built-in "legacy" scheme assumes RSA
-# (SHA256withRSA), so Candlepin refuses to start when handed a non-RSA CA key
-# unless the scheme is redefined. We override the legacy scheme in
-# candlepin.conf.j2 using the values below.
+# All per-algorithm properties are co-located here so adding a new algorithm
+# requires updating only this one dict.
 #
-# The algorithm is derived from the CA key that was actually deployed (inspected
-# in certs.yml) rather than from the requested certificate algorithm, so custom
-# and migrated CAs are handled the same way as generated ones.
-
-# openssl_privatekey_info reports the CA key type as RSA, ECC or ML-DSA-87.
-_candlepin_ca_key_algorithm: "{{ _candlepin_ca_key_info.type }}"
-
-# JCA (BouncyCastle) signature algorithm name Candlepin must use to sign with a
-# CA key of each type.
-_candlepin_scheme_signature_algorithms:
-  RSA: SHA256withRSA
-  ECC: SHA256withECDSA
-  ML-DSA-87: ML-DSA-87
-
-# JCA KeyPairGenerator algorithm name for the keys Candlepin issues under each
-# CA type.
-_candlepin_scheme_key_algorithms:
-  RSA: RSA
-  ECC: EC
-  ML-DSA-87: ML-DSA-87
+# cert_type        - Tomcat SSLHostConfig <Certificate type=> value
+# scheme_signature - JCA (BouncyCastle) signature algorithm name used
+#                    by Candlepin to sign entitlement/identity certs
+# scheme_key       - JCA KeyPairGenerator algorithm for issued keys
+# scheme_key_size  - key size in bits (RSA/ECC only; omit for ML-DSA)
+# file_suffix      - suffix in file/secret names (e.g. mldsa-65-ca.crt)
+# scheme_id        - candlepin.crypto.scheme.{id}.* config key
+_candlepin_algorithms:
+  RSA:
+    cert_type: RSA
+    scheme_signature: SHA256withRSA
+    scheme_key: RSA
+    scheme_key_size: "{{ certificates_algorithm_rsa_size }}"
+    file_suffix: rsa
+    scheme_id: rsa
+  ECC:
+    cert_type: EC
+    scheme_signature: SHA256withECDSA
+    scheme_key: EC
+    scheme_key_size: >-
+      {{ _candlepin_ec_curve_key_sizes[certificates_algorithm_ecc_curve] | default('') }}
+    file_suffix: ecc
+    scheme_id: ecc
+  ML-DSA-65:
+    cert_type: MLDSA
+    scheme_signature: ML-DSA-65
+    scheme_key: ML-DSA-65
+    file_suffix: mldsa-65
+    scheme_id: mldsa65
+  ML-DSA-87:
+    cert_type: MLDSA
+    scheme_signature: ML-DSA-87
+    scheme_key: ML-DSA-87
+    file_suffix: mldsa-87
+    scheme_id: mldsa87
 
 # EC keys are sized in Candlepin by bit length; map the curves we offer to the
 # matching NIST key size so Candlepin issues keys on the same curve as the CA.
@@ -34,13 +45,23 @@ _candlepin_ec_curve_key_sizes:
   secp384r1: 384
   secp521r1: 521
 
-_candlepin_scheme_signature_algorithm: "{{ _candlepin_scheme_signature_algorithms[_candlepin_ca_key_algorithm] }}"
-_candlepin_scheme_key_algorithm: "{{ _candlepin_scheme_key_algorithms[_candlepin_ca_key_algorithm] }}"
-
-# ML-DSA keys only work over TLS 1.3.
+# ML-DSA keys only work over TLS 1.3. In multi-scheme mode this is never an
+# issue: TLS signature-algorithm negotiation already routes each client to the
+# certificate it supports, so legacy TLS 1.2 clients keep working alongside
+# ML-DSA ones. In single-scheme mode there is only one certificate, so when its
+# CA key (inspected in certs.yml, never assumed) is ML-DSA, TLS 1.3 must be the
+# only offered protocol.
 _candlepin_tls_protocols: >-
-  {{ 'TLSv1.3' if _candlepin_ca_key_algorithm == 'ML-DSA-87'
+  {{ 'TLSv1.3' if (certificates_algorithm_sets | length == 0 and _candlepin_single_algorithm_ca_key_info.type is match('^ML-DSA'))
      else candlepin_tls_versions | join(',') }}
-_candlepin_scheme_key_size: >-
-  {{ _candlepin_ec_curve_key_sizes[_candlepin_ca_key_info.public_data.curve | default('')] | default('')
-     if _candlepin_ca_key_algorithm == 'ECC' else '' }}
+
+# Secrets present regardless of certificates_algorithm_sets. Per-algorithm CA
+# and Tomcat leaf secrets are appended at the point of use (see main.yml).
+_candlepin_static_secrets:
+  - 'candlepin-ca-bundle-cert,target=/etc/candlepin/certs/candlepin-ca.crt,{{ candlepin_secret_mount_opts }}'
+  - 'candlepin-candlepin-conf,target=/etc/candlepin/candlepin.conf,{{ candlepin_secret_mount_opts }}'
+  - 'candlepin-tomcat-server-xml,target=/etc/tomcat/server.xml,{{ candlepin_secret_mount_opts }}'
+  - 'candlepin-tomcat-conf,target=/etc/tomcat/tomcat.conf,{{ candlepin_secret_mount_opts }}'
+  - 'candlepin-tomcat-logging-properties,target=/etc/tomcat/logging.properties,{{ candlepin_secret_mount_opts }}'
+  - 'candlepin-logback-xml,target=/var/lib/tomcat/webapps/candlepin/WEB-INF/classes/logback.xml,{{ candlepin_secret_mount_opts }}'
+  - 'candlepin-db-ca,target={{ candlepin_database_ssl_ca_path }},{{ candlepin_secret_mount_opts }}'

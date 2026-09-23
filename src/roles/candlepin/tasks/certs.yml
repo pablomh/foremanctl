@@ -1,45 +1,165 @@
 ---
-- name: Inspect the CA key algorithm for the Candlepin crypto scheme
-  community.crypto.openssl_privatekey_info:
-    path: "{{ candlepin_ca_key }}"
-  register: _candlepin_ca_key_info
-
-- name: Create the podman secret for Candlepin CA certificate
+- name: Create the podman secret for the CA bundle
   containers.podman.podman_secret:
     state: present
-    name: candlepin-ca-cert
-    path: "{{ candlepin_ca_certificate }}"
+    name: candlepin-ca-bundle-cert
+    path: "{{ ca_bundle }}"
     labels:
       app: candlepin
   notify:
     - Restart candlepin
 
-- name: Create the podman secret for Candlepin CA key
+- name: Initialize Candlepin CA and leaf cert secret mounts lists
+  ansible.builtin.set_fact:
+    _candlepin_ca_secrets: []
+    _candlepin_leaf_secrets: []
+
+# ── Single-algorithm mode (certificates_algorithm_sets is empty) ────────────
+# The CA certificate is already mounted above via the CA bundle.
+- name: 'Configure the Candlepin CA and Tomcat secrets in single-algorithm mode'
+  when: certificates_algorithm_sets | length == 0
+  block:
+    - name: 'Inspect the CA key algorithm in single-algorithm mode'
+      community.crypto.openssl_privatekey_info:
+        path: "{{ candlepin_ca_key }}"
+      register: _candlepin_single_algorithm_ca_key_info
+
+    - name: 'Determine the file suffix and scheme id for the single-algorithm CA'
+      ansible.builtin.set_fact:
+        _candlepin_single_algorithm_type: "{{ _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].file_suffix }}"
+        _candlepin_single_algorithm_sid: "{{ _candlepin_algorithms[_candlepin_single_algorithm_ca_key_info.type].scheme_id }}"
+
+    - name: 'Determine the leaf certificate target path for the single-algorithm CA'
+      ansible.builtin.set_fact:
+        _candlepin_single_algorithm_target: "/etc/candlepin/certs/candlepin-{{ _candlepin_single_algorithm_type }}"
+
+    - name: 'Copy the single-algorithm Tomcat leaf certificate and key to their algorithm type names'
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        force: "{{ certificates_renew | bool }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - src: "{{ candlepin_tomcat_certificate }}"
+          dest: "{{ certificates_ca_directory_certs }}/candlepin-{{ _candlepin_single_algorithm_type }}.crt"
+          mode: '0444'
+        - src: "{{ candlepin_tomcat_key }}"
+          dest: "{{ certificates_ca_directory_keys }}/candlepin-{{ _candlepin_single_algorithm_type }}.key"
+          mode: '0600'
+
+    - name: Create the podman secret for the single-algorithm Candlepin CA key
+      containers.podman.podman_secret:
+        state: present
+        name: candlepin-ca-key
+        path: "{{ candlepin_ca_key }}"
+        labels:
+          app: candlepin
+      notify:
+        - Restart candlepin
+
+    - name: Create the podman secret for the single-algorithm Tomcat leaf certificate
+      containers.podman.podman_secret:
+        state: present
+        name: "candlepin-{{ _candlepin_single_algorithm_sid }}-cert"
+        path: "{{ certificates_ca_directory_certs }}/candlepin-{{ _candlepin_single_algorithm_type }}.crt"
+        labels:
+          app: tomcat
+      notify:
+        - Restart candlepin
+
+    - name: Create the podman secret for the single-algorithm Tomcat leaf key
+      containers.podman.podman_secret:
+        state: present
+        name: "candlepin-{{ _candlepin_single_algorithm_sid }}-key"
+        path: "{{ certificates_ca_directory_keys }}/candlepin-{{ _candlepin_single_algorithm_type }}.key"
+        labels:
+          app: tomcat
+      notify:
+        - Restart candlepin
+
+    - name: 'Build single-algorithm Candlepin CA and leaf secret mounts'
+      ansible.builtin.set_fact:
+        _candlepin_ca_secrets: "{{ _candlepin_ca_secrets
+          + ['candlepin-ca-key,target=/etc/candlepin/certs/candlepin-ca.key,' + candlepin_secret_mount_opts] }}"
+        _candlepin_leaf_secrets: "{{ _candlepin_leaf_secrets
+          + ['candlepin-' + _candlepin_single_algorithm_sid + '-cert,target=' + _candlepin_single_algorithm_target + '.crt,' + candlepin_secret_mount_opts,
+             'candlepin-' + _candlepin_single_algorithm_sid + '-key,target=' + _candlepin_single_algorithm_target + '.key,' + candlepin_secret_mount_opts] }}"
+
+# ── Multi-scheme mode (certificates_algorithm_sets is non-empty) ────────────
+
+- name: Create podman secret for per-algorithm CA certificate
   containers.podman.podman_secret:
     state: present
-    name: candlepin-ca-key
-    path: "{{ candlepin_ca_key }}"
+    name: "candlepin-{{ sid }}-ca-cert"
+    path: "{{ certificates_ca_directory_certs }}/{{ _type }}-ca.crt"
     labels:
       app: candlepin
   notify:
     - Restart candlepin
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ _candlepin_algorithms[item].file_suffix }}"
+    sid: "{{ _candlepin_algorithms[item].scheme_id }}"
 
-- name: Create the podman secret for Tomcat certificate
+- name: Create podman secret for per-algorithm CA key
   containers.podman.podman_secret:
     state: present
-    name: candlepin-tomcat-cert
-    path: "{{ candlepin_tomcat_certificate }}"
+    name: "candlepin-{{ sid }}-ca-key"
+    path: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
     labels:
-      app: tomcat
+      app: candlepin
   notify:
     - Restart candlepin
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ _candlepin_algorithms[item].file_suffix }}"
+    sid: "{{ _candlepin_algorithms[item].scheme_id }}"
 
-- name: Create the podman secret for Tomcat key
+- name: Build Candlepin CA secret mounts
+  ansible.builtin.set_fact:
+    _candlepin_ca_secrets: "{{ _candlepin_ca_secrets
+      + ['candlepin-' + sid + '-ca-cert,target=/etc/candlepin/certs/candlepin-' + _type + '-ca.crt,' + candlepin_secret_mount_opts,
+         'candlepin-' + sid + '-ca-key,target=/etc/candlepin/certs/candlepin-' + _type + '-ca.key,' + candlepin_secret_mount_opts] }}"
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ _candlepin_algorithms[item].file_suffix }}"
+    sid: "{{ _candlepin_algorithms[item].scheme_id }}"
+
+- name: Create podman secret for per-algorithm Tomcat leaf certificate
   containers.podman.podman_secret:
     state: present
-    name: candlepin-tomcat-key
-    path: "{{ candlepin_tomcat_key }}"
+    name: "candlepin-{{ sid }}-cert"
+    path: "{{ certificates_ca_directory_certs }}/candlepin-{{ _type }}.crt"
     labels:
-      app: tomcat
+      app: candlepin
   notify:
     - Restart candlepin
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ _candlepin_algorithms[item].file_suffix }}"
+    sid: "{{ _candlepin_algorithms[item].scheme_id }}"
+
+- name: Create podman secret for per-algorithm Tomcat leaf key
+  containers.podman.podman_secret:
+    state: present
+    name: "candlepin-{{ sid }}-key"
+    path: "{{ certificates_ca_directory_keys }}/candlepin-{{ _type }}.key"
+    labels:
+      app: candlepin
+  notify:
+    - Restart candlepin
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ _candlepin_algorithms[item].file_suffix }}"
+    sid: "{{ _candlepin_algorithms[item].scheme_id }}"
+
+- name: Build Candlepin leaf cert secret mounts
+  ansible.builtin.set_fact:
+    _candlepin_leaf_secrets: "{{ _candlepin_leaf_secrets
+      + ['candlepin-' + sid + '-cert,target=/etc/candlepin/certs/candlepin-' + _type + '.crt,' + candlepin_secret_mount_opts,
+         'candlepin-' + sid + '-key,target=/etc/candlepin/certs/candlepin-' + _type + '.key,' + candlepin_secret_mount_opts] }}"
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ _candlepin_algorithms[item].file_suffix }}"
+    sid: "{{ _candlepin_algorithms[item].scheme_id }}"

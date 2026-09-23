@@ -10,7 +10,9 @@
       {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_major_version'] }}.
       Remove ML-DSA entries from certificates_algorithm_sets or deploy on RHEL 10+.
     quiet: true
-  when: certificates_algorithm_sets | select('match', '^ML-DSA') | list | length > 0
+  when: >-
+    (certificates_algorithm_sets | select('match', '^ML-DSA') | list | length > 0)
+    or (certificates_client_algorithm_type is match('^ML-DSA'))
 
 - name: 'Require certificates_algorithm_type to be included in certificates_algorithm_sets'
   ansible.builtin.assert:
@@ -76,6 +78,9 @@
       with_items: "{{ certificates_hostnames }}"
       loop_control:
         loop_var: certificates_hostname
+
+    - name: Issue the foreman-proxy client certificate
+      ansible.builtin.include_tasks: foreman_proxy_client_certificate.yml
 
     - name: Create CA bundle with internal CA and custom server CA
       ansible.builtin.assemble:

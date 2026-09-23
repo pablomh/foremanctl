@@ -26,6 +26,14 @@ variables:
   certificates_algorithm_ecc_curve:
     help: Elliptic curve of the generated certificates. Only applies to ECC.
     parameter: --certificate-algorithm-ecc-curve
+  certificates_client_algorithm_type:
+    help: Algorithm for the foreman-proxy-to-Foreman client certificate.
+    parameter: --certificate-client-algorithm
+    choices:
+      - RSA
+      - ECC
+      - ML-DSA-65
+      - ML-DSA-87
 
 constraints:
   forbidden_if:

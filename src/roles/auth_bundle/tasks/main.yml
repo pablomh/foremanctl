@@ -102,6 +102,24 @@
       vars:
         _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
+    - name: Copy foreman-proxy client certificate
+      ansible.builtin.copy:
+        src: "{{ auth_bundle_server_certificate | dirname }}/{{ auth_bundle_hostname }}-client-{{ _type }}.crt"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_hostname }}-client-{{ _type }}.crt"
+        remote_src: true
+        mode: '0444'
+      vars:
+        _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+    - name: Copy foreman-proxy client key
+      ansible.builtin.copy:
+        src: "{{ auth_bundle_server_key | dirname }}/{{ auth_bundle_hostname }}-client-{{ _type }}.key"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/private/{{ auth_bundle_hostname }}-client-{{ _type }}.key"
+        remote_src: true
+        mode: '0440'
+      vars:
+        _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
     - name: Copy OAuth consumer key
       ansible.builtin.copy:
         src: "{{ auth_bundle_oauth_consumer_key_file }}"

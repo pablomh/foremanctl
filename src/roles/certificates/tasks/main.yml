@@ -23,8 +23,8 @@
   ansible.builtin.assert:
     that: _certificates_ml_dsa_support.rc == 0
     fail_msg: >-
-      python3-cryptography lacks ML-DSA support on this host. Upgrade it, or
-      remove ML-DSA entries from certificates_algorithm_sets/certificates_client_algorithm_type.
+      ML-DSA certificate algorithms require RHEL 10.3 or later. Remove ML-DSA
+      entries from certificates_algorithm_sets/certificates_client_algorithm_type, or upgrade the host.
     quiet: true
   when: _certificates_ml_dsa_support is not skipped
 

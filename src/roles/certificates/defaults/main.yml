@@ -15,7 +15,14 @@ certificates_server_aliases: []
 certificates_hostname_extra_sans: {}
 certificates_internal_hostnames: "{{ ['localhost'] + (certificates_hostname_extra_sans.keys() | list) }}"
 certificates_algorithm_type: RSA
-certificates_algorithm_size: 4096
+certificates_algorithm_sets:
+  - ML-DSA-65
+  - RSA
+certificates_algorithm_rsa_size: 4096
+certificates_algorithm_ecc_curve: secp384r1
+# Algorithm for internal-link client certificates (foreman-proxy-to-Foreman,
+# iop-core-gateway-to-Foreman), independent of certificates_algorithm_type/_sets.
+certificates_client_algorithm_type: ML-DSA-65
 certificates_ca_validity_days: 7300
 certificates_validity_days: 7300
 certificates_renew: false

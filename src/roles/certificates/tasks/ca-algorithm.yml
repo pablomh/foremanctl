@@ -1,0 +1,44 @@
+---
+- name: 'Load key parameters for this algorithm'
+  ansible.builtin.include_vars: "{{ algorithm }}.yml"
+
+- name: 'Generate CA private key'
+  community.crypto.openssl_privatekey:
+    path: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
+    type: "{{ _certificates_key_parameters.type }}"
+    size: "{{ _certificates_key_parameters.size | default(omit) }}"
+    curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
+    format: "{{ _certificates_key_parameters.format | default(omit) }}"
+    mode: '0600'
+    force: "{{ certificates_ca_renew | bool }}"
+  vars:
+    _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Generate CA certificate signing request'
+  community.crypto.openssl_csr:
+    path: "{{ certificates_ca_directory_requests }}/{{ _type }}-ca.csr"
+    privatekey_path: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
+    common_name: "Foreman Self-signed {{ algorithm }} CA"
+    use_common_name_for_san: false
+    basic_constraints:
+      - 'CA:TRUE'
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+      - cRLSign
+      - digitalSignature
+    key_usage_critical: true
+    create_subject_key_identifier: true
+  vars:
+    _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Generate CA certificate'
+  community.crypto.x509_certificate:
+    path: "{{ certificates_ca_directory_certs }}/{{ _type }}-ca.crt"
+    csr_path: "{{ certificates_ca_directory_requests }}/{{ _type }}-ca.csr"
+    privatekey_path: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ certificates_ca_validity_days }}d"
+    force: "{{ certificates_ca_renew | bool }}"
+  vars:
+    _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"

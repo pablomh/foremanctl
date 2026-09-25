@@ -51,6 +51,47 @@
     data: "{{ lookup('ansible.builtin.template', 'relay.conf.j2') }}"
   notify: Restart gateway
 
+- name: Create Gateway ssl.conf secret
+  containers.podman.podman_secret:
+    state: present
+    name: iop-core-gateway-ssl-conf
+    data: "{{ lookup('ansible.builtin.template', 'ssl.conf.j2') }}"
+  notify: Restart gateway
+
+- name: Initialize Gateway per-algorithm server secret mounts list
+  ansible.builtin.set_fact:
+    _iop_gateway_algorithm_secrets: []
+
+- name: Create Gateway per-algorithm server certificate secret
+  containers.podman.podman_secret:
+    state: present
+    name: "iop-core-gateway-server-cert-{{ _type }}"
+    path: "{{ iop_gateway_server_certificate | dirname }}/iop-core-gateway-{{ _type }}.crt"
+  notify: Restart gateway
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: Create Gateway per-algorithm server key secret
+  containers.podman.podman_secret:
+    state: present
+    name: "iop-core-gateway-server-key-{{ _type }}"
+    path: "{{ iop_gateway_server_key | dirname }}/iop-core-gateway-{{ _type }}.key"
+  notify: Restart gateway
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: Build Gateway per-algorithm server secret mounts
+  ansible.builtin.set_fact:
+    _iop_gateway_algorithm_secrets: >-
+      {{ _iop_gateway_algorithm_secrets
+         + ['iop-core-gateway-server-cert-' + _type + ',target=/etc/nginx/certs/nginx-' + _type + '.crt,mode=0440,uid=998,gid=998,type=mount',
+            'iop-core-gateway-server-key-' + _type + ',target=/etc/nginx/certs/nginx-' + _type + '.key,mode=0440,uid=998,gid=998,type=mount'] }}
+  loop: "{{ certificates_algorithm_sets }}"
+  vars:
+    _type: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
 - name: Deploy Gateway container
   containers.podman.podman_container:
     name: iop-core-gateway
@@ -60,14 +101,17 @@
       - foreman-core-network
     publish:
       - "127.0.0.1:24443:8443"
-    secrets:
-      - 'iop-core-gateway-server-cert,target=/etc/nginx/certs/nginx.crt,mode=0440,uid=998,gid=998,type=mount'
-      - 'iop-core-gateway-server-key,target=/etc/nginx/certs/nginx.key,mode=0440,uid=998,gid=998,type=mount'
-      - 'iop-core-gateway-server-ca-cert,target=/etc/nginx/certs/ca.crt,mode=0440,uid=998,gid=998,type=mount'
-      - 'iop-core-gateway-client-cert,target=/etc/nginx/smart-proxy-relay/certs/proxy.crt,mode=0440,uid=998,gid=998,type=mount'
-      - 'iop-core-gateway-client-key,target=/etc/nginx/smart-proxy-relay/certs/proxy.key,mode=0440,uid=998,gid=998,type=mount'
-      - 'iop-core-gateway-client-ca-cert,target=/etc/nginx/smart-proxy-relay/certs/ca.crt,mode=0440,uid=998,gid=998,type=mount'
-      - 'iop-core-gateway-relay-conf,target=/etc/nginx/smart-proxy-relay/relay.conf,mode=0440,uid=998,gid=998,type=mount'
+    secrets: >-
+      {{ [
+        'iop-core-gateway-server-cert,target=/etc/nginx/certs/nginx.crt,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-server-key,target=/etc/nginx/certs/nginx.key,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-server-ca-cert,target=/etc/nginx/certs/ca.crt,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-client-cert,target=/etc/nginx/smart-proxy-relay/certs/proxy.crt,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-client-key,target=/etc/nginx/smart-proxy-relay/certs/proxy.key,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-client-ca-cert,target=/etc/nginx/smart-proxy-relay/certs/ca.crt,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-relay-conf,target=/etc/nginx/smart-proxy-relay/relay.conf,mode=0440,uid=998,gid=998,type=mount',
+        'iop-core-gateway-ssl-conf,target=/etc/nginx/conf.d/ssl.conf,mode=0440,uid=998,gid=998,type=mount',
+      ] + _iop_gateway_algorithm_secrets }}
     quadlet_options:
       - |
         [Unit]

@@ -1,0 +1,53 @@
+---
+# Fixed algorithm, independent of certificates_algorithm_type/_sets: these are
+# fully internal links that don't need the server dual-cert scheme.
+
+- name: 'Load key parameters for the client certificate algorithm'
+  ansible.builtin.include_vars: "{{ certificates_client_algorithm_type }}.yml"
+
+- name: 'Determine the CA cert/key paths for the client certificate algorithm'
+  ansible.builtin.set_fact:
+    _certificates_client_ca_cert: >-
+      {{ (certificates_ca_directory_certs + '/ca.crt') if certificates_algorithm_sets | length == 0
+         else certificates_ca_directory_certs + '/' + _type + '-ca.crt' }}
+    _certificates_client_ca_key: >-
+      {{ (certificates_ca_directory_keys + '/ca.key') if certificates_algorithm_sets | length == 0
+         else certificates_ca_directory_keys + '/' + _type + '-ca.key' }}
+  vars:
+    _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Create independent client private key'
+  community.crypto.openssl_privatekey:
+    path: "{{ certificates_output_directory_keys }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.key"
+    type: "{{ _certificates_key_parameters.type }}"
+    size: "{{ _certificates_key_parameters.size | default(omit) }}"
+    curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
+    format: "{{ _certificates_key_parameters.format | default(omit) }}"
+    mode: '0600'
+  vars:
+    _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Create independent client CSR'
+  community.crypto.openssl_csr:
+    path: "{{ certificates_output_directory_requests }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.csr"
+    privatekey_path: "{{ certificates_output_directory_keys }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.key"
+    common_name: "{{ _certificates_independent_client_identity }}"
+    subject_alt_name:
+      - "DNS:{{ _certificates_independent_client_identity }}"
+    key_usage: "{{ _certificates_key_usage }}"
+    extended_key_usage:
+      - clientAuth
+  vars:
+    _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+- name: 'Sign independent client certificate'
+  community.crypto.x509_certificate:
+    path: "{{ certificates_output_directory_certs }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.crt"
+    csr_path: "{{ certificates_output_directory_requests }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.csr"
+    provider: ownca
+    ownca_path: "{{ _certificates_client_ca_cert }}"
+    ownca_privatekey_path: "{{ _certificates_client_ca_key }}"
+    ownca_not_after: "+{{ certificates_validity_days }}d"
+    force: "{{ certificates_renew | bool }}"
+  vars:
+    _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"

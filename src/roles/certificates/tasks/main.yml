@@ -79,8 +79,13 @@
       loop_control:
         loop_var: certificates_hostname
 
-    - name: Issue the foreman-proxy client certificate
-      ansible.builtin.include_tasks: foreman_proxy_client_certificate.yml
+    - name: Issue independent-algorithm client certificates for internal links
+      ansible.builtin.include_tasks: independent_client_certificate.yml
+      loop: >-
+        {{ [hostname | default(ansible_facts['fqdn'])]
+           + (['iop-core-gateway'] if hostname is not defined else []) }}
+      loop_control:
+        loop_var: _certificates_independent_client_identity
 
     - name: Create CA bundle with internal CA and custom server CA
       ansible.builtin.assemble:

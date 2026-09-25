@@ -1,18 +1,37 @@
 ---
-- name: 'Require Enterprise Linux 10 or later for ML-DSA certificates'
-  ansible.builtin.assert:
-    that:
-      - ansible_facts['os_family'] == 'RedHat'
-        and ansible_facts['distribution_major_version'] | int >= 10
-    fail_msg: >-
-      ML-DSA certificate algorithms require Enterprise Linux 10 or later, which
-      ships post-quantum algorithms in its default crypto policy. This host is
-      {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_major_version'] }}.
-      Remove ML-DSA entries from certificates_algorithm_sets or deploy on RHEL 10+.
-    quiet: true
+- name: 'Install crypto dependencies'
+  ansible.builtin.package:
+    name:
+      - python3-cryptography
+    state: present
+
+# RHEL major version alone doesn't guarantee ML-DSA support (e.g. RHEL 10.2 GA's
+# python3-cryptography lacks it), so probe the actual capability instead of the OS version.
+- name: 'Check whether python-cryptography supports ML-DSA'
+  ansible.builtin.command:
+    cmd: >-
+      {{ ansible_python_interpreter | default('/usr/bin/python3') }}
+      -c 'from cryptography.hazmat.primitives.asymmetric import ml_dsa'
+  register: _certificates_ml_dsa_support
+  changed_when: false
+  failed_when: false
   when: >-
     (certificates_algorithm_sets | select('match', '^ML-DSA') | list | length > 0)
     or (certificates_client_algorithm_type is match('^ML-DSA'))
+
+- name: 'Require ML-DSA support in python-cryptography for the requested algorithms'
+  ansible.builtin.assert:
+    that: _certificates_ml_dsa_support.rc == 0
+    fail_msg: >-
+      The requested ML-DSA algorithm(s) need a python3-cryptography build with
+      ML-DSA support (missing cryptography.hazmat.primitives.asymmetric.ml_dsa).
+      This host is {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_major_version'] }}, which is not sufficient
+      on its own -- RHEL 10.2 GA, for example, ships python3-cryptography 43.0.0
+      without ML-DSA support. Upgrade python3-cryptography, or remove ML-DSA
+      entries from certificates_algorithm_sets/certificates_client_algorithm_type.
+    quiet: true
+  when: _certificates_ml_dsa_support is not skipped
 
 - name: 'Require certificates_algorithm_type to be included in certificates_algorithm_sets'
   ansible.builtin.assert:
@@ -24,12 +43,6 @@
       certificates_algorithm_type to one of its entries.
     quiet: true
   when: certificates_algorithm_sets | length > 0
-
-- name: 'Install crypto dependencies'
-  ansible.builtin.package:
-    name:
-      - python3-cryptography
-    state: present
 
 - name: 'Create base directory'
   ansible.builtin.file:

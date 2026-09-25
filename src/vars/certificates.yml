@@ -20,8 +20,10 @@ candlepin_tomcat_certificate: "{{ certificates_ca_directory }}/certs/candlepin.c
 iop_gateway_server_certificate: "{{ certificates_ca_directory }}/certs/iop-core-gateway.crt"
 iop_gateway_server_key: "{{ certificates_ca_directory }}/private/iop-core-gateway.key"
 iop_gateway_server_ca_certificate: "{{ ca_bundle }}"
-iop_gateway_client_certificate: "{{ certificates_ca_directory }}/certs/iop-core-gateway-client.crt"
-iop_gateway_client_key: "{{ certificates_ca_directory }}/private/iop-core-gateway-client.key"
+iop_gateway_client_certificate: >-
+  {{ certificates_ca_directory }}/certs/iop-core-gateway-client-{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}.crt
+iop_gateway_client_key: >-
+  {{ certificates_ca_directory }}/private/iop-core-gateway-client-{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}.key
 iop_gateway_client_ca_certificate: "{{ ca_bundle }}"
 iop_vmaas_client_ca_certificate: "{{ ca_bundle }}"
 iop_vuln_metadata_downloader_client_cert: "{{ client_certificate }}"

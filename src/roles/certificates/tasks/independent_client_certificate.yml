@@ -1,6 +1,6 @@
 ---
-# Fixed algorithm, independent of certificates_algorithm_type/_sets: this
-# link is fully internal, so it doesn't need the server dual-cert scheme.
+# Fixed algorithm, independent of certificates_algorithm_type/_sets: these are
+# fully internal links that don't need the server dual-cert scheme.
 
 - name: 'Load key parameters for the client certificate algorithm'
   ansible.builtin.include_vars: "{{ certificates_client_algorithm_type }}.yml"
@@ -16,9 +16,9 @@
   vars:
     _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
-- name: 'Create foreman-proxy client private key'
+- name: 'Create independent client private key'
   community.crypto.openssl_privatekey:
-    path: "{{ certificates_output_directory_keys }}/{{ hostname | default(ansible_facts['fqdn']) }}-client-{{ _type }}.key"
+    path: "{{ certificates_output_directory_keys }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.key"
     type: "{{ _certificates_key_parameters.type }}"
     size: "{{ _certificates_key_parameters.size | default(omit) }}"
     curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
@@ -27,23 +27,23 @@
   vars:
     _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
-- name: 'Create foreman-proxy client CSR'
+- name: 'Create independent client CSR'
   community.crypto.openssl_csr:
-    path: "{{ certificates_output_directory_requests }}/{{ hostname | default(ansible_facts['fqdn']) }}-client-{{ _type }}.csr"
-    privatekey_path: "{{ certificates_output_directory_keys }}/{{ hostname | default(ansible_facts['fqdn']) }}-client-{{ _type }}.key"
-    common_name: "{{ hostname | default(ansible_facts['fqdn']) }}"
+    path: "{{ certificates_output_directory_requests }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.csr"
+    privatekey_path: "{{ certificates_output_directory_keys }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.key"
+    common_name: "{{ _certificates_independent_client_identity }}"
     subject_alt_name:
-      - "DNS:{{ hostname | default(ansible_facts['fqdn']) }}"
+      - "DNS:{{ _certificates_independent_client_identity }}"
     key_usage: "{{ _certificates_key_usage }}"
     extended_key_usage:
       - clientAuth
   vars:
     _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
-- name: 'Sign foreman-proxy client certificate'
+- name: 'Sign independent client certificate'
   community.crypto.x509_certificate:
-    path: "{{ certificates_output_directory_certs }}/{{ hostname | default(ansible_facts['fqdn']) }}-client-{{ _type }}.crt"
-    csr_path: "{{ certificates_output_directory_requests }}/{{ hostname | default(ansible_facts['fqdn']) }}-client-{{ _type }}.csr"
+    path: "{{ certificates_output_directory_certs }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.crt"
+    csr_path: "{{ certificates_output_directory_requests }}/{{ _certificates_independent_client_identity }}-client-{{ _type }}.csr"
     provider: ownca
     ownca_path: "{{ _certificates_client_ca_cert }}"
     ownca_privatekey_path: "{{ _certificates_client_ca_key }}"

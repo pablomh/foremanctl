@@ -3,9 +3,8 @@ certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
   - candlepin
   - iop-core-gateway
-# candlepin's client cert has no consumer (it authenticates outbound calls to
-# Foreman, which candlepin never makes), so it's excluded here.
-certificates_client_hostnames: "{{ certificates_hostnames | reject('equalto', 'candlepin') | list }}"
+# candlepin has no client cert consumer; iop-core-gateway has its own independent one.
+certificates_client_hostnames: "{{ certificates_hostnames | reject('in', ['candlepin', 'iop-core-gateway']) | list }}"
 certificates_hostname_extra_sans:
   candlepin:
     - localhost
@@ -22,12 +21,12 @@ certificates_oauth_directory: /var/lib/foremanctl/oauth
 
 candlepin_ca_key: "{{ ca_key }}"
 candlepin_ca_certificate: "{{ ca_certificate }}"
-candlepin_client_key: "{{ client_key }}"
-candlepin_client_certificate: "{{ client_certificate }}"
 
 foreman_ca_certificate: "{{ ca_bundle }}"
-foreman_client_key: "{{ client_key }}"
-foreman_client_certificate: "{{ client_certificate }}"
+foreman_client_key: >-
+  {{ certificates_ca_directory }}/private/{{ foreman_name }}-client-{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}.key
+foreman_client_certificate: >-
+  {{ certificates_ca_directory }}/certs/{{ foreman_name }}-client-{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}.crt
 foreman_plugins: "{{ enabled_features | features_to_foreman_plugins }}"
 foreman_name: "{{ ansible_facts['fqdn'] }}"
 foreman_url: "https://{{ foreman_name }}"

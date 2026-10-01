@@ -61,8 +61,13 @@ def restore_outcome(server, server_hostname, backup_for_restore):
     try:
         _wait_for_target_inactive(server)
         quiesced = {timer: server.service(timer).is_running for timer in QUIESCED_TIMERS}
-    finally:
         stdout, stderr = restore_proc.communicate(timeout=RESTORE_COMPLETION_TIMEOUT)
+    except BaseException:
+        # communicate() never kills on timeout, and a failed assertion above would
+        # otherwise leave this running unattended - never leave it orphaned.
+        restore_proc.kill()
+        restore_proc.wait()
+        raise
 
     return {
         'returncode': restore_proc.returncode,

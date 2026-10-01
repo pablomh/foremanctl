@@ -151,8 +151,8 @@
         [Unit]
         Description=Host Inventory Access Tags Cleanup Job
         PartOf=foreman.target
-        Wants=iop-core-host-inventory-api.service postgresql.service
-        After=iop-core-host-inventory-api.service postgresql.service
+        Wants=iop-core-host-inventory-api.service
+        After=iop-core-host-inventory-api.service
 
 - name: Create Host Inventory Cleanup Timer
   ansible.builtin.copy:

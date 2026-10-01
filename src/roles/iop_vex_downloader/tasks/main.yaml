@@ -68,10 +68,14 @@
     daemon_reload: true
 
 
-- name: Enable and start vex download timer
+- name: Ensure vex download timer is enabled for foreman.target  # noqa: command-instead-of-module
+  ansible.builtin.command: systemctl enable iop-vex-download.timer
+  register: _iop_vex_downloader_timer_enable
+  changed_when: "'Created symlink' in _iop_vex_downloader_timer_enable.stdout"
+
+- name: Start vex download timer
   ansible.builtin.systemd:
     name: iop-vex-download.timer
-    enabled: true
     state: started
 
 - name: Enable and start vex download path watcher

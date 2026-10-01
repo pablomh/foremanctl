@@ -50,11 +50,6 @@ def backup_for_restore(server, server_hostname):
 
 
 @pytest.mark.feature("iop")
-@pytest.mark.xfail(
-    strict=True,
-    reason="IoP timers aren't scoped to foreman.target yet, so they keep running "
-           "during a restore and can race pg_restore",
-)
 def test_iop_timers_quiesced_during_restore(server, server_hostname, backup_for_restore):
     """Destructive - run against a disposable VM only."""
     restore_proc = subprocess.Popen(

@@ -150,8 +150,9 @@
       - |
         [Unit]
         Description=Host Inventory Access Tags Cleanup Job
-        Wants=iop-core-host-inventory-api.service
-        After=iop-core-host-inventory-api.service
+        PartOf=foreman.target
+        Wants=iop-core-host-inventory-api.service postgresql.service
+        After=iop-core-host-inventory-api.service postgresql.service
 
 - name: Create Host Inventory Cleanup Timer
   ansible.builtin.copy:
@@ -159,6 +160,7 @@
     content: |
       [Unit]
       Description=Host Inventory Access Tags Cleanup Timer
+      PartOf=foreman.target
 
       [Timer]
       OnBootSec=10min
@@ -167,7 +169,7 @@
       RandomizedDelaySec=300
 
       [Install]
-      WantedBy=timers.target
+      WantedBy=timers.target foreman.target
     mode: '0644'
   notify: Restart inventory
 
@@ -195,10 +197,10 @@
     - iop-core-host-inventory-cleanup.timer
   register: iop_inventory_services
 
-- name: Enable Host Inventory cleanup timer
-  ansible.builtin.systemd:
-    name: iop-core-host-inventory-cleanup.timer
-    enabled: true
+- name: Ensure Host Inventory cleanup timer is enabled for foreman.target  # noqa: command-instead-of-module
+  ansible.builtin.command: systemctl enable iop-core-host-inventory-cleanup.timer
+  register: _iop_inventory_cleanup_timer_enable
+  changed_when: "'Created symlink' in _iop_inventory_cleanup_timer_enable.stdout"
 
 - name: Wait for Host Inventory services to start
   ansible.builtin.async_status:

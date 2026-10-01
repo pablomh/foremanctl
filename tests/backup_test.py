@@ -6,6 +6,13 @@ import yaml
 
 BACKUP_DIR = "/tmp/foremanctl-backup-test"
 
+IOP_TIMERS = [
+    'iop-service-vuln-vmaas-sync.timer',
+    'iop-core-host-inventory-cleanup.timer',
+    'iop-vex-download.timer',
+    'iop-vuln-metadata-download.timer',
+]
+
 
 @pytest.fixture(scope="module")
 def expected_databases(enabled_features):
@@ -302,3 +309,10 @@ def test_health_check_passes_after_backup(server, backup_result):
     """Verify system is healthy after backup using foremanctl health check"""
     result = subprocess.run(['./foremanctl', 'health'], capture_output=True, text=True)
     assert result.returncode == 0, f"Health check should pass after backup. Output:\n{result.stdout}\n{result.stderr}"
+
+
+@pytest.mark.feature("iop")
+def test_iop_timers_resumed_after_backup(server, backup_result):
+    """IoP timers stop with foreman.target during backup and must come back once it restarts"""
+    not_resumed = [timer for timer in IOP_TIMERS if not server.service(timer).is_running]
+    assert not not_resumed, f"{not_resumed} should be running again after backup completes"

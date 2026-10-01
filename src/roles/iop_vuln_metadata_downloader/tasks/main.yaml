@@ -65,10 +65,14 @@
 - name: Flush handlers
   ansible.builtin.meta: flush_handlers
 
-- name: Enable and start vulnerability metadata download timer
+- name: Ensure vulnerability metadata download timer is enabled for foreman.target  # noqa: command-instead-of-module
+  ansible.builtin.command: systemctl enable iop-vuln-metadata-download.timer
+  register: _iop_vuln_metadata_downloader_timer_enable
+  changed_when: "'Created symlink' in _iop_vuln_metadata_downloader_timer_enable.stdout"
+
+- name: Start vulnerability metadata download timer
   ansible.builtin.systemd:
     name: iop-vuln-metadata-download.timer
-    enabled: true
     state: started
 
 - name: Enable and start vulnerability metadata download path watcher

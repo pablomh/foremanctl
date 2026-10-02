@@ -14,6 +14,7 @@ certificates_ca_subject: 'Foreman Self-signed CA'
 certificates_server_aliases: []
 certificates_hostname_extra_sans: {}
 certificates_internal_hostnames: "{{ certificates_hostname_extra_sans.keys() | list }}"
+certificates_client_hostnames: "{{ certificates_hostnames }}"
 certificates_algorithm_type: RSA
 certificates_algorithm_sets:
   - ML-DSA-65

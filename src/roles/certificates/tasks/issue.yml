@@ -1,4 +1,18 @@
 ---
+- name: 'Load key parameters for the selected algorithm'
+  ansible.builtin.include_vars: "{{ certificates_algorithm_type }}.yml"
+
+- name: 'Determine the CA cert/key paths for the selected algorithm'
+  ansible.builtin.set_fact:
+    _certificates_selected_ca_cert: >-
+      {{ (certificates_ca_directory_certs + '/ca.crt') if certificates_algorithm_sets | length == 0
+         else certificates_ca_directory_certs + '/' + _type + '-ca.crt' }}
+    _certificates_selected_ca_key: >-
+      {{ (certificates_ca_directory_keys + '/ca.key') if certificates_algorithm_sets | length == 0
+         else certificates_ca_directory_keys + '/' + _type + '-ca.key' }}
+  vars:
+    _type: "{{ certificates_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
 - name: Issue server certificate
   when:
     - (certificates_source != 'custom_server') or (certificates_hostname in (certificates_internal_hostnames | list))
@@ -11,8 +25,10 @@
     - name: 'Create server private key'
       community.crypto.openssl_privatekey:
         path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}.key"
-        type: "{{ certificates_algorithm_type }}"
-        size: "{{ certificates_algorithm_size }}"
+        type: "{{ _certificates_key_parameters.type }}"
+        size: "{{ _certificates_key_parameters.size | default(omit) }}"
+        curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
+        format: "{{ _certificates_key_parameters.format | default(omit) }}"
         mode: '0600'
 
     - name: 'Create server CSR'
@@ -21,9 +37,7 @@
         privatekey_path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}.key"
         common_name: "{{ certificates_hostname }}"
         subject_alt_name: "{{ _certificates_desired_server_sans }}"
-        key_usage:
-          - digitalSignature
-          - keyEncipherment
+        key_usage: "{{ _certificates_key_usage }}"
         extended_key_usage:
           - serverAuth
 
@@ -40,37 +54,40 @@
         path: "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}.crt"
         csr_path: "{{ certificates_output_directory_requests }}/{{ certificates_hostname }}.csr"
         provider: ownca
-        ownca_path: "{{ certificates_ca_directory_certs }}/ca.crt"
-        ownca_privatekey_path: "{{ certificates_ca_directory_keys }}/ca.key"
+        ownca_path: "{{ _certificates_selected_ca_cert }}"
+        ownca_privatekey_path: "{{ _certificates_selected_ca_key }}"
         ownca_not_after: "+{{ certificates_validity_days }}d"
         force: "{{ (certificates_renew | bool) or (_certificates_missing_sans | length > 0) }}"
 
-- name: 'Create client private key'
-  community.crypto.openssl_privatekey:
-    path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}-client.key"
-    type: "{{ certificates_algorithm_type }}"
-    size: "{{ certificates_algorithm_size }}"
-    mode: '0600'
+- name: 'Issue client certificate'
+  when: certificates_hostname in certificates_client_hostnames
+  block:
+    - name: 'Create client private key'
+      community.crypto.openssl_privatekey:
+        path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}-client.key"
+        type: "{{ _certificates_key_parameters.type }}"
+        size: "{{ _certificates_key_parameters.size | default(omit) }}"
+        curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
+        format: "{{ _certificates_key_parameters.format | default(omit) }}"
+        mode: '0600'
 
-- name: 'Create client CSR'
-  community.crypto.openssl_csr:
-    path: "{{ certificates_output_directory_requests }}/{{ certificates_hostname }}-client.csr"
-    privatekey_path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}-client.key"
-    common_name: "{{ certificates_hostname }}"
-    subject_alt_name:
-      - "DNS:{{ certificates_hostname }}"
-    key_usage:
-      - digitalSignature
-      - keyEncipherment
-    extended_key_usage:
-      - clientAuth
+    - name: 'Create client CSR'
+      community.crypto.openssl_csr:
+        path: "{{ certificates_output_directory_requests }}/{{ certificates_hostname }}-client.csr"
+        privatekey_path: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}-client.key"
+        common_name: "{{ certificates_hostname }}"
+        subject_alt_name:
+          - "DNS:{{ certificates_hostname }}"
+        key_usage: "{{ _certificates_key_usage }}"
+        extended_key_usage:
+          - clientAuth
 
-- name: 'Sign client certificate'
-  community.crypto.x509_certificate:
-    path: "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}-client.crt"
-    csr_path: "{{ certificates_output_directory_requests }}/{{ certificates_hostname }}-client.csr"
-    provider: ownca
-    ownca_path: "{{ certificates_ca_directory }}/certs/ca.crt"
-    ownca_privatekey_path: "{{ certificates_ca_directory }}/private/ca.key"
-    ownca_not_after: "+{{ certificates_validity_days }}d"
-    force: "{{ certificates_renew | bool }}"
+    - name: 'Sign client certificate'
+      community.crypto.x509_certificate:
+        path: "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}-client.crt"
+        csr_path: "{{ certificates_output_directory_requests }}/{{ certificates_hostname }}-client.csr"
+        provider: ownca
+        ownca_path: "{{ _certificates_selected_ca_cert }}"
+        ownca_privatekey_path: "{{ _certificates_selected_ca_key }}"
+        ownca_not_after: "+{{ certificates_validity_days }}d"
+        force: "{{ certificates_renew | bool }}"

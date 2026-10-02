@@ -1,0 +1,40 @@
+---
+variables:
+  certificates_algorithm_type:
+    help: Algorithm used for the keys of the generated certificates.
+    parameter: --certificate-algorithm
+    choices:
+      - RSA
+      - ECC
+      - ML-DSA-65
+      - ML-DSA-87
+  certificates_algorithm_sets:
+    help: >-
+      Additional TLS certificate algorithms to deploy alongside
+      the primary certificate. Enables dual-cert mode so both
+      RSA/ECC and ML-DSA clients are served.
+    parameter: --certificate-algorithm-sets
+    action: append_unique
+    choices:
+      - RSA
+      - ECC
+      - ML-DSA-65
+      - ML-DSA-87
+  certificates_algorithm_rsa_size:
+    help: Key size of the generated certificates. Only applies to RSA.
+    parameter: --certificate-algorithm-rsa-size
+  certificates_algorithm_ecc_curve:
+    help: "Elliptic curve of the generated certificates. Only applies to ECC. One of: secp256r1, secp384r1, secp521r1."
+    parameter: --certificate-algorithm-ecc-curve
+    choices:
+      - secp256r1
+      - secp384r1
+      - secp521r1
+  certificates_client_algorithm_type:
+    help: Algorithm for the foreman-proxy-to-Foreman client certificate.
+    parameter: --certificate-client-algorithm
+    choices:
+      - RSA
+      - ECC
+      - ML-DSA-65
+      - ML-DSA-87

@@ -2,8 +2,8 @@
 certificates_ca_directory: /var/lib/foremanctl/certs
 certificates_server_aliases: "{{ server_aliases | default([]) }}"
 ca_key: "{{ certificates_ca_directory }}/private/ca.key"
-ca_certificate: "{{ certificates_ca_directory }}/certs/ca.crt"
 ca_bundle: "{{ certificates_ca_directory }}/certs/ca-bundle.crt"
+ca_certificate: "{{ ca_bundle }}"
 server_certificate: "{{ certificates_ca_directory }}/certs/{{ ansible_facts['fqdn'] }}.crt"
 server_key: "{{ certificates_ca_directory }}/private/{{ ansible_facts['fqdn'] }}.key"
 server_ca_certificate: "{{ ca_bundle }}"

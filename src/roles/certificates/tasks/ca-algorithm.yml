@@ -18,7 +18,7 @@
   community.crypto.openssl_csr:
     path: "{{ certificates_ca_directory_requests }}/{{ _type }}-ca.csr"
     privatekey_path: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
-    common_name: "Foreman Self-signed {{ algorithm }} CA"
+    common_name: "{{ certificates_ca_subject }} ({{ algorithm }})"
     use_common_name_for_san: false
     basic_constraints:
       - 'CA:TRUE'

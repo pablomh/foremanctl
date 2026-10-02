@@ -12,8 +12,9 @@ candlepin.auth.oauth.consumer.katello.secret={{ candlepin_oauth_secret }}
 module.config.adapter_module=org.candlepin.katello.KatelloModule
 
 {% if certificates_algorithm_sets | length > 0 %}
-candlepin.ca_key=/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[certificates_algorithm_type].file_suffix }}-ca.key
-candlepin.ca_cert=/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[certificates_algorithm_type].file_suffix }}-ca.crt
+{% set _candlepin_legacy_algorithm = 'RSA' if 'RSA' in certificates_algorithm_sets else certificates_algorithm_type %}
+candlepin.ca_key=/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[_candlepin_legacy_algorithm].file_suffix }}-ca.key
+candlepin.ca_cert=/etc/candlepin/certs/candlepin-{{ _candlepin_algorithms[_candlepin_legacy_algorithm].file_suffix }}-ca.crt
 
 candlepin.crypto.schemes={{ certificates_algorithm_sets | map('extract', _candlepin_algorithms) | map(attribute='scheme_id') | list | join(',') }}
 candlepin.crypto.default_scheme=legacy
@@ -30,13 +31,12 @@ candlepin.crypto.scheme.{{ sid }}.key_size={{ _candlepin_algorithms[algorithm].s
 {% endif %}
 
 {% endfor %}
-{% if certificates_algorithm_type != 'RSA' %}
+{% if _candlepin_legacy_algorithm != 'RSA' %}
 
-# Non-RSA primary algorithm: redefine the "legacy" scheme to match (default is SHA256withRSA).
-candlepin.crypto.scheme.legacy.key_algorithm={{ _candlepin_algorithms[certificates_algorithm_type].scheme_key }}
-candlepin.crypto.scheme.legacy.signature_algorithm={{ _candlepin_algorithms[certificates_algorithm_type].scheme_signature }}
-{% if _candlepin_algorithms[certificates_algorithm_type].scheme_key_size is defined and _candlepin_algorithms[certificates_algorithm_type].scheme_key_size %}
-candlepin.crypto.scheme.legacy.key_size={{ _candlepin_algorithms[certificates_algorithm_type].scheme_key_size }}
+candlepin.crypto.scheme.legacy.key_algorithm={{ _candlepin_algorithms[_candlepin_legacy_algorithm].scheme_key }}
+candlepin.crypto.scheme.legacy.signature_algorithm={{ _candlepin_algorithms[_candlepin_legacy_algorithm].scheme_signature }}
+{% if _candlepin_algorithms[_candlepin_legacy_algorithm].scheme_key_size is defined and _candlepin_algorithms[_candlepin_legacy_algorithm].scheme_key_size %}
+candlepin.crypto.scheme.legacy.key_size={{ _candlepin_algorithms[_candlepin_legacy_algorithm].scheme_key_size }}
 {% endif %}
 {% endif %}
 {% else %}

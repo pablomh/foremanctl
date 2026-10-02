@@ -69,6 +69,19 @@
     state: directory
     mode: '0755'
 
+- name: 'Remove unused localhost certificate files'
+  # Clean up possible leftovers from a previous foremanctl version.
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ certificates_output_directory_certs }}/localhost.crt"
+    - "{{ certificates_output_directory_keys }}/localhost.key"
+    - "{{ certificates_output_directory_requests }}/localhost.csr"
+    - "{{ certificates_output_directory_certs }}/localhost-client.crt"
+    - "{{ certificates_output_directory_keys }}/localhost-client.key"
+    - "{{ certificates_output_directory_requests }}/localhost-client.csr"
+
 - name: 'Generate certificates'
   when:
     - auth_bundle is not defined

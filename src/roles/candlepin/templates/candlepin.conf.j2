@@ -30,6 +30,15 @@ candlepin.crypto.scheme.{{ sid }}.key_size={{ _candlepin_algorithms[algorithm].s
 {% endif %}
 
 {% endfor %}
+{% if certificates_algorithm_type != 'RSA' %}
+
+# Non-RSA primary algorithm: redefine the "legacy" scheme to match (default is SHA256withRSA).
+candlepin.crypto.scheme.legacy.key_algorithm={{ _candlepin_algorithms[certificates_algorithm_type].scheme_key }}
+candlepin.crypto.scheme.legacy.signature_algorithm={{ _candlepin_algorithms[certificates_algorithm_type].scheme_signature }}
+{% if _candlepin_algorithms[certificates_algorithm_type].scheme_key_size is defined and _candlepin_algorithms[certificates_algorithm_type].scheme_key_size %}
+candlepin.crypto.scheme.legacy.key_size={{ _candlepin_algorithms[certificates_algorithm_type].scheme_key_size }}
+{% endif %}
+{% endif %}
 {% else %}
 candlepin.ca_key=/etc/candlepin/certs/candlepin-ca.key
 candlepin.ca_cert=/etc/candlepin/certs/candlepin-ca.crt

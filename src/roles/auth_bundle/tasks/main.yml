@@ -32,9 +32,17 @@
     - name: Copy default CA certificate
       ansible.builtin.copy:
         src: "{{ auth_bundle_ca_certificate }}"
-        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/ca.crt"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_ca_certificate | basename }}"
         remote_src: true
         mode: '0444'
+
+    - name: Copy server CA certificate
+      ansible.builtin.copy:
+        src: "{{ auth_bundle_server_ca_certificate }}"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_server_ca_certificate | basename }}"
+        remote_src: true
+        mode: '0444'
+      when: auth_bundle_server_ca_certificate != auth_bundle_ca_certificate
 
     - name: Copy CA bundle
       ansible.builtin.copy:

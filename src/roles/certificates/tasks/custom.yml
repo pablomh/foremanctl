@@ -1,4 +1,18 @@
 ---
+- name: 'Inspect the provided custom server key to determine its algorithm'
+  community.crypto.openssl_privatekey_info:
+    path: "{{ certificates_custom_server_key }}"
+  register: _certificates_custom_key_info
+
+- name: 'Fail when the provided certificate algorithm differs from the requested one'
+  ansible.builtin.fail:
+    msg: >-
+      The provided --certificate-server-key uses {{ _certificates_custom_key_info.type }},
+      but --certificate-algorithm requested {{ certificates_algorithm_type }}. Pass
+      --certificate-algorithm {{ _certificates_custom_key_info.type }} to match the
+      provided certificate.
+  when: _certificates_custom_key_info.type != certificates_algorithm_type
+
 - name: Copy custom server certificate
   ansible.builtin.copy:
     src: "{{ certificates_custom_server_certificate }}"

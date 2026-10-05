@@ -42,6 +42,7 @@ httpd_pulp_content_backend: "unix://{{ pulp_content_listen_stream }}|http://pulp
 
 httpd_server_ca_certificate: "{{ server_ca_certificate }}"
 httpd_client_ca_certificate: "{{ client_ca_certificate }}"
+httpd_ca_bundle: "{{ ca_bundle }}"
 httpd_server_certificate: "{{ server_certificate }}"
 httpd_server_key: "{{ server_key }}"
 httpd_enabled_pulp_snippets: "{{ ['pypi'] if 'pulp_python' in pulp_plugins else [] }}"

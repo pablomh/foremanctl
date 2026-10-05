@@ -17,6 +17,12 @@ _candlepin_algorithms:
       {{ _candlepin_ec_curve_key_sizes[certificates_algorithm_ecc_curve] | default('') }}
     file_suffix: ecc
     scheme_id: ecc
+  ML-DSA-65:
+    cert_type: MLDSA
+    scheme_signature: ML-DSA-65
+    scheme_key: ML-DSA-65
+    file_suffix: mldsa-65
+    scheme_id: mldsa65
   ML-DSA-87:
     cert_type: MLDSA
     scheme_signature: ML-DSA-87

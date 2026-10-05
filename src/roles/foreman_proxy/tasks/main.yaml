@@ -16,14 +16,7 @@
     sdnotify: true
     network: host
     hostname: "{{ ansible_facts['hostname'] }}.local"
-    secrets:
-      - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'
-      - 'foreman-proxy-ssl-ca,type=mount,target=/etc/foreman-proxy/ssl_ca.pem'
-      - 'foreman-proxy-ssl-cert,type=mount,target=/etc/foreman-proxy/ssl_cert.pem'
-      - 'foreman-proxy-ssl-key,type=mount,target=/etc/foreman-proxy/ssl_key.pem'
-      - 'foreman-proxy-foreman-ssl-ca,type=mount,target=/etc/foreman-proxy/foreman_ssl_ca.pem'
-      - 'foreman-proxy-foreman-ssl-cert,type=mount,target=/etc/foreman-proxy/foreman_ssl_cert.pem'
-      - 'foreman-proxy-foreman-ssl-key,type=mount,target=/etc/foreman-proxy/foreman_ssl_key.pem'
+    secrets: "{{ _foreman_proxy_static_secrets + _foreman_proxy_additional_cert_secrets }}"
     quadlet_options:
       - "HttpProxy=false"
       - |
@@ -31,6 +24,21 @@
         WantedBy=default.target foreman.target
         [Unit]
         PartOf=foreman.target
+  vars:
+    _foreman_proxy_static_secrets:
+      - 'foreman-proxy-settings-yml,type=mount,target=/etc/foreman-proxy/settings.yml'
+      - 'foreman-proxy-ssl-ca,type=mount,target=/etc/foreman-proxy/ssl_ca.pem'
+      - 'foreman-proxy-ssl-cert,type=mount,target=/etc/foreman-proxy/ssl_cert_{{ foreman_proxy_primary_cert_type }}.pem'
+      - 'foreman-proxy-ssl-key,type=mount,target=/etc/foreman-proxy/ssl_key_{{ foreman_proxy_primary_cert_type }}.pem'
+      - 'foreman-proxy-foreman-ssl-ca,type=mount,target=/etc/foreman-proxy/foreman_ssl_ca.pem'
+      - 'foreman-proxy-foreman-ssl-cert,type=mount,target=/etc/foreman-proxy/foreman_ssl_cert.pem'
+      - 'foreman-proxy-foreman-ssl-key,type=mount,target=/etc/foreman-proxy/foreman_ssl_key.pem'
+    _foreman_proxy_additional_cert_secrets: "{{ (_foreman_proxy_additional_cert_lines | from_yaml) or [] }}"
+    _foreman_proxy_additional_cert_lines: |
+      {% for t in foreman_proxy_additional_cert_types %}
+      - foreman-proxy-ssl-cert-{{ t }},type=mount,target=/etc/foreman-proxy/ssl_cert_{{ t }}.pem
+      - foreman-proxy-ssl-key-{{ t }},type=mount,target=/etc/foreman-proxy/ssl_key_{{ t }}.pem
+      {% endfor %}
   notify: Restart Foreman Proxy
 
 - name: Create foreman-proxy.container.d folder

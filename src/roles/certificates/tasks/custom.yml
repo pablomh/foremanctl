@@ -1,4 +1,18 @@
 ---
+- name: 'Inspect the provided custom server key to determine its algorithm'
+  community.crypto.openssl_privatekey_info:
+    path: "{{ certificates_custom_server_key }}"
+  register: _certificates_custom_key_info
+
+- name: 'Fail when the provided certificate algorithm differs from the requested one'
+  ansible.builtin.fail:
+    msg: >-
+      The provided --certificate-server-key uses {{ _certificates_custom_key_info.type }},
+      but --add-certificate-algorithm requested {{ certificates_primary_algorithm }}. Pass
+      --add-certificate-algorithm {{ _certificates_custom_key_info.type }} to match the
+      provided certificate.
+  when: _certificates_custom_key_info.type != certificates_primary_algorithm
+
 - name: Copy custom server certificate
   ansible.builtin.copy:
     src: "{{ certificates_custom_server_certificate }}"
@@ -12,6 +26,27 @@
     dest: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}.key"
     remote_src: true
     mode: '0440'
+
+# host.yml skips generating the primary algorithm's typed cert here, so it must come from the custom cert.
+- name: Copy custom server certificate to its typed name
+  ansible.builtin.copy:
+    src: "{{ certificates_custom_server_certificate }}"
+    dest: "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}-{{ _type }}.crt"
+    remote_src: true
+    mode: '0444'
+  vars:
+    _type: "{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+  when: certificates_enabled_algorithms | length > 1
+
+- name: Copy custom server key to its typed name
+  ansible.builtin.copy:
+    src: "{{ certificates_custom_server_key }}"
+    dest: "{{ certificates_output_directory_keys }}/{{ certificates_hostname }}-{{ _type }}.key"
+    remote_src: true
+    mode: '0440'
+  vars:
+    _type: "{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+  when: certificates_enabled_algorithms | length > 1
 
 - name: Copy custom server CA certificate
   ansible.builtin.copy:

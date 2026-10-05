@@ -13,10 +13,11 @@ certificates_output_directory_requests: "{{ certificates_output_directory }}/req
 certificates_ca_subject: 'Foreman Self-signed CA'
 certificates_server_aliases: []
 certificates_hostname_extra_sans: {}
-certificates_internal_hostnames: "{{ ['localhost'] + (certificates_hostname_extra_sans.keys() | list) }}"
+certificates_internal_hostnames: "{{ certificates_hostname_extra_sans.keys() | list }}"
 certificates_algorithms: []
 certificates_default_algorithms:
   - RSA
+  - ML-DSA-87
 certificates_enabled_algorithms: >-
   {{ certificates_algorithms if certificates_algorithms | length > 0
      else certificates_default_algorithms }}

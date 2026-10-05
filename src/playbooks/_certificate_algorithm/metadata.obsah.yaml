@@ -18,3 +18,10 @@ variables:
       - secp256r1
       - secp384r1
       - secp521r1
+  certificates_client_algorithm_type:
+    help: Algorithm for the foreman-proxy-to-Foreman client certificate.
+    parameter: --certificate-client-algorithm
+    choices:
+      - RSA
+      - ECC
+      - ML-DSA-87

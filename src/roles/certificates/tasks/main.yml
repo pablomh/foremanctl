@@ -69,6 +69,17 @@
     - "{{ certificates_output_directory_keys }}/localhost-client.key"
     - "{{ certificates_output_directory_requests }}/localhost-client.csr"
 
+- name: 'Require the client certificate algorithm to have a CA in multi-scheme mode'
+  ansible.builtin.assert:
+    that: certificates_client_algorithm_type in certificates_enabled_algorithms
+    fail_msg: >-
+      certificates_client_algorithm_type ({{ certificates_client_algorithm_type }}) has no CA to
+      sign against unless it's also one of certificates_enabled_algorithms
+      ({{ certificates_enabled_algorithms | join(', ') }}). Add it via --add-certificate-algorithm
+      or change --certificate-client-algorithm to match.
+    quiet: true
+  when: certificates_enabled_algorithms | length > 1
+
 - name: 'Generate certificates'
   when:
     - auth_bundle is not defined
@@ -86,6 +97,14 @@
       with_items: "{{ certificates_hostnames }}"
       loop_control:
         loop_var: certificates_hostname
+
+    - name: Issue independent-algorithm client certificates for internal links
+      ansible.builtin.include_tasks: independent_client_certificate.yml
+      loop: >-
+        {{ [hostname | default(ansible_facts['fqdn'])]
+           + (['iop-core-gateway'] if hostname is not defined else []) }}
+      loop_control:
+        loop_var: _certificates_independent_client_identity
 
     - name: Create CA bundle with internal CA(s) and custom server CA
       ansible.builtin.assemble:

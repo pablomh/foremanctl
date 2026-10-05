@@ -20,7 +20,6 @@ candlepin_oauth_secret: "{{ lookup('ansible.builtin.password', candlepin_oauth_s
 certificates_oauth_directory: /var/lib/foremanctl/oauth
 
 candlepin_ca_key: "{{ ca_key }}"
-candlepin_ca_certificate: "{{ ca_certificate }}"
 
 foreman_ca_certificate: "{{ ca_bundle }}"
 foreman_client_key: >-

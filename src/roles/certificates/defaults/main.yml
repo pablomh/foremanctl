@@ -18,7 +18,7 @@ certificates_client_hostnames: "{{ certificates_hostnames | default([]) }}"
 certificates_algorithms: []
 certificates_default_algorithms:
   - RSA
-  - ML-DSA-87
+  - ML-DSA-65
 certificates_enabled_algorithms: >-
   {{ certificates_algorithms if certificates_algorithms | length > 0
      else certificates_default_algorithms }}
@@ -26,7 +26,7 @@ certificates_primary_algorithm: "{{ certificates_enabled_algorithms[0] }}"
 certificates_algorithm_rsa_size: 4096
 certificates_algorithm_ecc_curve: secp384r1
 # Internal-link client certs (foreman-proxy, iop-core-gateway), independent of the server algorithm list.
-certificates_client_algorithm_type: ML-DSA-87
+certificates_client_algorithm_type: ML-DSA-65
 certificates_ca_validity_days: 7300
 certificates_validity_days: 7300
 certificates_renew: false

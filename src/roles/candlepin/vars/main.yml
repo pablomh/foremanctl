@@ -23,6 +23,12 @@ _candlepin_algorithms:
     scheme_key: ML-DSA-87
     file_suffix: mldsa-87
     scheme_id: mldsa87
+  ML-DSA-65:
+    cert_type: MLDSA
+    scheme_signature: ML-DSA-65
+    scheme_key: ML-DSA-65
+    file_suffix: mldsa-65
+    scheme_id: mldsa65
 
 # EC keys are sized in Candlepin by bit length; map the curves we offer to the
 # matching NIST key size so Candlepin issues keys on the same curve as the CA.

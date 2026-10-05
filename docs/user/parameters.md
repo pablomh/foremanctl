@@ -76,10 +76,10 @@ There are multiple use cases from the users perspective that dictate what parame
 
 | Parameter | Description |
 | ----------| ----------- |
-| `--add-certificate-algorithm` | Key algorithm for a generated server certificate. May be specified multiple times to generate a certificate per algorithm (dual-cert); clients then negotiate whichever one their TLS stack supports. Accepted values: `RSA`, `ECC` & `ML-DSA-87`. Defaults to `RSA` and `ML-DSA-87`. |
+| `--add-certificate-algorithm` | Key algorithm for a generated server certificate. May be specified multiple times to generate a certificate per algorithm (dual-cert); clients then negotiate whichever one their TLS stack supports. Accepted values: `RSA`, `ECC`, `ML-DSA-87` & `ML-DSA-65`. Defaults to `RSA` and `ML-DSA-65`. |
 | `--certificate-algorithm-rsa-size` | Key size of the generated certificates. Only applies to RSA. Defaults to `4096`. |
 | `--certificate-algorithm-ecc-curve` | Elliptic curve of the generated certificates. Only applies to ECC. Defaults to `secp384r1`. |
-| `--certificate-client-algorithm` | Key algorithm for the independent client certificate used on internal links (foreman-proxy-to-Foreman, iop-core-gateway-to-Foreman), separate from `--add-certificate-algorithm`. Accepted values: `RSA`, `ECC` & `ML-DSA-87`. Defaults to `ML-DSA-87`. |
+| `--certificate-client-algorithm` | Key algorithm for the independent client certificate used on internal links (foreman-proxy-to-Foreman, iop-core-gateway-to-Foreman), separate from `--add-certificate-algorithm`. Accepted values: `RSA`, `ECC`, `ML-DSA-87` & `ML-DSA-65`. Defaults to `ML-DSA-65`. |
 
 ##### Unmapped
 

@@ -8,6 +8,7 @@ variables:
       - RSA
       - ECC
       - ML-DSA-87
+      - ML-DSA-65
   certificates_algorithm_rsa_size:
     help: Key size of the generated certificates. Only applies to RSA.
     parameter: --certificate-algorithm-rsa-size
@@ -25,3 +26,4 @@ variables:
       - RSA
       - ECC
       - ML-DSA-87
+      - ML-DSA-65

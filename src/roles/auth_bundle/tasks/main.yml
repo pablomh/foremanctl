@@ -32,23 +32,33 @@
     - name: Copy default CA certificate
       ansible.builtin.copy:
         src: "{{ auth_bundle_ca_certificate }}"
-        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/ca.crt"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_ca_certificate | basename }}"
         remote_src: true
         mode: '0444'
 
     - name: Copy server CA certificate
       ansible.builtin.copy:
         src: "{{ auth_bundle_server_ca_certificate }}"
-        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/server-ca.crt"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_server_ca_certificate | basename }}"
+        remote_src: true
+        mode: '0444'
+      when: auth_bundle_server_ca_certificate != auth_bundle_ca_certificate
+
+    # Consumers hard-reference internal_ca_bundle's path, so it must ship even when == ca_bundle.
+    - name: Copy internal CA bundle
+      ansible.builtin.copy:
+        src: "{{ auth_bundle_internal_ca_bundle }}"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/internal-ca-bundle.crt"
         remote_src: true
         mode: '0444'
 
     - name: Copy CA bundle
       ansible.builtin.copy:
         src: "{{ auth_bundle_ca_bundle }}"
-        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/ca-bundle.crt"
+        dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_ca_bundle | basename }}"
         remote_src: true
         mode: '0444'
+      when: auth_bundle_ca_bundle != auth_bundle_internal_ca_bundle
 
     - name: Copy server certificate
       ansible.builtin.copy:
@@ -77,6 +87,65 @@
         dest: "{{ auth_bundle_build_directory.path }}/certs/private/{{ auth_bundle_hostname }}-client.key"
         remote_src: true
         mode: '0440'
+
+    - name: 'Copy per-algorithm server certificate and key'
+      when: certificates_enabled_algorithms | length > 1
+      block:
+        # Consumers (e.g. httpd's per-algorithm cert chain) need every enabled
+        # algorithm's own CA, not just the primary one shipped above.
+        - name: Copy per-algorithm CA certificate
+          ansible.builtin.copy:
+            src: "{{ auth_bundle_ca_certificate | dirname }}/{{ _type }}-ca.crt"
+            dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ _type }}-ca.crt"
+            remote_src: true
+            mode: '0444'
+          loop: "{{ certificates_enabled_algorithms }}"
+          loop_control:
+            loop_var: algorithm
+          vars:
+            _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+        - name: Copy per-algorithm server certificate
+          ansible.builtin.copy:
+            src: "{{ auth_bundle_server_certificate | dirname }}/{{ auth_bundle_hostname }}-{{ _type }}.crt"
+            dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_hostname }}-{{ _type }}.crt"
+            remote_src: true
+            mode: '0444'
+          loop: "{{ certificates_enabled_algorithms }}"
+          loop_control:
+            loop_var: algorithm
+          vars:
+            _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+        - name: Copy per-algorithm server key
+          ansible.builtin.copy:
+            src: "{{ auth_bundle_server_key | dirname }}/{{ auth_bundle_hostname }}-{{ _type }}.key"
+            dest: "{{ auth_bundle_build_directory.path }}/certs/private/{{ auth_bundle_hostname }}-{{ _type }}.key"
+            remote_src: true
+            mode: '0440'
+          loop: "{{ certificates_enabled_algorithms }}"
+          loop_control:
+            loop_var: algorithm
+          vars:
+            _type: "{{ algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+
+    - name: 'Copy foreman-proxy client certificate and key'
+      vars:
+        _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+      block:
+        - name: Copy foreman-proxy client certificate
+          ansible.builtin.copy:
+            src: "{{ auth_bundle_server_certificate | dirname }}/{{ auth_bundle_hostname }}-client-{{ _type }}.crt"
+            dest: "{{ auth_bundle_build_directory.path }}/certs/certs/{{ auth_bundle_hostname }}-client-{{ _type }}.crt"
+            remote_src: true
+            mode: '0444'
+
+        - name: Copy foreman-proxy client key
+          ansible.builtin.copy:
+            src: "{{ auth_bundle_server_key | dirname }}/{{ auth_bundle_hostname }}-client-{{ _type }}.key"
+            dest: "{{ auth_bundle_build_directory.path }}/certs/private/{{ auth_bundle_hostname }}-client-{{ _type }}.key"
+            remote_src: true
+            mode: '0440'
 
     - name: Copy OAuth consumer key
       ansible.builtin.copy:

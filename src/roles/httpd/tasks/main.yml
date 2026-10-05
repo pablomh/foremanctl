@@ -60,20 +60,82 @@
     remote_src: true
     mode: "0640"
   loop:
-    - src: "{{ httpd_server_ca_certificate }}"
+    - src: "{{ httpd_ca_bundle }}"
       dest: "certs/katello-server-ca.crt"
     - src: "{{ httpd_client_ca_certificate }}"
       dest: "certs/katello-default-ca.crt"
-    - src: "{{ httpd_server_certificate }}"
-      dest: "certs/katello-apache.crt"
-    - src: "{{ httpd_server_key }}"
-      dest: "private/katello-apache.key"
+  notify:
+    - Restart httpd
+
+- name: Deploy single-algorithm server certificate chain and key
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.file', httpd_server_certificate) }}\n{{ lookup('ansible.builtin.file', httpd_server_ca_certificate) }}\n"
+    dest: "{{ httpd_ssl_dir }}/certs/katello-apache-{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}.crt"
+    mode: "0640"
+  when: certificates_enabled_algorithms | length == 1
+  notify:
+    - Restart httpd
+
+- name: Deploy single-algorithm server key
+  ansible.builtin.copy:
+    src: "{{ httpd_server_key }}"
+    dest: "{{ httpd_ssl_dir }}/private/katello-apache-{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}.key"
+    remote_src: true
+    mode: "0640"
+  when: certificates_enabled_algorithms | length == 1
+  notify:
+    - Restart httpd
+
+# Each leaf embeds its own matching CA (a shared chain file would be wrong for every leaf but one).
+- name: Deploy per-algorithm server certificate chains
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.file', cert_src) }}\n{{ lookup('ansible.builtin.file', ca_src) }}\n"
+    dest: "{{ httpd_ssl_dir }}/certs/katello-apache-{{ _type }}.crt"
+    mode: "0640"
+  loop: "{{ certificates_enabled_algorithms }}"
+  vars:
+    _type: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    cert_src: "{{ certificates_output_directory_certs }}/{{ ansible_facts['fqdn'] }}-{{ _type }}.crt"
+    ca_src: >-
+      {% if item == certificates_primary_algorithm and certificates_source == 'custom_server' %}{{ httpd_server_ca_certificate }}
+      {%- else %}{{ certificates_ca_directory_certs }}/{{ _type }}-ca.crt{% endif %}
+  when: certificates_enabled_algorithms | length > 1
+  notify:
+    - Restart httpd
+
+- name: Deploy per-algorithm server private keys
+  ansible.builtin.copy:
+    src: "{{ src }}"
+    dest: "{{ httpd_ssl_dir }}/{{ dest }}"
+    remote_src: true
+    mode: "0640"
+  loop: "{{ certificates_enabled_algorithms }}"
+  vars:
+    _type: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    src: "{{ certificates_output_directory_keys }}/{{ ansible_facts['fqdn'] }}-{{ _type }}.key"
+    dest: "private/katello-apache-{{ _type }}.key"
+  when: certificates_enabled_algorithms | length > 1
+  notify:
+    - Restart httpd
+
+- name: Deploy per-algorithm server private keys
+  ansible.builtin.copy:
+    src: "{{ src }}"
+    dest: "{{ httpd_ssl_dir }}/{{ dest }}"
+    remote_src: true
+    mode: "0640"
+  loop: "{{ certificates_enabled_algorithms }}"
+  vars:
+    _type: "{{ item | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+    src: "{{ certificates_output_directory_keys }}/{{ ansible_facts['fqdn'] }}-{{ _type }}.key"
+    dest: "private/katello-apache-{{ _type }}.key"
+  when: certificates_enabled_algorithms | length > 1
   notify:
     - Restart httpd
 
 - name: Copy CA certificate to pub directory for client trust
   ansible.builtin.copy:
-    src: "{{ httpd_server_ca_certificate }}"
+    src: "{{ httpd_ca_bundle }}"
     dest: "{{ httpd_pub_dir }}/katello-server-ca.crt"
     remote_src: true
     mode: "0644"

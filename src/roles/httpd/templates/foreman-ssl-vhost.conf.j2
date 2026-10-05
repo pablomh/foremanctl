@@ -43,9 +43,11 @@
 
   ## SSL directives
   SSLEngine on
-  SSLCertificateFile      "{{ httpd_ssl_dir }}/certs/katello-apache.crt"
-  SSLCertificateKeyFile   "{{ httpd_ssl_dir }}/private/katello-apache.key"
-  SSLCertificateChainFile "{{ httpd_ssl_dir }}/certs/katello-server-ca.crt"
+{% for algorithm in certificates_enabled_algorithms %}
+{% set _type = algorithm | lower | regex_replace('^ml-dsa', 'mldsa') %}
+  SSLCertificateFile      "{{ httpd_ssl_dir }}/certs/katello-apache-{{ _type }}.crt"
+  SSLCertificateKeyFile   "{{ httpd_ssl_dir }}/private/katello-apache-{{ _type }}.key"
+{% endfor %}
   SSLVerifyClient         optional
   SSLVerifyDepth          3
   SSLCACertificateFile    "{{ httpd_ssl_dir }}/certs/katello-default-ca.crt"

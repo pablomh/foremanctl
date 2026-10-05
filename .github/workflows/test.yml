@@ -145,7 +145,7 @@ jobs:
           ./foremanctl deploy \
             --certificate-source=${{ matrix.certificate_source }} \
             ${{ matrix.database == 'external' && '--database-mode=external --database-host=database.example.com --database-ssl-ca $(pwd)/.var/lib/foremanctl/db-ca.crt --database-ssl-mode verify-full' || '' }} \
-            ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/ca.crt' || '' }} \
+            ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/rsa-ca.crt' || '' }} \
             --initial-admin-password=changeme \
             --initial-organization "Foreman CI" \
             --initial-location "Internet" \
@@ -437,6 +437,13 @@ jobs:
             certificate_algorithm: ML-DSA-87
             security: none
             box: centos/stream10
+          # Multi-scheme (dual-cert): certificates_enabled_algorithms has more than
+          # one entry, exercising the per-algorithm CA/cert/secret code paths that
+          # the single-algorithm legs above never touch.
+          - certificate_source: default
+            certificate_algorithm: "RSA ML-DSA-65"
+            security: none
+            box: centos/stream10
     env:
       FOREMANCTL_BASE_BOX: ${{ matrix.box }}
     runs-on: ubuntu-24.04
@@ -480,8 +487,8 @@ jobs:
         run: |
           ./foremanctl deploy \
             --certificate-source=${{ matrix.certificate_source }} \
-            --add-certificate-algorithm=${{ matrix.certificate_algorithm }} \
-            ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/ca.crt' || '' }} \
+            $(for alg in ${{ matrix.certificate_algorithm }}; do echo -n "--add-certificate-algorithm=$alg "; done) \
+            ${{ matrix.certificate_source == 'custom_server' && '--certificate-server-certificate /root/custom-certificates/certs/quadlet.example.com.crt --certificate-server-key /root/custom-certificates/private/quadlet.example.com.key --certificate-server-ca-certificate /root/custom-certificates/certs/rsa-ca.crt' || '' }} \
             --initial-admin-password=changeme \
             --tuning development \
             --add-feature foreman-proxy
@@ -495,9 +502,13 @@ jobs:
       - name: Fetch auth bundle from quadlet
         run: |
           ./forge fetch-bundle proxy.example.com
-      - name: Remove old parameters, but keep certificates_source for tests
+      - name: Remove old parameters, but keep certificate settings for tests
         run: |
-          echo "certificates_source: ${{ matrix.certificate_source }}" > .var/lib/foremanctl/parameters.yaml
+          {
+            echo "certificates_source: ${{ matrix.certificate_source }}"
+            echo "certificates_algorithms:"
+            for alg in ${{ matrix.certificate_algorithm }}; do echo "  - $alg"; done
+          } > .var/lib/foremanctl/parameters.yaml
       - name: Deploy content proxy
         run: |
           ./foremanctl deploy-proxy \

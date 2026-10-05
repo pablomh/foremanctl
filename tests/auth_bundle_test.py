@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import pytest
@@ -9,12 +10,6 @@ HOSTNAME = 'proxy.example.com'
 TARBALL = f'/var/lib/foremanctl/certs/bundles/{HOSTNAME}.tar.gz'
 
 ALIAS = 'loadbalancer.example.com'
-
-EXPECTED_CA_FILES = [
-    'certs/ca.crt',
-    'certs/server-ca.crt',
-    'certs/ca-bundle.crt',
-]
 
 EXPECTED_SERVER_FILES = [
     f'certs/{HOSTNAME}.crt',
@@ -69,9 +64,17 @@ def test_tarball_created(server, generate_bundle):
     assert server.file(TARBALL).exists
 
 
-@pytest.mark.parametrize("expected_file", EXPECTED_CA_FILES)
-def test_tarball_contains_ca_certificate(tarball_members, expected_file):
-    assert expected_file in tarball_members
+def test_tarball_contains_ca_certificate(tarball_members, certificates):
+    """The bundle always carries internal_ca_bundle, ca_bundle, and ca_certificate, plus the server CA when distinct."""
+    expected_files = {
+        f"certs/{os.path.basename(certificates['ca_certificate'])}",
+        f"certs/{os.path.basename(certificates['ca_bundle'])}",
+        'certs/internal-ca-bundle.crt',
+    }
+    if certificates['server_ca_certificate'] != certificates['ca_certificate']:
+        expected_files.add(f"certs/{os.path.basename(certificates['server_ca_certificate'])}")
+    for expected_file in expected_files:
+        assert expected_file in tarball_members
 
 
 @pytest.mark.parametrize("expected_file", EXPECTED_SERVER_FILES)
@@ -97,20 +100,29 @@ def test_proxy_certs_stored_in_hosts_subdirectory(server, generate_bundle):
     assert proxy_client_cert.exists
 
 
-def test_server_ca_and_default_ca_identical_for_default_deployment(server, generate_bundle, default_certificates):
-    """For default (non-custom) deployments, server-ca.crt and ca.crt should be identical."""
-    server_ca = server.run(f'tar xzf {TARBALL} -O certs/server-ca.crt')
+def test_server_ca_and_default_ca_identical_for_default_deployment(server, generate_bundle, default_certificates,
+                                                                     tarball_members, certificates):
+    """For default deployments, server_ca_certificate and ca_certificate are the same file, shipped once."""
+    ca_name = os.path.basename(certificates['ca_certificate'])
+    server_ca_name = os.path.basename(certificates['server_ca_certificate'])
+    if server_ca_name == ca_name:
+        assert f'certs/{ca_name}' in tarball_members
+        return
+    server_ca = server.run(f'tar xzf {TARBALL} -O certs/{server_ca_name}')
     assert server_ca.succeeded
-    default_ca = server.run(f'tar xzf {TARBALL} -O certs/ca.crt')
+    default_ca = server.run(f'tar xzf {TARBALL} -O certs/{ca_name}')
     assert default_ca.succeeded
     assert server_ca.stdout == default_ca.stdout
 
 
-def test_server_ca_and_default_ca_differ_for_custom_deployment(server, generate_bundle, custom_certificates):
+def test_server_ca_and_default_ca_differ_for_custom_deployment(server, generate_bundle, custom_certificates,
+                                                                 certificates):
     """For custom server cert deployments, server-ca.crt (custom) differs from ca.crt (internal)."""
-    server_ca = server.run(f'tar xzf {TARBALL} -O certs/server-ca.crt')
+    ca_name = os.path.basename(certificates['ca_certificate'])
+    server_ca_name = os.path.basename(certificates['server_ca_certificate'])
+    server_ca = server.run(f'tar xzf {TARBALL} -O certs/{server_ca_name}')
     assert server_ca.succeeded
-    default_ca = server.run(f'tar xzf {TARBALL} -O certs/ca.crt')
+    default_ca = server.run(f'tar xzf {TARBALL} -O certs/{ca_name}')
     assert default_ca.succeeded
     assert server_ca.stdout != default_ca.stdout
 
@@ -125,7 +137,7 @@ def generate_auth_bundle_with_alias(server, default_certificates):
     assert result.returncode == 0, f'auth-bundle failed: {result.stdout}\n{result.stderr}'
 
 
-def test_server_certificate_includes_server_alias_san(server, generate_auth_bundle_with_alias):
+def test_server_certificate_includes_proxy_alias_san(server, generate_auth_bundle_with_alias):
     """--proxy-alias must add the given name as a SAN, e.g. for a load balancer in front of a proxy."""
     cert_path = f'/var/lib/foremanctl/certs/hosts/{HOSTNAME}/certs/{HOSTNAME}.crt'
     result = server.run(f'openssl x509 -in {cert_path} -noout -text')

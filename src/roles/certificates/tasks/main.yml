@@ -1,4 +1,7 @@
 ---
+- name: 'Adopt the enabled algorithm order recorded by a previously consumed bundle'
+  ansible.builtin.include_tasks: adopt_algorithm_order.yml
+
 - name: 'Install crypto dependencies'
   ansible.builtin.package:
     name:

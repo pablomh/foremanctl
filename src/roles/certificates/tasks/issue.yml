@@ -60,7 +60,7 @@
         force: "{{ (certificates_renew | bool) or (certificates_ca_renew | bool) or (_certificates_missing_sans | length > 0) }}"
 
 - name: 'Issue client certificate'
-  when: certificates_hostname not in (certificates_client_certificate_excluded_hostnames | default([]))
+  when: certificates_hostname in certificates_client_hostnames
   block:
     - name: 'Create client private key'
       community.crypto.openssl_privatekey:
@@ -87,7 +87,7 @@
         path: "{{ certificates_output_directory_certs }}/{{ certificates_hostname }}-client.crt"
         csr_path: "{{ certificates_output_directory_requests }}/{{ certificates_hostname }}-client.csr"
         provider: ownca
-        ownca_path: "{{ certificates_ca_directory }}/certs/ca.crt"
-        ownca_privatekey_path: "{{ certificates_ca_directory }}/private/ca.key"
+        ownca_path: "{{ _certificates_selected_ca_cert }}"
+        ownca_privatekey_path: "{{ _certificates_selected_ca_key }}"
         ownca_not_after: "+{{ certificates_validity_days }}d"
         force: "{{ (certificates_renew | bool) or (certificates_ca_renew | bool) }}"

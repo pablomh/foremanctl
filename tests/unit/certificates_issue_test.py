@@ -36,6 +36,8 @@ PLAYBOOK = """
       vars:
         certificates_ca_directory: "{directory}"
         certificates_hostname: "{hostname}"
+        certificates_hostnames:
+          - "{hostname}"
 """
 
 

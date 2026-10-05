@@ -3,8 +3,8 @@ certificates_hostnames:
   - "{{ ansible_facts['fqdn'] }}"
   - candlepin
   - iop-core-gateway
-# candlepin has no client cert consumer.
-certificates_client_hostnames: "{{ certificates_hostnames | reject('equalto', 'candlepin') | list }}"
+# candlepin has no client cert consumer; iop-core-gateway has its own independent one.
+certificates_client_hostnames: "{{ certificates_hostnames | reject('in', ['candlepin', 'iop-core-gateway']) | list }}"
 certificates_hostname_extra_sans:
   candlepin:
     - localhost

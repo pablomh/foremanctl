@@ -22,6 +22,10 @@
     name: "{{ infra_images_product_name }}"
     organization: "{{ infra_images_organization }}"
     state: present
+  register: infra_images_product_result
+  until: infra_images_product_result is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
 
 - name: Create container repositories
   theforeman.foreman.repository:
@@ -44,6 +48,10 @@
   loop_control:
     label: "{{ item.value.repository_name }}"
   no_log: true
+  register: infra_images_repo_result
+  until: infra_images_repo_result is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
 
 - name: Synchronize product
   theforeman.foreman.repository_sync:
@@ -53,6 +61,10 @@
     validate_certs: false
     product: "{{ infra_images_product_name }}"
     organization: "{{ infra_images_organization }}"
+  register: infra_images_sync_result
+  until: infra_images_sync_result is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
 
 - name: Get organization info for registry path
   theforeman.foreman.resource_info:
@@ -63,6 +75,9 @@
     resource: organizations
     search: "name=\"{{ infra_images_organization }}\""
   register: infra_images_org_info
+  until: infra_images_org_info is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
 
 - name: Extract organization label
   ansible.builtin.set_fact:
@@ -78,6 +93,9 @@
     organization: "{{ infra_images_organization }}"
     search: "name=\"{{ infra_images_product_name }}\""
   register: infra_images_product_info
+  until: infra_images_product_info is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
 
 - name: Extract product label
   ansible.builtin.set_fact:

@@ -1,3 +1,8 @@
 ---
 infra_images_organization: "Default Organization"
 infra_images_product_name: "Foreman Infra Container Images"
+
+# Foreman API calls are retried on transient failures (timeouts, Dynflow task
+# contention, etc.) rather than failing the whole run outright.
+infra_images_api_call_retries: 10
+infra_images_api_call_delay: 10

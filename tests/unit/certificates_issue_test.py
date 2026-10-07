@@ -121,7 +121,7 @@ def issue_certificates(directory, algorithm=None):
 
 @pytest.fixture(scope='module')
 def rsa_certificates(certificate_authority):
-    return issue_certificates(certificate_authority)
+    return issue_certificates(certificate_authority, 'RSA')
 
 
 @pytest.fixture(scope='module')

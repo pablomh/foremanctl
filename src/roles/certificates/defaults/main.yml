@@ -19,6 +19,7 @@ certificates_client_certificate_excluded_hostnames:
 certificates_algorithms: []
 certificates_default_algorithms:
   - RSA
+  - ML-DSA-87
 certificates_enabled_algorithms: >-
   {{ certificates_algorithms if certificates_algorithms | length > 0
      else certificates_default_algorithms }}

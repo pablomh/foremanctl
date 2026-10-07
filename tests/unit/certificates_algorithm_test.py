@@ -52,7 +52,7 @@ def resolve_algorithm(tmp_path, algorithm=None):
 
 def test_default_algorithm_is_rsa():
     defaults = yaml.safe_load(open(DEFAULTS_FILE))
-    assert defaults['certificates_default_algorithms'] == ['RSA']
+    assert defaults['certificates_default_algorithms'][0] == 'RSA'
 
 
 def test_rsa_key_parameters_use_size(tmp_path):

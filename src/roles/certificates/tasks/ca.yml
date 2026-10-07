@@ -1,7 +1,4 @@
 ---
-- name: 'Load key parameters for the selected algorithm'
-  ansible.builtin.include_vars: "{{ certificates_primary_algorithm }}.yml"
-
 - name: 'Check if CA certificate exists'
   ansible.builtin.stat:
     path: "{{ certificates_ca_directory_certs }}/ca.crt"
@@ -12,59 +9,117 @@
     path: "{{ certificates_ca_directory_keys }}/ca.key"
   register: _certificates_existing_ca_key
 
-- name: 'Detect whether the existing CA key is password-encrypted'
-  ansible.builtin.command:
-    cmd: "grep -q ENCRYPTED {{ certificates_ca_directory_keys }}/ca.key"
-  register: _certificates_ca_key_encrypted
-  changed_when: false
-  failed_when: false
-  when: _certificates_existing_ca_key.stat.exists
+- name: 'Check for an existing per-algorithm CA matching the primary algorithm'
+  ansible.builtin.stat:
+    path: "{{ certificates_ca_directory_certs }}/{{ _certificates_primary_type }}-ca.crt"
+  register: _certificates_primary_typed_ca_cert
+  vars:
+    _certificates_primary_type: "{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
-- name: 'Decrypt a legacy password-encrypted CA key in place'
-  community.crypto.openssl_privatekey_convert:
-    src_path: "{{ certificates_ca_directory_keys }}/ca.key"
-    src_passphrase: "{{ certificates_ca_password }}"
-    dest_path: "{{ certificates_ca_directory_keys }}/ca.key"
-    format: pkcs8
-    mode: '0600'
+# The typed CA is authoritative once it exists; a leftover flat ca.crt must not win over it.
+- name: 'Migrate existing per-algorithm primary CA back to type-less file names'
   when:
-    - _certificates_existing_ca_key.stat.exists
-    - (_certificates_ca_key_encrypted.rc | default(1)) == 0
-  no_log: true
+    - certificates_enabled_algorithms | length == 1
+    - not certificates_ca_renew
+    - _certificates_primary_typed_ca_cert.stat.exists
+  vars:
+    _certificates_primary_type: "{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+  block:
+    - name: 'Copy per-algorithm primary CA files to type-less file names'
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        mode: "{{ item.mode }}"
+      loop:
+        - src: "{{ certificates_ca_directory_keys }}/{{ _certificates_primary_type }}-ca.key"
+          dest: "{{ certificates_ca_directory_keys }}/ca.key"
+          mode: '0600'
+        - src: "{{ certificates_ca_directory_certs }}/{{ _certificates_primary_type }}-ca.crt"
+          dest: "{{ certificates_ca_directory_certs }}/ca.crt"
+          mode: '0444'
+
+# Unconditional: a skipped task's register still overwrites with a stub lacking .stat.
+- name: 'Refresh the type-less CA cert stat result after a possible migrate-back'
+  ansible.builtin.stat:
+    path: "{{ certificates_ca_directory_certs }}/ca.crt"
+  register: _certificates_ca_cert
+
+# Upgrade path: if a type-less ca.key / ca.crt exists from a pre-multi-scheme
+# install, inspect the key to discover its algorithm and copy to type-named files.
+- name: 'Migrate existing type-less CA files to per-type CA file names'
+  when: _certificates_existing_ca_key.stat.exists
+  block:
+    - name: 'Detect whether the existing CA key is password-encrypted'
+      ansible.builtin.command:
+        cmd: "grep -q ENCRYPTED {{ certificates_ca_directory_keys }}/ca.key"
+      register: _certificates_ca_key_encrypted
+      changed_when: false
+      failed_when: false
+
+    - name: 'Decrypt a legacy password-encrypted CA key in place'
+      community.crypto.openssl_privatekey_convert:
+        src_path: "{{ certificates_ca_directory_keys }}/ca.key"
+        src_passphrase: "{{ certificates_ca_password }}"
+        dest_path: "{{ certificates_ca_directory_keys }}/ca.key"
+        format: pkcs8
+        mode: '0600'
+      when: (_certificates_ca_key_encrypted.rc | default(1)) == 0
+      no_log: true
+
+    - name: 'Inspect existing CA key to determine its algorithm'
+      community.crypto.openssl_privatekey_info:
+        path: "{{ certificates_ca_directory_keys }}/ca.key"
+      register: _certificates_ca_key_info
+
+    - name: 'Fail when the requested algorithm differs from the existing CA key'
+      ansible.builtin.fail:
+        msg: >-
+          The existing CA key uses {{ _certificates_ca_key_info.type }}, but
+          --add-certificate-algorithm requested {{ certificates_primary_algorithm }}. Changing
+          the CA algorithm reissues the CA and invalidates every certificate it signed.
+          Pass --certificate-ca-renew to reissue the CA and all certificates.
+      when:
+        - not certificates_ca_renew
+        - certificates_enabled_algorithms | length == 1
+        - _certificates_ca_key_info.type != certificates_primary_algorithm
+
+    # force defaults to true, so a renewed CA still propagates to the typed copy.
+    - name: 'Copy type-less CA files to the detected algorithm type names'
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        mode: "{{ item.mode }}"
+      loop:
+        - src: "{{ certificates_ca_directory_keys }}/ca.key"
+          dest: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
+          mode: '0600'
+        - src: "{{ certificates_ca_directory_certs }}/ca.crt"
+          dest: "{{ certificates_ca_directory_certs }}/{{ _type }}-ca.crt"
+          mode: '0444'
+      vars:
+        _type: "{{ _certificates_ca_key_info.type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
 
 - name: 'Remove the obsolete CA key password file'
   ansible.builtin.file:
     path: "{{ certificates_ca_directory_keys }}/ca.pwd"
     state: absent
 
-- name: 'Inspect the existing CA key algorithm'
-  community.crypto.openssl_privatekey_info:
-    path: "{{ certificates_ca_directory_keys }}/ca.key"
-  register: _certificates_existing_ca_key_info
-  when:
-    - _certificates_existing_ca_key.stat.exists
-    - not certificates_ca_renew
-
-- name: 'Fail when the requested algorithm differs from the existing CA key'
-  ansible.builtin.fail:
-    msg: >-
-      The existing CA key uses {{ _certificates_existing_ca_key_info.type }}, but
-      --add-certificate-algorithm requested {{ certificates_primary_algorithm }}. Changing
-      the CA algorithm reissues the CA and invalidates every certificate it signed.
-      Pass --certificate-ca-renew to reissue the CA and all certificates.
-  when:
-    - _certificates_existing_ca_key.stat.exists
-    - not certificates_ca_renew
-    - _certificates_existing_ca_key_info.type != certificates_primary_algorithm
-
 - name: 'Generate CA'
   when:
+    - certificates_enabled_algorithms | length == 1
     - (not _certificates_ca_cert.stat.exists or certificates_ca_renew)
   block:
+    - name: 'Load key parameters for the selected algorithm'
+      ansible.builtin.include_vars: "{{ certificates_primary_algorithm }}.yml"
+
     - name: 'Create CA private key'
+      # Renewal must reissue the certificate, not rotate the key, or bundles
+      # already distributed to other hosts would stop trusting this CA.
       community.crypto.openssl_privatekey:
         path: "{{ certificates_ca_directory_keys }}/ca.key"
-        regenerate: "{{ 'always' if certificates_ca_renew | bool else 'full_idempotence' }}"
+        regenerate: full_idempotence
         type: "{{ _certificates_key_parameters.type }}"
         size: "{{ _certificates_key_parameters.size | default(omit) }}"
         curve: "{{ _certificates_key_parameters.curve | default(omit) }}"
@@ -98,20 +153,57 @@
         selfsigned_not_after: "+{{ certificates_ca_validity_days }}d"
         force: "{{ certificates_ca_renew | bool }}"
 
-    - name: 'Copy CA as server CA certificate'
-      ansible.builtin.copy:
-        src: "{{ certificates_ca_directory_certs }}/ca.crt"
-        dest: "{{ certificates_ca_directory_certs }}/server-ca.crt"
-        remote_src: true
-        force: "{{ certificates_ca_renew | bool }}"
-        mode: '0444'
-      when:
-        - certificates_source == 'default'
+# The flat-to-typed migrate above runs before renewal, so it only sees the pre-renewal CA.
+- name: 'Refresh the typed CA copy after a single-scheme renewal'
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    mode: "{{ item.mode }}"
+  loop:
+    - src: "{{ certificates_ca_directory_keys }}/ca.key"
+      dest: "{{ certificates_ca_directory_keys }}/{{ _type }}-ca.key"
+      mode: '0600'
+    - src: "{{ certificates_ca_directory_certs }}/ca.crt"
+      dest: "{{ certificates_ca_directory_certs }}/{{ _type }}-ca.crt"
+      mode: '0444'
+  vars:
+    _type: "{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+  when:
+    - certificates_enabled_algorithms | length == 1
+    - certificates_ca_renew
 
-    - name: 'Create CA bundle'
-      ansible.builtin.copy:
-        src: "{{ certificates_ca_directory_certs }}/ca.crt"
-        dest: "{{ certificates_ca_directory_certs }}/ca-bundle.crt"
-        remote_src: true
-        force: "{{ certificates_ca_renew | bool }}"
+# Runs even when no CA was (re)generated this pass, so existing installs get it too.
+- name: 'Ensure the internal CA bundle reflects the current single-scheme CA'
+  ansible.builtin.copy:
+    src: "{{ certificates_ca_directory_certs }}/ca.crt"
+    dest: "{{ certificates_ca_directory_certs }}/internal-ca-bundle.crt"
+    remote_src: true
+    mode: '0444'
+  when: certificates_enabled_algorithms | length == 1
+
+# A type-less CA detected above is excluded from generation unless renewing.
+- name: 'Generate per-algorithm CAs'
+  when: certificates_enabled_algorithms | length > 1
+  block:
+    - name: 'Determine algorithms needing CA generation'
+      ansible.builtin.set_fact:
+        _certificates_ca_gen_algorithms: >-
+          {{ certificates_enabled_algorithms
+             if (not _certificates_existing_ca_key.stat.exists or certificates_ca_renew)
+             else certificates_enabled_algorithms | reject('equalto', _certificates_ca_key_info.type) | list }}
+
+    - name: 'Generate per-algorithm CA'
+      ansible.builtin.include_tasks: ca-algorithm.yml
+      loop: "{{ _certificates_ca_gen_algorithms }}"
+      loop_control:
+        loop_var: algorithm
+
+    - name: 'Assemble internal CA bundle from all algorithm CAs'
+      ansible.builtin.assemble:
+        src: "{{ certificates_ca_directory_certs }}"
+        dest: "{{ certificates_ca_directory_certs }}/internal-ca-bundle.crt"
+        regexp: "^({{ _ca_types }})-ca\\.crt$"
         mode: '0444'
+      vars:
+        _ca_types: "{{ certificates_enabled_algorithms | map('lower') | map('regex_replace', '^ml-dsa', 'mldsa') | join('|') }}"

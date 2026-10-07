@@ -59,7 +59,7 @@ pulp_foreman_ca_certificate: "{{ foreman_ca_certificate }}"
 pulp_foreman_oauth_consumer_key: "{{ foreman_proxy_oauth_consumer_key }}"
 pulp_foreman_oauth_consumer_secret: "{{ foreman_proxy_oauth_consumer_secret }}"
 
-hammer_ca_certificate: "{{ server_ca_certificate }}"
+hammer_ca_certificate: "{{ foreman_ca_certificate }}"
 hammer_plugins: "{{ enabled_features | features_to_hammer_plugins }}"
 hammer_foreman_server_url: "{{ foreman_url }}"
 

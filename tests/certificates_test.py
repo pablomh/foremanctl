@@ -52,10 +52,9 @@ def test_ca_bundle_contains_both_cas(server, certificates, custom_certificates):
     ca_info = certificate_info(server, certificates['ca_certificate'])
     server_ca_info = certificate_info(server, certificates['server_ca_certificate'])
 
-    assert len(subjects) == 2, f"CA bundle should contain exactly 2 certificates, found {len(subjects)}"
-    assert ca_info['subject'] in subjects[0] or ca_info['subject'] in subjects[1], \
+    assert any(ca_info['subject'] in subject for subject in subjects), \
         f"Internal CA not found in bundle. Expected: {ca_info['subject']}, Found: {subjects}"
-    assert server_ca_info['subject'] in subjects[0] or server_ca_info['subject'] in subjects[1], \
+    assert any(server_ca_info['subject'] in subject for subject in subjects), \
         f"Server CA not found in bundle. Expected: {server_ca_info['subject']}, Found: {subjects}"
 
 

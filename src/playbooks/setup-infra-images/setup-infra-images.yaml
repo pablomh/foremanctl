@@ -3,6 +3,7 @@
   hosts: quadlet
   become: true
   vars_files:
+    - "../../vars/defaults.yml"
     - "../../vars/images.yml"
     - "../../vars/foreman.yml"
     - "../../vars/certificates.yml"

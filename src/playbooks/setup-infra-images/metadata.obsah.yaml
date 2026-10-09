@@ -18,3 +18,6 @@ variables:
 constraints:
   required_together:
     - [registry_username, registry_password]
+
+include:
+  - _air_gapped

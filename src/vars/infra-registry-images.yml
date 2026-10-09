@@ -11,13 +11,9 @@
 # A vendor file replaces the whole dict, so each entry must define
 # repository_name, upstream_name, base_tag and unit_name.
 #
-# unit_name is the quadlet image unit basename (e.g. "foreman-proxy" for
-# /etc/containers/systemd/foreman-proxy.image) this entry corresponds to, if
-# any is deployed on this host. When present, the infra_images role resolves
-# that unit's actually-configured image/tag via systemd and uses it instead
-# of upstream_name/base_tag below - a vendor may repoint an image via a
-# quadlet drop-in without updating this file, and the two can drift out of
-# sync otherwise.
+# unit_name is the quadlet image unit basename (defaults to repository_name;
+# set it only where the two differ, e.g. postgresql-16 -> postgresql). When
+# that unit is deployed, its live image/tag overrides upstream_name/base_tag.
 
 # Registry each image is synced from.
 infra_registry_url: https://quay.io

@@ -29,8 +29,7 @@
     quiet: true
 
 - name: Check which infra image quadlet units are deployed on this host
-  # Not every image is deployed everywhere (e.g. a proxy has no foreman/
-  # candlepin units) - check instead of assuming.
+  # Not every image is deployed everywhere (e.g. a proxy has no foreman unit).
   ansible.builtin.stat:
     path: "{{ images_quadlet_dir }}/{{ item.value.unit_name }}.image"
   loop: "{{ infra_images_selected }}"
@@ -39,10 +38,8 @@
   register: infra_images_unit_candidates
 
 - name: Query resolved infra image units
-  # infra-registry-images.yml holds static defaults; a vendor may instead
-  # repoint an image via a quadlet drop-in without updating this file - ask
-  # systemd for the merged result so the published catalog matches what is
-  # actually deployed on this host.
+  # A vendor may repoint an image via a quadlet drop-in without updating
+  # infra-registry-images.yml - ask systemd for the merged result instead.
   community.general.systemd_info:
     unitname: >-
       {{ infra_images_unit_candidates.results
@@ -114,59 +111,6 @@
   retries: "{{ infra_images_api_call_retries }}"
   delay: "{{ infra_images_api_call_delay }}"
 
-- name: Create container repositories
-  theforeman.foreman.repository:
-    oauth1_consumer_key: "{{ foreman_oauth_consumer_key }}"
-    oauth1_consumer_secret: "{{ foreman_oauth_consumer_secret }}"
-    server_url: "{{ foreman_url }}"
-    validate_certs: false
-    name: "{{ item.value.repository_name }}"
-    product: "{{ infra_images_product_name }}"
-    organization: "{{ infra_images_organization }}"
-    content_type: docker
-    url: "{{ infra_registry_url }}"
-    docker_upstream_name: "{{ infra_images_effective_upstream_name }}"
-    include_tags:
-      - "{{ infra_images_effective_tag }}"
-    upstream_username: "{{ registry_username | default(omit) }}"
-    upstream_password: "{{ registry_password | default(omit) }}"
-    state: present
-  vars:
-    infra_images_live_ref: "{{ infra_images_deployed_refs.get(item.value.unit_name) }}"
-    # Falls back fully to static defaults if the live ref has no "/" to split.
-    infra_images_live_ref_usable: >-
-      {{ infra_images_live_ref is truthy and '/' in infra_images_live_ref.rsplit(':', 1)[0] }}
-    # The live ref's registry host is dropped (not infra_registry_url's host)
-    # on the assumption a vendor's quadlet drop-in and infra_registry_url
-    # point at the same upstream registry.
-    infra_images_effective_upstream_name: >-
-      {{ infra_images_live_ref.rsplit(':', 1)[0].split('/', 1)[1]
-         if infra_images_live_ref_usable else item.value.upstream_name }}
-    infra_images_effective_tag: >-
-      {{ infra_images_live_ref.rsplit(':', 1)[1]
-         if infra_images_live_ref_usable else item.value.base_tag }}
-  loop: "{{ infra_images_selected }}"
-  loop_control:
-    label: "{{ item.value.repository_name }}"
-  no_log: true
-  register: infra_images_repo_result
-  until: infra_images_repo_result is not failed
-  retries: "{{ infra_images_api_call_retries }}"
-  delay: "{{ infra_images_api_call_delay }}"
-
-- name: Synchronize product
-  theforeman.foreman.repository_sync:
-    oauth1_consumer_key: "{{ foreman_oauth_consumer_key }}"
-    oauth1_consumer_secret: "{{ foreman_oauth_consumer_secret }}"
-    server_url: "{{ foreman_url }}"
-    validate_certs: false
-    product: "{{ infra_images_product_name }}"
-    organization: "{{ infra_images_organization }}"
-  register: infra_images_sync_result
-  until: infra_images_sync_result is not failed
-  retries: "{{ infra_images_api_call_retries }}"
-  delay: "{{ infra_images_api_call_delay }}"
-
 - name: Get organization info for registry path
   theforeman.foreman.resource_info:
     oauth1_consumer_key: "{{ foreman_oauth_consumer_key }}"
@@ -201,6 +145,122 @@
 - name: Extract product label
   ansible.builtin.set_fact:
     infra_images_product_label: "{{ infra_images_product_info.resources[0].label | lower }}"
+
+- name: Check local presence of live-deployed infra images
+  containers.podman.podman_image_info:
+    name: "{{ infra_images_deployed_refs[item.value.unit_name] }}"
+  loop: "{{ infra_images_selected | selectattr('value.unit_name', 'in', infra_images_deployed_refs.keys() | list) | list }}"
+  loop_control:
+    label: "{{ item.value.repository_name }}"
+  register: infra_images_local_checks
+
+- name: Reset the set of images present in local container storage
+  ansible.builtin.set_fact:
+    infra_images_present_locally: []
+
+- name: Record which live-deployed images are present in local container storage
+  ansible.builtin.set_fact:
+    infra_images_present_locally: >-
+      {{ infra_images_present_locally + [infra_images_local_result.item.value.unit_name] }}
+  when:
+    - images_air_gapped
+    - infra_images_local_result.images | length > 0
+  loop: "{{ infra_images_local_checks.results }}"
+  loop_control:
+    loop_var: infra_images_local_result
+    label: "{{ infra_images_local_result.item.value.repository_name }}"
+
+- name: Create container repositories
+  theforeman.foreman.repository:
+    oauth1_consumer_key: "{{ foreman_oauth_consumer_key }}"
+    oauth1_consumer_secret: "{{ foreman_oauth_consumer_secret }}"
+    server_url: "{{ foreman_url }}"
+    validate_certs: false
+    name: "{{ item.value.repository_name }}"
+    product: "{{ infra_images_product_name }}"
+    organization: "{{ infra_images_organization }}"
+    content_type: docker
+    url: "{{ infra_registry_url }}"
+    docker_upstream_name: "{{ infra_images_effective_upstream_name }}"
+    include_tags:
+      - "{{ infra_images_effective_tag }}"
+    upstream_username: "{{ registry_username | default(omit) }}"
+    upstream_password: "{{ registry_password | default(omit) }}"
+    state: present
+  vars:
+    infra_images_live_ref: "{{ infra_images_deployed_refs.get(item.value.unit_name) }}"
+    # Falls back fully to static defaults if the live ref has no "/" to split.
+    infra_images_live_ref_usable: >-
+      {{ infra_images_live_ref is truthy and '/' in infra_images_live_ref.rsplit(':', 1)[0] }}
+    # Assumes the live ref and infra_registry_url point at the same registry.
+    infra_images_effective_upstream_name: >-
+      {{ infra_images_live_ref.rsplit(':', 1)[0].split('/', 1)[1]
+         if infra_images_live_ref_usable else item.value.upstream_name }}
+    infra_images_effective_tag: >-
+      {{ infra_images_live_ref.rsplit(':', 1)[1]
+         if infra_images_live_ref_usable else item.value.base_tag }}
+  when: item.value.unit_name not in infra_images_present_locally
+  loop: "{{ infra_images_selected }}"
+  loop_control:
+    label: "{{ item.value.repository_name }}"
+  no_log: true
+  register: infra_images_repo_result
+  until: infra_images_repo_result is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
+
+- name: Push locally-present infra images directly into this server's registry
+  # Katello rejects docker content uploads via its API, so images already
+  # present locally are pushed with skopeo instead of synced from upstream.
+  when: infra_images_present_locally | length > 0
+  block:
+    - name: Log in to this server's own container registry for push
+      containers.podman.podman_login:
+        registry: "{{ ansible_facts['fqdn'] }}"
+        username: "{{ foreman_initial_admin_username }}"
+        password: "{{ foreman_initial_admin_password }}"
+        authfile: "{{ infra_images_push_authfile }}"
+
+    - name: Restrict permissions on the push authfile
+      ansible.builtin.file:
+        path: "{{ infra_images_push_authfile }}"
+        mode: '0600'
+
+    - name: Push locally-present images into the infra images product
+      ansible.builtin.command:
+        cmd: >-
+          skopeo copy
+          --authfile {{ infra_images_push_authfile }}
+          containers-storage:{{ infra_images_ref }}
+          docker://{{ infra_images_destination }}
+      vars:
+        infra_images_ref: "{{ infra_images_deployed_refs[item.value.unit_name] }}"
+        infra_images_destination: >-
+          {{ [ansible_facts['fqdn'], infra_images_org_label, infra_images_product_label, item.value.repository_name]
+             | join('/') }}:{{ infra_images_ref.rsplit(':', 1)[1] }}
+      loop: "{{ infra_images_selected | selectattr('value.unit_name', 'in', infra_images_present_locally) | list }}"
+      loop_control:
+        label: "{{ item.value.repository_name }}"
+      changed_when: true
+
+- name: Synchronize repositories not present locally
+  # present-locally repos were never created via the API (Pulp vivifies them
+  # on push), so only sync the ones that actually went through it.
+  theforeman.foreman.repository_sync:
+    oauth1_consumer_key: "{{ foreman_oauth_consumer_key }}"
+    oauth1_consumer_secret: "{{ foreman_oauth_consumer_secret }}"
+    server_url: "{{ foreman_url }}"
+    validate_certs: false
+    product: "{{ infra_images_product_name }}"
+    organization: "{{ infra_images_organization }}"
+    repository: "{{ item.value.repository_name }}"
+  loop: "{{ infra_images_selected | rejectattr('value.unit_name', 'in', infra_images_present_locally) | list }}"
+  loop_control:
+    label: "{{ item.value.repository_name }}"
+  register: infra_images_sync_result
+  until: infra_images_sync_result is not failed
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
 
 - name: Build published registry paths
   ansible.builtin.set_fact:

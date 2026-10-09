@@ -8,3 +8,14 @@
 
 - name: Issue certificates
   ansible.builtin.include_tasks: issue.yml
+
+- name: Issue per-algorithm certificates
+  ansible.builtin.include_tasks: issue-algorithm.yml
+  when:
+    - certificates_enabled_algorithms | length > 1
+    - algorithm != certificates_primary_algorithm
+      or certificates_source != 'custom_server'
+      or certificates_hostname in (certificates_internal_hostnames | list)
+  loop: "{{ certificates_enabled_algorithms }}"
+  loop_control:
+    loop_var: algorithm

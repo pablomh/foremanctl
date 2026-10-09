@@ -11,6 +11,7 @@ import pytest
 import requests
 import testinfra
 import yaml
+from ansible.plugins.filter.core import FilterModule as CoreFilterModule
 from jinja2 import Environment
 from jinja2 import FileSystemLoader
 from jinja2 import select_autoescape
@@ -117,11 +118,24 @@ def client_fqdn(client):
 
 
 @pytest.fixture(scope="module")
-def certificates(server_fqdn):
+def certificates(server_fqdn, obsah_params):
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
+    env.filters.update(CoreFilterModule().filters())
     template = env.get_template("./src/vars/certificates.yml")
-    context = {'ansible_facts': {'fqdn': server_fqdn}}
-    # we have vars that refer to other vars, so load them once and then re-render the template
+    # certificates_enabled_algorithms/_primary_algorithm/_client_algorithm_type/_source are
+    # normally resolved by the certificates role defaults; mirror that here from whatever was
+    # actually passed on the CLI.
+    enabled_algorithms = obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-65']
+    context = {
+        'ansible_facts': {'fqdn': server_fqdn},
+        'certificates_enabled_algorithms': enabled_algorithms,
+        'certificates_primary_algorithm': enabled_algorithms[0],
+        'certificates_client_algorithm_type': obsah_params.get('certificates_client_algorithm_type', 'ML-DSA-65'),
+        'certificates_source': obsah_params.get('certificates_source', 'default'),
+    }
+    # we have vars that refer to other vars up to three levels deep, so render four times
+    context.update(yaml.safe_load(template.render(context)))
+    context.update(yaml.safe_load(template.render(context)))
     context.update(yaml.safe_load(template.render(context)))
     return yaml.safe_load(template.render(context))
 

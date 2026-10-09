@@ -278,6 +278,18 @@
     ca_path: "{{ ca_bundle }}"
     validate_certs: true
   register: infra_images_catalog
+  until: >-
+    infra_images_expected_paths
+    | difference(infra_images_catalog.json.repositories | default([]))
+    | length == 0
+  retries: "{{ infra_images_api_call_retries }}"
+  delay: "{{ infra_images_api_call_delay }}"
+  vars:
+    infra_images_expected_paths: >-
+      {{ infra_images_selected
+         | map(attribute='value.repository_name')
+         | map('regex_replace', '^', infra_images_org_label ~ '/' ~ infra_images_product_label ~ '/')
+         | list }}
 
 - name: Confirm each repository is published in the registry catalog
   ansible.builtin.assert:

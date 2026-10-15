@@ -11,6 +11,7 @@ import pytest
 import requests
 import testinfra
 import yaml
+from ansible.plugins.filter.core import FilterModule as CoreFilterModule
 from jinja2 import Environment
 from jinja2 import FileSystemLoader
 from jinja2 import select_autoescape
@@ -18,6 +19,7 @@ from requests.adapters import HTTPAdapter
 
 SSH_CONFIG = './.tmp/ssh-config'
 OBSAH_STATE = os.environ.get('OBSAH_STATE', '.var/lib/foremanctl')
+OBSAH_INVENTORY = os.environ.get('OBSAH_INVENTORY', 'inventories/')
 PARAMETERS_FILE = os.path.join(OBSAH_STATE, 'parameters.yaml')
 FLAVOR_TESTS_DIR = py.path.local(__file__).dirpath() / 'flavor'
 FLAVOR_TESTS_DIR_OVERRIDES = {
@@ -91,6 +93,39 @@ def available_features(pytestconfig):
     return pytestconfig.user_parameters.available_features
 
 
+@pytest.fixture(scope="session", autouse=True)
+def generate_ssh_config():
+    if not os.path.exists(OBSAH_INVENTORY):
+        return
+    try:
+        result = subprocess.run(
+            ['ansible-inventory', '--list', '--inventory', OBSAH_INVENTORY],
+            capture_output=True, text=True, check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return
+    inv = json.loads(result.stdout)
+    hostvars = inv.get('_meta', {}).get('hostvars', {})
+    if not hostvars:
+        return
+    os.makedirs(os.path.dirname(SSH_CONFIG), exist_ok=True)
+    with open(SSH_CONFIG, 'w') as f:
+        for host, vars in hostvars.items():
+            if vars.get('ansible_connection') == 'local':
+                continue
+            f.write(f"Host {host}\n")
+            f.write(f"  HostName {vars.get('ansible_host', host)}\n")
+            f.write(f"  User {vars.get('ansible_user', 'vagrant')}\n")
+            f.write(f"  Port {vars.get('ansible_port', 22)}\n")
+            f.write("  UserKnownHostsFile /dev/null\n")
+            f.write("  StrictHostKeyChecking no\n")
+            f.write("  PasswordAuthentication no\n")
+            if key := vars.get('ansible_ssh_private_key_file'):
+                f.write(f"  IdentityFile {key}\n")
+            f.write("  IdentitiesOnly yes\n")
+            f.write("  LogLevel FATAL\n\n")
+
+
 @pytest.fixture(scope="module")
 def fixture_dir():
     return py.path.local(__file__).realpath() / '..' / 'fixtures'
@@ -117,11 +152,24 @@ def client_fqdn(client):
 
 
 @pytest.fixture(scope="module")
-def certificates(server_fqdn):
+def certificates(server_fqdn, obsah_params):
     env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
+    env.filters.update(CoreFilterModule().filters())
     template = env.get_template("./src/vars/certificates.yml")
-    context = {'ansible_facts': {'fqdn': server_fqdn}}
-    # we have vars that refer to other vars, so load them once and then re-render the template
+    # certificates_enabled_algorithms/_primary_algorithm/_client_algorithm_type/_source are
+    # normally resolved by the certificates role defaults; mirror that here from whatever was
+    # actually passed on the CLI.
+    enabled_algorithms = obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-65']
+    context = {
+        'ansible_facts': {'fqdn': server_fqdn},
+        'certificates_enabled_algorithms': enabled_algorithms,
+        'certificates_primary_algorithm': enabled_algorithms[0],
+        'certificates_client_algorithm_type': obsah_params.get('certificates_client_algorithm_type', 'ML-DSA-65'),
+        'certificates_source': obsah_params.get('certificates_source', 'default'),
+    }
+    # we have vars that refer to other vars up to three levels deep, so render four times
+    context.update(yaml.safe_load(template.render(context)))
+    context.update(yaml.safe_load(template.render(context)))
     context.update(yaml.safe_load(template.render(context)))
     return yaml.safe_load(template.render(context))
 
@@ -388,7 +436,7 @@ def curl_request(server, certificates, quadlet_client_certificate, server_fqdn):
     server.run(f"echo '{cert}' > /tmp/quadlet.crt")
     server.run(f"echo '{key}' > /tmp/quadlet.key")
 
-    def _request(path, base_url=None, method=None, data=None, headers=None, return_body=False):
+    def _request(path, base_url=None, method=None, data=None, headers=None, return_body=False, resolve=None, insecure=False):
         url = f"{base_url or f'https://{server_fqdn}'}/{path}"
         curl_opts = (
             f"--cacert {certificates['server_ca_certificate']} "
@@ -398,6 +446,10 @@ def curl_request(server, certificates, quadlet_client_certificate, server_fqdn):
         )
         if not return_body:
             curl_opts += "--write-out '%{http_code}' --output /dev/null "
+        if resolve:
+            curl_opts += f"--resolve {resolve} "
+        if insecure:
+            curl_opts += "--insecure "
         if method:
             curl_opts += f"-X {method} "
         if data:

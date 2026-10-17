@@ -63,6 +63,14 @@ There are multiple use cases from the users perspective that dictate what parame
 | `--foreman-trusted-proxy-remove` | Remove an IPv4/IPv6 address or CIDR from the persisted trusted proxy list (same format as `--foreman-trusted-proxy`). May be specified multiple times. Does not remove the localhost ranges `127.0.0.0/8` and `::1`. | |
 | `--reset-foreman-trusted-proxy` | Clear the entire persisted trusted proxy list for this deployment (Obsah reset flag; hidden from the main option list—see `foremanctl deploy --help` epilog). Use with repeated `--foreman-trusted-proxy` to replace the list, for example: `foremanctl deploy --reset-foreman-trusted-proxy --foreman-trusted-proxy 10.0.0.1 --foreman-trusted-proxy 10.0.0.2`. | |
 
+#### Networking
+
+##### New
+
+| Parameter | Description |
+| ----------| ----------- |
+| `--ipv6` | Enable the dual-stack IPv6 container network. When unset, IPv6 is auto-enabled only on hosts that have a default IPv6 route. Set `--ipv6 true` to force it on for hosts that reach IPv6 endpoints on-link without a default route (for example an IPv6-only Smart Proxy on the same subnet), or `--ipv6 false` to force it off. Never enabled when IPv6 is disabled in the kernel. Available on `deploy` and `deploy-proxy`. |
+
 #### Certs
 
 ##### New

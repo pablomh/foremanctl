@@ -9,10 +9,14 @@
     foreman_core_network_legacy_iop_network_name
     in (_foreman_core_network_networks.networks | map(attribute='name') | list)
 
-- name: Check IPv6 support in host
+- name: Determine whether the IPv6 core network should be enabled
   ansible.builtin.set_fact:
     foreman_core_network_ipv6_available: >-
-      {{ (ansible_facts['default_ipv6'] | default({})) is truthy and (ansible_facts['lo']['ipv6'] | default([])) is truthy }}
+      {{
+        (foreman_core_network_ipv6_enabled
+           | default((ansible_facts['default_ipv6'] | default({})) is truthy))
+        and (ansible_facts['lo']['ipv6'] | default([])) is truthy
+      }}
 
 - name: Define foreman core container networks
   ansible.builtin.set_fact:

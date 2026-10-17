@@ -1,0 +1,11 @@
+---
+variables:
+  foreman_core_network_ipv6_enabled:
+    parameter: --ipv6
+    help: >-
+      Enable the dual-stack IPv6 container network. When unset, IPv6 is
+      auto-enabled only on hosts that have a default IPv6 route. Set to true to
+      force it on for hosts that reach IPv6 endpoints on-link without a default
+      route (e.g. an IPv6-only Smart Proxy on the same subnet), or false to force it
+      off. It is never enabled when IPv6 is disabled in the kernel.
+    type: Boolean

@@ -4,6 +4,8 @@ httpd_pulp_content_backend: http://localhost:24816
 httpd_foreman_backend: http://localhost:3000
 httpd_pub_dir: /var/www/html/pub
 httpd_enabled_pulp_snippets: []
+# ML-DSA certs are forwarded in request headers and exceed Apache's 8190-byte default.
+httpd_limit_request_field_size: 32768
 
 # MPM event module defaults
 httpd_server_limit: 25

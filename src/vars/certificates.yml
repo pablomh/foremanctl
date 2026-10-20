@@ -2,6 +2,9 @@
 certificates_ca_directory: /var/lib/foremanctl/certs
 certificates_server_aliases: "{{ server_aliases | default([]) }}"
 _certificates_type: "{{ certificates_primary_algorithm | lower | regex_replace('^ml-dsa', 'mldsa') }}"
+certificates_ml_dsa_in_use: >-
+  {{ (certificates_enabled_algorithms + [certificates_client_algorithm_type])
+     | select('match', '^ML-DSA') | list | length > 0 }}
 ca_key: >-
   {% if certificates_enabled_algorithms | length == 1 %}{{ certificates_ca_directory }}/private/ca.key
   {%- else %}{{ certificates_ca_directory }}/private/{{ _certificates_type }}-ca.key{% endif %}

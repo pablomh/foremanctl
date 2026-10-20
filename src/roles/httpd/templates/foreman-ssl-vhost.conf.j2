@@ -4,6 +4,10 @@
   ServerAlias {{ httpd_alias }}
 {% endfor %}
 
+{% if certificates_ml_dsa_in_use %}
+  ## ML-DSA client certs forwarded as request headers exceed Apache's 8190-byte default.
+  LimitRequestFieldSize {{ httpd_limit_request_field_size }}
+{% endif %}
   ## Load additional static includes
   IncludeOptional "/etc/httpd/conf.d/05-foreman-ssl.d/*.conf"
 

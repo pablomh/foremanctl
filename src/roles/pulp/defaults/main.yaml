@@ -98,6 +98,12 @@ pulp_settings_other_env:
     ['sha1', 'sha224', 'sha256', 'sha384', 'sha512']
 
 pulp_settings_env: "{{ pulp_settings_database_env | ansible.builtin.combine(pulp_settings_other_env) }}"
+# ML-DSA client certs forwarded as request headers exceed gunicorn's 8190-byte default.
+pulp_gunicorn_limit_request_field_size: 32768
+pulp_api_env: >-
+  {{ pulp_settings_env | ansible.builtin.combine({'GUNICORN_CMD_ARGS':
+       '--limit-request-field_size=' ~ pulp_gunicorn_limit_request_field_size})
+     if certificates_ml_dsa_in_use | default(false) | bool else pulp_settings_env }}
 
 pulp_all_services: "{{ ['pulp-api', 'pulp-content'] + pulp_worker_services }}"
 pulp_worker_services: >-

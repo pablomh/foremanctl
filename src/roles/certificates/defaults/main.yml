@@ -18,7 +18,7 @@ certificates_client_hostnames: "{{ certificates_hostnames | default([]) }}"
 certificates_algorithms: []
 certificates_default_algorithms:
   - RSA
-  - ML-DSA-87
+  - ML-DSA-65
 certificates_enabled_algorithms: >-
   {{ certificates_algorithms if certificates_algorithms | length > 0
      else certificates_default_algorithms }}

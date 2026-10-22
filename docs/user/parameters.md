@@ -137,6 +137,7 @@ There are multiple use cases from the users perspective that dictate what parame
 
 | Parameter | Description |
 | ----------| ----------- |
+| `--ipv6` | Enable the dual-stack IPv6 container network. When unset, IPv6 is auto-enabled only on hosts that have a default IPv6 route. Set `--ipv6 true` to force it on for hosts that reach IPv6 endpoints on-link without a default route (for example an IPv6-only Smart Proxy on the same subnet), or `--ipv6 false` to force it off. Never enabled when IPv6 is disabled in the kernel. Available on `deploy` and `deploy-proxy`. |
 | `--container-network-ipv4-subnet` | IPv4 CIDR for the internal `foreman-core-network` Podman bridge. Defaults to `10.130.0.0/24`. Change it if that subnet overlaps with an existing host network or route. The bridge gateway is derived as the first usable address, and the IOP gateway's nginx resolver follows it. Only effective on the initial deploy; changing it on an already-deployed system is not supported and fails cleanly. Available on `deploy` and `deploy-proxy`. |
 | `--container-network-ipv6-subnet` | IPv6 CIDR for the internal `foreman-core-network-ipv6` Podman bridge, used only on IPv6-capable hosts. Defaults to `fd00:10:130::/64`. Change it if that subnet overlaps with an existing host network or route. The bridge gateway is derived as the first usable address. Only effective on the initial deploy; changing it on an already-deployed system is not supported and fails cleanly. Available on `deploy` and `deploy-proxy`. |
 

@@ -1,0 +1,11 @@
+---
+# The issuing satellite records the ordered enabled set in the bundle; adopt it
+# whenever present so runs without a bundle (e.g. add-feature) use it too.
+- name: Check for the recorded algorithm order
+  ansible.builtin.stat:
+    path: "{{ certificates_ca_directory }}/algorithms.yaml"
+  register: _certificates_algorithm_order
+
+- name: Adopt the recorded algorithm order
+  ansible.builtin.include_vars: "{{ certificates_ca_directory }}/algorithms.yaml"
+  when: _certificates_algorithm_order.stat.exists

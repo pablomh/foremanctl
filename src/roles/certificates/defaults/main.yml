@@ -14,6 +14,8 @@ certificates_ca_subject: 'Foreman Self-signed CA'
 certificates_server_aliases: []
 certificates_hostname_extra_sans: {}
 certificates_internal_hostnames: "{{ certificates_hostname_extra_sans.keys() | list }}"
+certificates_client_certificate_excluded_hostnames:
+  - candlepin
 certificates_client_hostnames: "{{ certificates_hostnames | default([]) }}"
 certificates_algorithms: []
 certificates_default_algorithms:

@@ -60,7 +60,9 @@
         force: "{{ (certificates_renew | bool) or (_certificates_missing_sans | length > 0) }}"
 
 - name: 'Issue client certificate'
-  when: certificates_hostname in certificates_client_hostnames
+  when:
+    - certificates_hostname in certificates_client_hostnames
+    - certificates_hostname not in (certificates_client_certificate_excluded_hostnames | default([]))
   block:
     - name: 'Create client private key'
       community.crypto.openssl_privatekey:

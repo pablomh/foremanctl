@@ -1,0 +1,10 @@
+---
+infra_images_organization: "Default Organization"
+infra_images_product_name: "Foreman Infra Container Images"
+
+infra_images_api_call_retries: 10
+infra_images_api_call_delay: 10
+
+# Push credentials for this server's own registry (upstream pull credentials
+# live in images_registry_auth_file).
+infra_images_push_authfile: "{{ obsah_state_path }}/infra-images-push-auth.json"

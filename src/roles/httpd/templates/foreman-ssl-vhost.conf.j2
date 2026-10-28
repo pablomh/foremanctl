@@ -75,7 +75,7 @@
     ProxyPassReverse {{ httpd_pulp_api_backend }}
   </Location>
 
-  ProxyPass /pulp/container/ {{ httpd_pulp_content_backend }}/pulp/container/
+  ProxyPass /pulp/container/ {{ httpd_pulp_content_backend }}/pulp/container/ disablereuse=on
   ProxyPassReverse /pulp/container/ {{ httpd_pulp_content_backend }}/pulp/container/
 
   <Location "/pulp/content">

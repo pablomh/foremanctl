@@ -52,6 +52,15 @@ def test_https_pulp_api_status(server, certificates, server_fqdn):
 
 
 @pytest.mark.feature('pulp')
+def test_pulp_container_proxy_disables_connection_reuse(server):
+    cmd = server.run("grep -h 'ProxyPass /pulp/container/' /etc/httpd/conf.d/*.conf")
+    assert cmd.succeeded
+    lines = cmd.stdout.splitlines()
+    assert lines
+    assert all('disablereuse=on' in line for line in lines)
+
+
+@pytest.mark.feature('pulp')
 def test_http_pulp_content(server, server_fqdn):
     cmd = server.run(f"{CURL_CMD} --write-out '%{{stderr}}%{{http_code}}' http://{server_fqdn}/pulp/content/")
     assert cmd.succeeded

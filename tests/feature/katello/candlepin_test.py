@@ -5,7 +5,6 @@ _CANDLEPIN_FILE_SUFFIXES = {
     'RSA': 'rsa',
     'ECC': 'ecc',
     'ML-DSA-87': 'mldsa-87',
-    'ML-DSA-65': 'mldsa-65',
 }
 
 

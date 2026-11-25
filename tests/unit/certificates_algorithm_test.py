@@ -194,9 +194,9 @@ def test_enabled_algorithms_order_preserved_pqc_first(tmp_path):
 
 
 def test_enabled_algorithms_order_preserved_classical_first(tmp_path):
-    order = ['RSA', 'ML-DSA-65', 'ML-DSA-87']
+    order = ['RSA', 'ECC', 'ML-DSA-87']
     assert adopt_enabled_algorithms(tmp_path, order) == order
 
 
 def test_enabled_algorithms_fallback_to_default_without_manifest(tmp_path):
-    assert adopt_enabled_algorithms(tmp_path, None) == ['RSA', 'ML-DSA-65']
+    assert adopt_enabled_algorithms(tmp_path, None) == ['RSA', 'ML-DSA-87']

@@ -452,7 +452,7 @@ jobs:
           # one entry, exercising the per-algorithm CA/cert/secret code paths that
           # the single-algorithm legs above never touch.
           - certificate_source: default
-            certificate_algorithm: "RSA ML-DSA-65"
+            certificate_algorithm: "RSA ML-DSA-87"
             security: none
             box: centos/stream10
     env:

@@ -195,7 +195,7 @@ Defaults: both are 7300 days (about 20 years).
 
 ### Key algorithm
 
-`--add-certificate-algorithm` may be specified more than once (default: `RSA` and `ML-DSA-65`). Each algorithm gets its own CA and its own server certificate per hostname, so Apache/Candlepin/the IOP gateway can present a dual-cert handshake and clients negotiate whichever algorithm their TLS stack supports. With exactly one algorithm enabled, foremanctl falls back to the original single-CA, flat-filename layout (see [Certificate Locations](#certificate-locations)).
+`--add-certificate-algorithm` may be specified more than once (default: `RSA` and `ML-DSA-87`). Each algorithm gets its own CA and its own server certificate per hostname, so Apache/Candlepin/the IOP gateway can present a dual-cert handshake and clients negotiate whichever algorithm their TLS stack supports. With exactly one algorithm enabled, foremanctl falls back to the original single-CA, flat-filename layout (see [Certificate Locations](#certificate-locations)).
 
 The first entry in `--add-certificate-algorithm` is the **primary algorithm** (`certificates_primary_algorithm`): it's the one used for the custom-server certificate check, the CA-key-mismatch guard, and as the "legacy" Candlepin crypto scheme when RSA isn't one of the enabled algorithms.
 
@@ -209,7 +209,7 @@ Only one algorithm (the primary) is used at a time. `certificates_algorithms` is
 | `--certificate-client-algorithm` | `certificates_client_algorithm_type` | Key algorithm for the independent client certificate used on internal links (foreman-proxy-to-Foreman, iop-core-gateway-to-Foreman). Independent of `--add-certificate-algorithm`. Defaults to `ML-DSA-65`. |
 
 ```bash
-# Default: dual-cert with RSA and ML-DSA-65
+# Default: dual-cert with RSA and ML-DSA-87
 foremanctl deploy
 
 # Single algorithm: ECC only, on a non-default curve
@@ -420,7 +420,7 @@ The `certificate_checks` role uses `foreman-certificate-check` binary to validat
 ### Technical Specifications
 
 **Certificate Properties:**
-- Key algorithm(s): `RSA` 4096 and `ML-DSA-65` by default (`certificates_enabled_algorithms`, first entry is `certificates_primary_algorithm`); `ECC` uses `certificates_algorithm_ecc_curve`
+- Key algorithm(s): `RSA` 4096 and `ML-DSA-87` by default (`certificates_enabled_algorithms`, first entry is `certificates_primary_algorithm`); `ECC` uses `certificates_algorithm_ecc_curve`
 - Hash Algorithm: SHA256 (via `community.crypto` defaults)
 - Validity:
   - CA: `certificates_ca_validity_days` (default 7300 days)

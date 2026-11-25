@@ -498,7 +498,7 @@ jobs:
           ./forge custom-certs --hostname proxy.example.com
       - name: Deploy Katello on quadlet
         run: |
-          # Client algorithm defaults to ML-DSA-65 (needs EL10+); pin it for stream9 legs
+          # Client algorithm follows the primary algorithm (RSA by default); pin it for stream9 legs
           ./foremanctl deploy \
             --certificate-source=${{ matrix.certificate_source }} \
             $(for alg in ${{ matrix.certificate_algorithm }}; do echo -n "--add-certificate-algorithm=$alg "; done) \

@@ -159,12 +159,12 @@ def certificates(server_fqdn, obsah_params):
     # certificates_enabled_algorithms/_primary_algorithm/_client_algorithm_type/_source are
     # normally resolved by the certificates role defaults; mirror that here from whatever was
     # actually passed on the CLI.
-    enabled_algorithms = obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-65']
+    enabled_algorithms = obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-87']
     context = {
         'ansible_facts': {'fqdn': server_fqdn},
         'certificates_enabled_algorithms': enabled_algorithms,
         'certificates_primary_algorithm': enabled_algorithms[0],
-        'certificates_client_algorithm_type': obsah_params.get('certificates_client_algorithm_type', 'ML-DSA-65'),
+        'certificates_client_algorithm_type': obsah_params.get('certificates_client_algorithm_type', 'RSA'),
         'certificates_source': obsah_params.get('certificates_source', 'default'),
     }
     # we have vars that refer to other vars up to three levels deep, so render four times

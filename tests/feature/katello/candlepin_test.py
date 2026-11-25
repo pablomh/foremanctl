@@ -11,7 +11,7 @@ _CANDLEPIN_FILE_SUFFIXES = {
 
 @pytest.fixture(scope="module")
 def candlepin_tomcat_key_path(obsah_params):
-    algorithm = (obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-65'])[0]
+    algorithm = (obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-87'])[0]
     return f'/etc/candlepin/certs/candlepin-{_CANDLEPIN_FILE_SUFFIXES[algorithm]}.key'
 
 

@@ -1,9 +1,63 @@
 ---
+- name: 'Adopt the enabled algorithm order recorded by a previously consumed bundle'
+  ansible.builtin.include_tasks: adopt_algorithm_order.yml
+
 - name: 'Install crypto dependencies'
   ansible.builtin.package:
     name:
       - python3-cryptography
     state: present
+
+- name: 'Check ML-DSA crypto capabilities'
+  when: _certificates_ml_dsa_algorithms | length > 0
+  vars:
+    # certificates_client_algorithm_type is independent of the server algorithms and must be gated too.
+    _certificates_ml_dsa_algorithms: >-
+      {{ (certificates_enabled_algorithms + [certificates_client_algorithm_type])
+         | unique | select('match', '^ML-DSA') | list }}
+  block:
+    - name: 'Detect community.crypto collection version'
+      ansible.builtin.set_fact:
+        certificates_community_crypto_version: "{{ lookup('community.general.collection_version', 'community.crypto') }}"
+
+    - name: 'Require community.crypto 3.3.0 or later for ML-DSA certificates'
+      ansible.builtin.assert:
+        that:
+          - certificates_community_crypto_version is not none
+          - certificates_community_crypto_version != '*'
+          - certificates_community_crypto_version is version('3.3.0', '>=')
+        fail_msg: >-
+          ML-DSA certificates require community.crypto >= 3.3.0;
+          detected version: {{ certificates_community_crypto_version
+            if certificates_community_crypto_version is not none else 'unavailable' }}.
+        quiet: true
+
+    - name: 'Gather crypto capabilities'
+      community.crypto.crypto_info:
+      register: certificates_crypto_info
+      check_mode: false
+
+    - name: 'Require python-cryptography 49.0.0 or later for ML-DSA certificates'
+      ansible.builtin.assert:
+        that:
+          - certificates_crypto_info.python_cryptography_installed is true
+          - certificates_crypto_info.python_cryptography_capabilities.version is version('49.0.0', '>=')
+        fail_msg: >-
+          ML-DSA certificates require python-cryptography >= 49.0.0;
+          detected version: {{ certificates_crypto_info.python_cryptography_capabilities.version
+            if certificates_crypto_info.python_cryptography_installed | default(false) else 'unavailable' }}.
+        quiet: true
+
+    - name: 'Require OpenSSL 3.5 or later for ML-DSA certificates'
+      ansible.builtin.assert:
+        that:
+          - certificates_crypto_info.openssl_present is true
+          - certificates_crypto_info.openssl.version is version('3.5', '>=')
+        fail_msg: >-
+          ML-DSA certificates require OpenSSL >= 3.5;
+          detected version: {{ certificates_crypto_info.openssl.version
+            if certificates_crypto_info.openssl_present | default(false) else 'unavailable' }}.
+        quiet: true
 
 - name: 'Create base directory'
   ansible.builtin.file:
@@ -36,6 +90,7 @@
     mode: '0755'
 
 - name: 'Remove unused Candlepin client certificate files'
+  # Clean up possible leftovers from a previous foremanctl version.
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
@@ -43,9 +98,9 @@
     - "{{ certificates_output_directory_certs }}/candlepin-client.crt"
     - "{{ certificates_output_directory_keys }}/candlepin-client.key"
     - "{{ certificates_output_directory_requests }}/candlepin-client.csr"
-  when: auth_bundle is not defined
 
 - name: 'Remove unused localhost certificate files'
+  # Clean up possible leftovers from a previous foremanctl version.
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
@@ -56,7 +111,17 @@
     - "{{ certificates_output_directory_certs }}/localhost-client.crt"
     - "{{ certificates_output_directory_keys }}/localhost-client.key"
     - "{{ certificates_output_directory_requests }}/localhost-client.csr"
-  when: auth_bundle is not defined
+
+- name: 'Require the client certificate algorithm to have a CA in multi-scheme mode'
+  ansible.builtin.assert:
+    that: certificates_client_algorithm_type in certificates_enabled_algorithms
+    fail_msg: >-
+      certificates_client_algorithm_type ({{ certificates_client_algorithm_type }}) has no CA to
+      sign against unless it's also one of certificates_enabled_algorithms
+      ({{ certificates_enabled_algorithms | join(', ') }}). Add it via --add-certificate-algorithm
+      or change --certificate-client-algorithm to match.
+    quiet: true
+  when: certificates_enabled_algorithms | length > 1
 
 - name: 'Generate certificates'
   when:
@@ -76,11 +141,19 @@
       loop_control:
         loop_var: certificates_hostname
 
-    - name: Create CA bundle with internal CA and custom server CA
+    - name: Issue independent-algorithm client certificates for internal links
+      ansible.builtin.include_tasks: independent_client_certificate.yml
+      loop: >-
+        {{ [hostname | default(ansible_facts['fqdn'])]
+           + (['iop-core-gateway'] if hostname is not defined else []) }}
+      loop_control:
+        loop_var: _certificates_independent_client_identity
+
+    - name: Create CA bundle with internal CA(s) and custom server CA
       ansible.builtin.assemble:
         src: "{{ certificates_ca_directory_certs }}"
         dest: "{{ certificates_ca_directory_certs }}/ca-bundle.crt"
-        regexp: '(ca|server-ca)\.crt$'
+        regexp: '^(internal-ca-bundle|server-ca)\.crt$'
         mode: '0444'
       when:
         - certificates_source == 'custom_server'

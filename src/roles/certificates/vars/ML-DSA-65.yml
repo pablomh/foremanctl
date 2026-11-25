@@ -1,0 +1,5 @@
+---
+_certificates_key_parameters:
+  type: ML-DSA-65
+_certificates_key_usage:
+  - digitalSignature

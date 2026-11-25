@@ -6,6 +6,13 @@ foreman_proxy_name: "{{ ansible_facts['fqdn'] }}"
 foreman_proxy_https_port: 8443
 foreman_proxy_url: "https://{{ foreman_proxy_name }}:{{ foreman_proxy_https_port }}"
 
+# Server leaves are named by algorithm (ssl_cert_<type>.pem) so each is self-describing;
+# the primary stays in :ssl_certificate:, the rest go in :ssl_additional_certificates:.
+foreman_proxy_primary_cert_type: >-
+  {{ certificates_enabled_algorithms[0] | lower | regex_replace('^ml-dsa', 'mldsa') }}
+foreman_proxy_additional_cert_types: >-
+  {{ certificates_enabled_algorithms[1:] | map('lower') | map('regex_replace', '^ml-dsa', 'mldsa') | list }}
+
 # Settings
 foreman_proxy_trusted_hosts: []
 # Unlike trusted_hosts (authorized client machines), permitted_hosts lists the

@@ -17,6 +17,7 @@
     - "../../../src/vars/defaults.yml"
     - "../../../src/vars/flavors/{{ flavor }}.yml"
     - "../../../src/vars/database.yml"
+    - "../../../src/vars/certificates.yml"
   roles:
     - role: pre_install
     - role: certificates
@@ -25,6 +26,6 @@
   tasks:
     - name: Fetch PostgreSQL SSL CA
       ansible.builtin.fetch:
-        src: "{{ certificates_ca_directory }}/certs/ca.crt"
+        src: "{{ ca_certificate }}"
         dest: "{{ obsah_state_path }}/db-ca.crt"
         flat: true

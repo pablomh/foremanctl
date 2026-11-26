@@ -9,8 +9,15 @@
 
 :https_port: {{ foreman_proxy_https_port }}
 :ssl_ca_file: /etc/foreman-proxy/ssl_ca.pem
-:ssl_certificate: /etc/foreman-proxy/ssl_cert.pem
-:ssl_private_key: /etc/foreman-proxy/ssl_key.pem
+:ssl_certificate: /etc/foreman-proxy/ssl_cert_{{ foreman_proxy_primary_cert_type }}.pem
+:ssl_private_key: /etc/foreman-proxy/ssl_key_{{ foreman_proxy_primary_cert_type }}.pem
+{% if foreman_proxy_additional_cert_types | length > 0 %}
+:ssl_additional_certificates:
+{% for t in foreman_proxy_additional_cert_types %}
+- :cert: /etc/foreman-proxy/ssl_cert_{{ t }}.pem
+  :key: /etc/foreman-proxy/ssl_key_{{ t }}.pem
+{% endfor %}
+{% endif %}
 
 :foreman_ssl_ca: /etc/foreman-proxy/foreman_ssl_ca.pem
 :foreman_ssl_cert: /etc/foreman-proxy/foreman_ssl_cert.pem

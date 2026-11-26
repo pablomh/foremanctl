@@ -19,6 +19,9 @@
       - oauth
       - oauth/*
 
+- name: Adopt the enabled algorithm order recorded by the issuing satellite
+  ansible.builtin.include_tasks: adopt_algorithm_order.yml
+
 - name: Extract OAuth credentials from bundle
   ansible.builtin.unarchive:
     src: "{{ auth_bundle }}"

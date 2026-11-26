@@ -1,3 +1,19 @@
+import pytest
+
+# Mirrors src/roles/candlepin/vars/main.yml's _candlepin_algorithms file_suffix field.
+_CANDLEPIN_FILE_SUFFIXES = {
+    'RSA': 'rsa',
+    'ECC': 'ecc',
+    'ML-DSA-87': 'mldsa-87',
+}
+
+
+@pytest.fixture(scope="module")
+def candlepin_tomcat_key_path(obsah_params):
+    algorithm = (obsah_params.get('certificates_algorithms') or ['RSA', 'ML-DSA-87'])[0]
+    return f'/etc/candlepin/certs/candlepin-{_CANDLEPIN_FILE_SUFFIXES[algorithm]}.key'
+
+
 def assert_secret_content(server, secret_name, secret_value):
     secret = server.run(f'podman secret inspect --format {"{{.SecretData}}"} --showsecret {secret_name}')
     assert secret.succeeded
@@ -9,7 +25,7 @@ def test_candlepin_service(server):
     assert candlepin.is_running
 
 
-def test_candlepin_runs_as_tomcat(server):
+def test_candlepin_runs_as_tomcat(server, candlepin_tomcat_key_path):
     assert server.run("podman exec candlepin id -un").stdout.strip() == 'tomcat'
     assert server.run("podman exec candlepin id -u").stdout.strip() != '0'
 
@@ -17,11 +33,11 @@ def test_candlepin_runs_as_tomcat(server):
     assert 'tomcat' in groups
     assert 'root' not in groups
 
-    assert server.run("podman exec candlepin test -r /etc/candlepin/certs/tomcat.key").succeeded
+    assert server.run(f"podman exec candlepin test -r {candlepin_tomcat_key_path}").succeeded
     assert server.run("podman exec candlepin test -r /etc/tomcat/tomcat.conf").succeeded
 
     secret_ownership = server.run(
-        "podman exec candlepin stat -c '%U:%G %a' /etc/candlepin/certs/tomcat.key"
+        f"podman exec candlepin stat -c '%U:%G %a' {candlepin_tomcat_key_path}"
     ).stdout.strip()
     assert secret_ownership == 'root:tomcat 440'
 

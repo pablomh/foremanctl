@@ -2,7 +2,7 @@
 - name: Create the podman secret for Foreman Proxy CA certificate
   containers.podman.podman_secret:
     name: foreman-proxy-ssl-ca
-    path: "{{ ca_certificate }}"
+    path: "{{ internal_ca_bundle }}"
     state: present
   notify:
     - Restart Foreman Proxy
@@ -23,26 +23,46 @@
   notify:
     - Restart Foreman Proxy
 
+- name: Create the podman secrets for additional per-algorithm server certificates (dual-cert)
+  containers.podman.podman_secret:
+    state: present
+    name: "foreman-proxy-ssl-cert-{{ item }}"
+    path: "{{ certificates_ca_directory }}/certs/{{ ansible_facts['fqdn'] }}-{{ item }}.crt"
+  loop: "{{ foreman_proxy_additional_cert_types }}"
+  notify:
+    - Restart Foreman Proxy
+
+- name: Create the podman secrets for additional per-algorithm server keys (dual-cert)
+  containers.podman.podman_secret:
+    state: present
+    name: "foreman-proxy-ssl-key-{{ item }}"
+    path: "{{ certificates_ca_directory }}/private/{{ ansible_facts['fqdn'] }}-{{ item }}.key"
+  loop: "{{ foreman_proxy_additional_cert_types }}"
+  notify:
+    - Restart Foreman Proxy
+
 - name: Create the podman secret for Foreman Proxy Foreman CA
   containers.podman.podman_secret:
     state: present
     name: foreman-proxy-foreman-ssl-ca
-    path: "{{ server_ca_certificate }}"
+    path: "{{ ca_bundle }}"
   notify:
     - Restart Foreman Proxy
 
-- name: Create the podman secret for Foreman Proxy Foreman client certificate
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-proxy-foreman-ssl-cert
-    path: "{{ client_certificate }}"
+- name: 'Create the podman secrets for Foreman Proxy Foreman client certificate and key'
+  vars:
+    _type: "{{ certificates_client_algorithm_type | lower | regex_replace('^ml-dsa', 'mldsa') }}"
   notify:
     - Restart Foreman Proxy
+  block:
+    - name: Create the podman secret for Foreman Proxy Foreman client certificate
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-proxy-foreman-ssl-cert
+        path: "{{ certificates_ca_directory }}/certs/{{ ansible_facts['fqdn'] }}-client-{{ _type }}.crt"
 
-- name: Create the podman secret for Foreman Proxy Foreman client key
-  containers.podman.podman_secret:
-    state: present
-    name: foreman-proxy-foreman-ssl-key
-    path: "{{ client_key }}"
-  notify:
-    - Restart Foreman Proxy
+    - name: Create the podman secret for Foreman Proxy Foreman client key
+      containers.podman.podman_secret:
+        state: present
+        name: foreman-proxy-foreman-ssl-key
+        path: "{{ certificates_ca_directory }}/private/{{ ansible_facts['fqdn'] }}-client-{{ _type }}.key"
